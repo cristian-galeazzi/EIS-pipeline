@@ -24,6 +24,7 @@ impedance==1.7.1          # Zarc fitting (CustomCircuit)
 openpyxl==3.1.5           # .xlsx read/write
 
 # Optional (UX only — pipeline runs without it)
+ipykernel>=6.0            # required by VS Code / Jupyter to run notebooks
 ipywidgets>=8.0           # live control panels in NB02 / NB03 / NB04
 tqdm>=4.0                 # progress bars in NB02 batch KK loop
 
