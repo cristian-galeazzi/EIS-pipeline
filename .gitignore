@@ -33,13 +33,21 @@ htmlcov/
 # Internal planning notes
 PLAN.md
 
-# Session config — user-specific, never commit
+# Session config; user-specific, never commit
 session.json
 
-# Experimental data — never commit (raw measurements, results, sample folders)
+# Knowledge graph; generated locally, never commit
+graphify-out/
+
+# Experimental data; never commit (raw measurements, results, sample folders)
 *.ism
 *.xlsx
 *.csv
 *.png
 *.pdf
 P[0-9]*/
+
+# sample_template is tracked (folder structure reference for new users)
+!sample_template/
+!sample_template/**/.gitkeep
+!sample_template/**/README.md

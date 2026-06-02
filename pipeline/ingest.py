@@ -54,7 +54,7 @@ class IsmRecord:
     t_end      : measurement end datetime
     duration   : elapsed time string HH:MM:SS
     system     : instrument identifier string (e.g. 'Zennium Pro')
-    T_ism_str  : internal ISM temperature string — CORRUPTED (~-0.2 C), do NOT use for temperature assignment; this field is stored for documentation only
+    T_ism_str  : internal ISM temperature string: CORRUPTED (~-0.2 C), do NOT use for temperature assignment; this field is stored for documentation only
     n_points   : number of frequency points
 
     Fields populated by Stage 1 (furnace log matching)
@@ -74,7 +74,7 @@ class IsmRecord:
     t_end:     Optional[datetime] = None
     duration:  str = ""
     system:    str = ""
-    T_ism_str: str = ""    # corrupted field — stored for documentation only
+    T_ism_str: str = ""    # corrupted field; stored for documentation only
     n_points:  int = 0
 
     # Populated by Stage 1
@@ -228,7 +228,7 @@ def extract_replica_from_filename(filename: str) -> Optional[int]:
     Extract the replica number from an already-labeled filename.
 
     The convention used by this pipeline (and by the user's manual labeling):
-        _{T}C.ism       -> replica 1  (first measurement — no numeric suffix)
+        _{T}C.ism       -> replica 1  (first measurement; no numeric suffix)
         _{T}C_1.ism     -> replica 2
         _{T}C_2.ism     -> replica 3
         _{T}C_{k-1}.ism -> replica k
@@ -248,4 +248,167 @@ def extract_replica_from_filename(filename: str) -> Optional[int]:
     m = re.search(r"_\d{2,4}[Cc]\.ism$", filename, re.IGNORECASE)
     if m:
         return 1
+    return None
+
+
+# ---------------------------------------------------------------------------
+# CSV / TXT entry point (for non-Zahner instruments)
+# ---------------------------------------------------------------------------
+
+def load_csv_spectrum(path: Path | str) -> IsmRecord:
+    """
+    Load a single EIS spectrum from a CSV or TXT file.
+
+    The file must have a header line with these exact column names:
+        freq, Z_re, Z_im               (minimum)
+        freq, Z_re, Z_im, temperature  (with temperature)
+
+    Separator can be comma, semicolon, or tab.
+    Z_im must be positive in the capacitive region (standard EIS convention).
+
+    Parameters
+    ----------
+    path : path to .csv or .txt file
+
+    Returns
+    -------
+    IsmRecord with freq, Z_re, Z_im populated.
+    T_nominal is set from the filename if the _NNNc pattern is present.
+    T_mean is set to the mean of the temperature column if present.
+    """
+    path = Path(path)
+    raw  = path.read_text(encoding="utf-8", errors="replace")
+
+    # detect separator from the header line
+    header_line = raw.splitlines()[0]
+    if "\t" in header_line:
+        sep = "\t"
+    elif ";" in header_line:
+        sep = ";"
+    else:
+        sep = ","
+
+    df = pd.read_csv(path, sep=sep, engine="python")
+    df.columns = [c.strip() for c in df.columns]
+
+    required = {"freq", "Z_re", "Z_im"}
+    missing  = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{path.name}: missing column(s) {missing}. "
+            f"Header must contain exactly: freq, Z_re, Z_im "
+            f"(and optionally temperature). Found: {list(df.columns)}"
+        )
+
+    freq = df["freq"].to_numpy(dtype=float)
+    Z_re = df["Z_re"].to_numpy(dtype=float)
+    Z_im = df["Z_im"].to_numpy(dtype=float)
+
+    T_mean = float(df["temperature"].mean()) if "temperature" in df.columns else None
+    T_nom  = _extract_T_csv_only(path.name)
+
+    rec           = IsmRecord(path=path, freq=freq, Z_re=Z_re, Z_im=Z_im,
+                               n_points=len(freq))
+    rec.T_nominal = float(T_nom) if T_nom is not None else None
+    rec.T_mean    = T_mean
+    rec.replica   = _extract_replica_csv(path.name)
+    return rec
+
+
+def _extract_replica_csv(filename: str) -> int:
+    """Return replica index from CSV/TXT filename (_NNNc_K -> K+1, _NNNc -> 1)."""
+    m = re.search(r"_\d{2,4}[Cc]_(\d+)\.(csv|txt)$", filename, re.IGNORECASE)
+    if m:
+        return int(m.group(1)) + 1
+    return 1
+
+
+def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
+    """
+    Scan {sample_dir}/input_spectra/ and build a DataFrame compatible with
+    the VALID sheet produced by stage1_labeling.
+
+    Returns None if the input_spectra folder does not exist (normal Zahner workflow).
+
+    Each subfolder of input_spectra/ is treated as one condition.
+    Files must follow the naming convention anyname_NNNc.csv (or .txt).
+    Files without a recognisable temperature in the name are skipped with a warning.
+
+    Columns returned
+    ----------------
+    file, full_path, condition, T_nominal, T_mean, pO2_mean, replica
+    """
+    sample_dir   = Path(sample_dir)
+    spectra_root = sample_dir / "input_spectra"
+
+    if not spectra_root.exists():
+        return None
+
+    rows     = []
+    n_skip   = 0
+
+    for cond_dir in sorted(spectra_root.iterdir()):
+        if not cond_dir.is_dir():
+            continue
+        condition = cond_dir.name
+        files = sorted(
+            f for f in cond_dir.iterdir()
+            if f.suffix.lower() in {".csv", ".txt"} and not f.name.startswith(".")
+        )
+        if not files:
+            continue
+
+        for f in files:
+            T_nom = extract_T_from_filename(f.name)
+            if T_nom is None:
+                T_nom = _extract_T_csv_only(f.name)
+            if T_nom is None:
+                print(f"  [SKIP] {f.name}: no temperature found in filename "
+                      f"(expected pattern: _NNNc before the extension)")
+                n_skip += 1
+                continue
+
+            try:
+                rec = load_csv_spectrum(f)
+            except Exception as e:
+                print(f"  [SKIP] {f.name}: {e}")
+                n_skip += 1
+                continue
+
+            rows.append({
+                "file":      f.name,
+                "full_path": str(f),
+                "condition": condition,
+                "T_nominal": float(T_nom),
+                "T_mean":    rec.T_mean,
+                "pO2_mean":  None,
+                "replica":   rec.replica,
+            })
+
+    if not rows:
+        print("[input_spectra] No valid files found.")
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+
+    n_cond = df["condition"].nunique()
+    n_files = len(df)
+    n_T     = df["T_nominal"].nunique()
+    print(f"input_spectra: {n_cond} condition(s), {n_files} file(s), "
+          f"{n_T} unique temperature(s)")
+    if n_skip:
+        print(f"  {n_skip} file(s) skipped (see warnings above)")
+    has_T = df["T_mean"].notna().any()
+    print(f"  temperature column present: {has_T} "
+          f"({'Arrhenius available' if has_T else 'Arrhenius will be skipped'})")
+    print(f"  pO2: not available (Brouwer diagram will be skipped)")
+
+    return df
+
+
+def _extract_T_csv_only(filename: str) -> Optional[int]:
+    """Match _NNNc pattern in CSV/TXT filenames."""
+    m = re.search(r"_(\d{2,4})[Cc](?:_\d+)?\.(csv|txt)$", filename, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
     return None
