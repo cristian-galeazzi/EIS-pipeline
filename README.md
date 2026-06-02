@@ -1,28 +1,31 @@
 # EIS Analysis Pipeline
 
-Python pipeline for Electrochemical Impedance Spectroscopy (EIS) analysis of high-resistance ceramic electrolytes. Replaces a manual RelaxIS + Origin workflow with a fully reproducible environment, from raw Zahner `.ism` files to publication figures, in five sequential Jupyter notebooks.
+Python pipeline for EIS analysis of high-resistance ceramic electrolytes. Goes from raw
+Zahner `.ism` files to publication figures in five sequential Jupyter notebooks.
 
 ---
 
 ## Authorship
 
-All scientific work, experimental design, sample preparation, calibration choices and methodological decisions in this pipeline are the author's own.
-
-The Python implementation was developed with the assistance of an AI coding assistant (Anthropic Claude), working from the author's scientific specifications. All code was reviewed and validated by the author against experimental data.
+Scientific work, experimental design, sample preparation, calibration choices and
+methodological decisions are the author's own. Python implementation developed with
+AI coding assistance (Anthropic Claude) from the author's specifications; all code
+reviewed and validated against experimental data.
 
 ---
 
 ## Data and privacy
 
-This repository contains code only. No measurement data, fitted parameters or sample-specific values are committed.
-
-The pipeline runs entirely on the user's machine. Raw `.ism` files and furnace logs are never modified; the pipeline only writes copies and results into `{SAMPLE_ID}/Results/`. No network calls are made at runtime.
+This repository contains code only. No measurement data, fitted parameters or sample
+identifiers are committed. Sample names are entered at runtime via `input()` and stored
+locally in `session.json` (gitignored). Raw `.ism` files and furnace logs are never
+modified; results are written to `{sample_id}/Results/`. No network calls are made.
 
 ---
 
 ## Requirements
 
-Python ≥ 3.10. Install dependencies with:
+Python ≥ 3.10. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -30,13 +33,13 @@ pip install -r requirements.txt
 
 | Package                  | Purpose                           |
 | ------------------------ | --------------------------------- |
-| `zahner_analysis`      | Read Zahner `.ism` binary files |
-| `pyDRTtools`           | DRT via Tikhonov regularisation   |
-| `impedance`            | Zarc equivalent-circuit fitting   |
-| `pandas`, `openpyxl` | Excel I/O                         |
-| `scipy`, `numpy`     | Numerics                          |
-| `matplotlib`           | Figures                           |
-| `ipywidgets`           | Live control panels (optional)    |
+| `zahner_analysis`    | Read Zahner `.ism` binary files     |
+| `pyDRTtools`         | DRT via Tikhonov regularisation     |
+| `impedance`          | Zarc equivalent-circuit fitting     |
+| `pandas`, `openpyxl` | Excel I/O                          |
+| `scipy`, `numpy`     | Numerics                            |
+| `matplotlib`         | Figures                             |
+| `ipywidgets`         | Condition selector widget (stage 0) |
 
 ---
 
@@ -103,10 +106,10 @@ EIS spectra of oxide ceramics at 400–600 °C contain overlapping arcs from bul
 
 ## Usage
 
-1. Open each notebook in JupyterLab or VS Code.
-2. Edit only the first code cell (`# CONFIGURATION`). Everything else runs automatically.
-3. Run: **Kernel → Restart and Run All Cells**.
-4. Check the inline output, adjust overrides if needed, re-run.
+1. Open each notebook in order in JupyterLab or VS Code.
+2. Run **Kernel → Restart and Run All Cells**. The first cell prompts for `sample_id`
+   and other settings and saves them to `session.json` for the next stages.
+3. Check the inline output; adjust overrides if needed and re-run.
 
 All notebooks support temperature-by-temperature processing via `FOCUS_T`. The export cells are merge-aware: rows for other temperatures are preserved when you process one at a time.
 
@@ -116,11 +119,11 @@ All notebooks support temperature-by-temperature processing via `FOCUS_T`. The e
 
 Parses furnace logs and plots T vs time with plateau annotations.
 
-| Parameter            | Default | Purpose                                    |
-| -------------------- | ------- | ------------------------------------------ |
-| `SAMPLE_ID`        |         | Sample folder name                         |
-| `CONDITION_FILTER` | `[]`  | Limit to specific conditions (empty = all) |
-| `TABLE_INTERVAL_S` | 300 s   | Plateau table sampling interval            |
+| Parameter           | Default | Purpose                         |
+| ------------------- | ------- | ------------------------------- |
+| `TABLE_INTERVAL_S`  | 300 s   | Plateau table sampling interval |
+
+`sample_id` is entered via `input()`. Conditions are selected with the widget below the import cell and saved to `session.json`.
 
 ---
 
@@ -128,13 +131,15 @@ Parses furnace logs and plots T vs time with plateau annotations.
 
 Matches each `.ism` file to its furnace window, assigns a temperature label and copies valid files to `ISM validation/`.
 
-| Parameter             | Default    | Purpose                                   |
-| --------------------- | ---------- | ----------------------------------------- |
-| `T_STABILITY_STD`   | 1 °C      | Max std(T) during measurement             |
-| `T_PRE_MARGIN_MIN`  | 25 min     | Stability window before measurement start |
-| `T_POST_MARGIN_MIN` | 5 min      | Stability window after measurement end    |
-| `T_ROUND_STEP`      | 25 °C     | Temperature rounding step                 |
-| `T_PLATEAU_RANGE`   | (390, 610) | Valid plateau range [°C]                 |
+| Parameter            | Default    | Purpose                                   |
+| -------------------- | ---------- | ----------------------------------------- |
+| `T_STABILITY_STD`    | 1 °C       | Max std(T) during measurement             |
+| `T_PRE_MARGIN_MIN`   | 25 min     | Stability window before measurement start |
+| `T_POST_MARGIN_MIN`  | 5 min      | Stability window after measurement end    |
+| `T_ROUND_STEP`       | 25 °C      | Temperature rounding step                 |
+| `T_PLATEAU_RANGE`    | (395, 605) | Valid plateau range [°C]                  |
+
+`sample_id` and `conditions` are read from `session.json` (set in stage 0).
 
 Status codes: `VALID`, `UNSTABLE`, `NEAR_TRANSITION`, `OUT_OF_RANGE`, `OUTSIDE_RANGE`.
 
@@ -144,15 +149,16 @@ Status codes: `VALID`, `UNSTABLE`, `NEAR_TRANSITION`, `OUT_OF_RANGE`, `OUTSIDE_R
 
 Applies the Lin-KK test [Schönleber et al., 2014] to each spectrum and selects the best replica per (condition, T).
 
-| Parameter         | Default | Purpose                                |
-| ----------------- | ------- | -------------------------------------- |
-| `KK_C`          | 0.76    | M = round(KK_C × N)                   |
-| `KK_MU_TARGET`  | 0.50    | Sign-change fraction target            |
-| `KK_F_MIN_HARD` | 50 Hz   | Hard lower frequency cutoff            |
-| `KK_OVERRIDES`  | `{}`  | Per-(condition, T) frequency overrides |
-| `OVERRIDES`     | `{}`  | Manual replica selection               |
+| Parameter            | Default | Purpose                                    |
+| -------------------- | ------- | ------------------------------------------ |
+| `KK_C`               | 0.76    | M = round(KK_C × N)                       |
+| `KK_MU_TARGET`       | 0.50    | Sign-change fraction target                |
+| `KK_F_MIN_HARD`      | 50 Hz   | Hard lower frequency cutoff                |
+| `KK_USE_W_CRITERIA`  | False   | Ceramic-aware dual criterion (W_re + W_im) |
+| `KK_OVERRIDES`       | `{}`    | Per-(condition, T) frequency overrides     |
+| `OVERRIDES`          | `{}`    | Manual replica selection                   |
 
-Classification: 🟢 GREEN (`kk_score ≥ 0.97`), 🟡 YELLOW (`≥ 0.90`), 🔴 RED.
+Classification: GREEN (`kk_score >= 0.97`), YELLOW (`>= 0.90`), RED.
 
 ---
 
@@ -164,14 +170,14 @@ Computes the DRT γ(τ) via Tikhonov regularisation, detects peaks and fits a Za
 Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 ```
 
-| Parameter                 | Default | Purpose                                     |
-| ------------------------- | ------- | ------------------------------------------- |
-| `DRT_REG_PARAM`         | 4e-5    | Regularisation λ (custom mode)             |
-| `PEAK_MIN_PROM_DECADES` | 0.01    | Log-prominence threshold for peak detection |
-| `ZARC_R_DEC`            | 1.5     | R fit bounds in log-decades                 |
-| `ZARC_TAU_DEC`          | 1.5     | τ fit bounds in log-decades                |
-| `ZARC_R0_MAX`           | 200 Ω  | Upper bound on R₀                          |
-| `N_PEAKS_OVERRIDE`      | `{}`  | Force N peaks for specific (condition, T)   |
+| Parameter               | Default  | Purpose                                     |
+| ----------------------- | -------- | ------------------------------------------- |
+| `L_m`, `D_m`            | required | Pellet thickness and diameter [m]           |
+| `DRT_REG_PARAM`         | 4e-5     | Regularisation λ (custom mode)              |
+| `PEAK_MIN_PROM_DECADES` | 0.01     | Log-prominence threshold for peak detection |
+| `ZARC_INCLUDE_R0`       | True     | Include series R₀ in circuit                |
+| `ZARC_R0_MAX`           | 200 Ω    | Upper bound on R₀                           |
+| `N_PEAKS_OVERRIDE`      | `{}`     | Force N peaks for specific (condition, T)   |
 
 **Process identification:** the pipeline assigns no process label automatically. Use the C_eff magnitude plot (log₁₀(C_eff) vs 1000/T) and Arrhenius behaviour to identify each peak. Starting-point thresholds from Vendrell & West 2018 (YSZ):
 
@@ -188,12 +194,13 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 
 Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 
-| Parameter           | Default     | Purpose                           |
-| ------------------- | ----------- | --------------------------------- |
-| `L_m`, `D_m`    | set by user | Pellet thickness and diameter [m] |
-| `DRT_TAU_MAX`     | 0.1 s       | x-axis limit on DRT stacked plot  |
-| `BROUWER_PEAK_ID` | 1           | Peak for Brouwer diagram          |
-| `PLOT_WINDOWS`    | `{}`      | Per-(condition, T) axis crop      |
+| Parameter          | Default     | Purpose                                    |
+| ------------------ | ----------- | ------------------------------------------ |
+| `L_m`, `D_m`       | required    | Pellet thickness and diameter [m]          |
+| `DRT_TAU_MAX`      | 0.1 s       | x-axis upper limit on DRT stacked plot     |
+| `BROUWER_PEAK_ID`  | 1           | Peak index for Brouwer diagram             |
+| `BROUWER_TEMPS`    | None        | Temperatures shown in Brouwer (None = all) |
+| `PLOT_WINDOWS`     | `{}`        | Per-(condition, T) axis crop               |
 
 Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2, C_eff magnitude, τ consistency. Multi-condition: Brouwer p(O₂) diagram.
 
@@ -226,9 +233,8 @@ pytest tests/test_engine_golden.py
 
 ## Processing a new sample
 
-1. Create `{SAMPLE_ID}/` with `Raw data/` and `Raw oven/` sub-folders.
-2. Run each notebook in order — sample_id is read from session.json.
-3. Run stage0 → stage4 in order.
+1. Create `{sample_id}/` with `Raw data/` and `Raw oven/` sub-folders.
+2. Run stage0 through stage4 in order. The first cell of each notebook prompts for settings or reads them from `session.json`.
 
 The pipeline discovers conditions and temperatures automatically.
 
