@@ -33,6 +33,9 @@ htmlcov/
 # Internal planning notes
 PLAN.md
 
+# Session config — user-specific, never commit
+session.json
+
 # Experimental data — never commit (raw measurements, results, sample folders)
 *.ism
 *.xlsx
