@@ -55,11 +55,11 @@ EIS program/
 │   ├── interactive.py      ← ipywidgets helpers (UI only)
 │   └── utils.py            ← Excel helpers
 │
-├── 00_oven_analysis.ipynb  ← Stage 0: furnace log diagnostics
-├── 01_ism_labeling.ipynb   ← Stage 1: measurement identification
-├── 02_linkk_quality.ipynb  ← Stage 2: Lin-KK quality assessment
-├── 03_drt_zarc.ipynb       ← Stage 3: DRT and Zarc fitting
-├── 04_plots.ipynb          ← Stage 4: publication figures
+├── stage0_oven.ipynb  ← Stage 0: furnace log diagnostics
+├── stage1_labeling.ipynb   ← Stage 1: measurement identification
+├── stage2_kk.ipynb  ← Stage 2: Lin-KK quality assessment
+├── stage3_drt.ipynb       ← Stage 3: DRT and Zarc fitting
+├── stage4_plots.ipynb          ← Stage 4: publication figures
 │
 ├── tests/
 ├── README.md
@@ -93,11 +93,11 @@ EIS spectra of oxide ceramics at 400–600 °C contain overlapping arcs from bul
 
 | Stage | Notebook                   | What it does                                                                  |
 | ----- | -------------------------- | ----------------------------------------------------------------------------- |
-| 0     | `00_oven_analysis.ipynb` | Check that furnace plateaus match the measurement schedule                    |
-| 1     | `01_ism_labeling.ipynb`  | Match `.ism` files to furnace windows, label temperatures, copy valid files |
-| 2     | `02_linkk_quality.ipynb` | Lin-KK validation; select best replica per (condition, T)                     |
-| 3     | `03_drt_zarc.ipynb`      | Tikhonov DRT, peak detection, Zarc circuit fit                                |
-| 4     | `04_plots.ipynb`         | Nyquist, Bode, DRT stacked, Arrhenius, Brouwer p(O₂)                         |
+| 0     | `stage0_oven.ipynb` | Check that furnace plateaus match the measurement schedule                    |
+| 1     | `stage1_labeling.ipynb`  | Match `.ism` files to furnace windows, label temperatures, copy valid files |
+| 2     | `stage2_kk.ipynb` | Lin-KK validation; select best replica per (condition, T)                     |
+| 3     | `stage3_drt.ipynb`      | Tikhonov DRT, peak detection, Zarc circuit fit                                |
+| 4     | `stage4_plots.ipynb`         | Nyquist, Bode, DRT stacked, Arrhenius, Brouwer p(O₂)                         |
 
 ---
 
@@ -112,7 +112,7 @@ All notebooks support temperature-by-temperature processing via `FOCUS_T`. The e
 
 ---
 
-## Stage 0 - `00_oven_analysis.ipynb`
+## Stage 0 - `stage0_oven.ipynb`
 
 Parses furnace logs and plots T vs time with plateau annotations.
 
@@ -124,7 +124,7 @@ Parses furnace logs and plots T vs time with plateau annotations.
 
 ---
 
-## Stage 1 - `01_ism_labeling.ipynb`
+## Stage 1 - `stage1_labeling.ipynb`
 
 Matches each `.ism` file to its furnace window, assigns a temperature label and copies valid files to `ISM validation/`.
 
@@ -140,7 +140,7 @@ Status codes: `VALID`, `UNSTABLE`, `NEAR_TRANSITION`, `OUT_OF_RANGE`, `OUTSIDE_R
 
 ---
 
-## Stage 2 - `02_linkk_quality.ipynb`
+## Stage 2 - `stage2_kk.ipynb`
 
 Applies the Lin-KK test [Schönleber et al., 2014] to each spectrum and selects the best replica per (condition, T).
 
@@ -156,7 +156,7 @@ Classification: 🟢 GREEN (`kk_score ≥ 0.97`), 🟡 YELLOW (`≥ 0.90`), 🔴
 
 ---
 
-## Stage 3 - `03_drt_zarc.ipynb`
+## Stage 3 - `stage3_drt.ipynb`
 
 Computes the DRT γ(τ) via Tikhonov regularisation, detects peaks and fits a Zarc equivalent circuit seeded by the DRT peaks.
 
@@ -184,7 +184,7 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 
 ---
 
-## Stage 4 - `04_plots.ipynb`
+## Stage 4 - `stage4_plots.ipynb`
 
 Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 
@@ -227,8 +227,8 @@ pytest tests/test_engine_golden.py
 ## Processing a new sample
 
 1. Create `{SAMPLE_ID}/` with `Raw data/` and `Raw oven/` sub-folders.
-2. Set `SAMPLE_ID` in each notebook's configuration cell.
-3. Run notebooks 00 → 04 in order.
+2. Run each notebook in order — sample_id is read from session.json.
+3. Run stage0 → stage4 in order.
 
 The pipeline discovers conditions and temperatures automatically.
 
