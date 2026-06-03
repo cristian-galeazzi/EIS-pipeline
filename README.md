@@ -39,7 +39,7 @@ pip install -r requirements.txt
 | `pandas`, `openpyxl` | Excel I/O                          |
 | `scipy`, `numpy`     | Numerics                            |
 | `matplotlib`         | Figures                             |
-| `ipywidgets`         | Condition selector widget (stage 0) |
+| `ipywidgets`         | Interactive panels (stages 0–4)     |
 
 ---
 
@@ -58,11 +58,18 @@ EIS program/
 │   ├── interactive.py      ← ipywidgets helpers (UI only)
 │   └── utils.py            ← Excel helpers
 │
-├── stage0_oven.ipynb  ← Stage 0: furnace log diagnostics
+├── stage0_oven.ipynb       ← Stage 0: furnace log diagnostics
 ├── stage1_labeling.ipynb   ← Stage 1: measurement identification
-├── stage2_kk.ipynb  ← Stage 2: Lin-KK quality assessment
-├── stage3_drt.ipynb       ← Stage 3: DRT and Zarc fitting
-├── stage4_plots.ipynb          ← Stage 4: publication figures
+├── stage2_kk.ipynb         ← Stage 2: Lin-KK quality assessment
+├── stage3_drt.ipynb        ← Stage 3: DRT and Zarc fitting
+├── stage4_plots.ipynb      ← Stage 4: publication figures
+│
+├── sample_template/        ← copy and rename to {SAMPLE_ID}/ to start
+│   ├── Raw data/
+│   │   └── Ar_200_O2_10_700_300_50/   ← rename to your condition
+│   ├── Raw oven/
+│   └── input_spectra/      ← non-Zahner entry point (see section below)
+│       └── Ar_200_O2_10_700_300_50/
 │
 ├── tests/
 ├── README.md
@@ -112,6 +119,52 @@ EIS spectra of oxide ceramics at 400–600 °C contain overlapping arcs from bul
 3. Check the inline output; adjust overrides if needed and re-run.
 
 All notebooks support temperature-by-temperature processing via `FOCUS_T`. The export cells are merge-aware: rows for other temperatures are preserved when you process one at a time.
+
+---
+
+## Non-Zahner instruments
+
+Skip Stage 0 and Stage 1. Place your spectra in `{sample_id}/input_spectra/`
+and start from Stage 2. A template with the expected structure is in
+`sample_template/input_spectra/`.
+
+**Minimum requirement:** temperature in the filename (`_{T}C`) and a
+`temperature` column in the CSV. Without temperature, Arrhenius analysis
+is not possible and the pipeline produces only Nyquist, Bode, DRT and Zarc fit.
+
+### Folder and file naming
+
+```
+{sample_id}/
+└── input_spectra/
+    └── Ar_200_O2_10_700_300_50/
+        ├── SampleID_Ar_200_O2_10_300C.csv
+        ├── SampleID_Ar_200_O2_10_400C.csv
+        ├── SampleID_Ar_200_O2_10_400C_1.csv   ← replica 2
+        └── SampleID_Ar_200_O2_10_700C.csv
+```
+
+The folder name follows the same convention as Raw data conditions.
+The file prefix before `_{T}C` is free — include SampleID and condition
+for traceability.
+
+### CSV format
+
+```
+freq,Z_re,Z_im,temperature
+100000,5.3,0.2,400
+10000,7.5,2.4,400
+1000,30.2,44.8,400
+```
+
+Separator: comma, semicolon, or tab. `Z_im` must be **positive** in the
+capacitive region. BioLogic EC-Lab exports −Im(Z): multiply by −1 before saving.
+
+| Feature | Available |
+|---------|-----------|
+| Nyquist, Bode, DRT, Zarc fit | always |
+| Arrhenius plots | requires `temperature` column and ≥ 3 temperatures |
+| Brouwer p(O₂) | never (requires lambda-probe data from Stage 0–1) |
 
 ---
 
@@ -200,6 +253,7 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `DRT_TAU_MAX`      | 0.1 s       | x-axis upper limit on DRT stacked plot     |
 | `BROUWER_PEAK_ID`  | 1           | Peak index for Brouwer diagram             |
 | `BROUWER_TEMPS`    | None        | Temperatures shown in Brouwer (None = all) |
+| `TAU_R2_THRESHOLD` | 0.97        | R² floor to flag a peak as physically real |
 | `PLOT_WINDOWS`     | `{}`        | Per-(condition, T) axis crop               |
 
 Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2, C_eff magnitude, τ consistency. Multi-condition: Brouwer p(O₂) diagram.
