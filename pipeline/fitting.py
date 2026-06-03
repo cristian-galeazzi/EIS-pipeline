@@ -66,10 +66,27 @@ def build_circuit_string(n_peaks: int, include_r0: bool = True) -> str:
     return f"R0-{zarcs}" if include_r0 else zarcs
 
 
+def _broadcast(val, n: int, name: str) -> list[float]:
+    """
+    Coerce a fitting control into a per-peak list of length n.
+
+    Accepts a scalar (repeated for every peak — the original global behavior)
+    or a per-peak sequence (one value per Zarc element). This is what lets the
+    caller set R_dec / tau_dec / alpha bounds individually per peak instead of
+    globally.
+    """
+    if np.isscalar(val):
+        return [float(val)] * n
+    arr = [float(x) for x in val]
+    if len(arr) != n:
+        raise ValueError(f"{name} has length {len(arr)} but there are {n} peaks")
+    return arr
+
+
 def build_initial_guess(
     R0_guess: float,
     peaks:    list[dict],
-    alpha_init: float = 0.8,
+    alpha_init: float | list[float] = 0.8,
     include_r0: bool = True,
 ) -> list[float]:
     """
@@ -79,23 +96,26 @@ def build_initial_guess(
         include_r0=True  -> R0, [R_1, tau_1, alpha_1], [R_2, tau_2, alpha_2], ...
         include_r0=False -> [R_1, tau_1, alpha_1], [R_2, tau_2, alpha_2], ...
 
+    alpha_init accepts a scalar (same for all peaks) or a per-peak list.
+
     Returns
     -------
     List[float] of length (1 if include_r0 else 0) + 3*N
     """
     guess = [float(R0_guess)] if include_r0 else []
-    for p in peaks:
-        guess.extend([p["R_approx"], p["tau"], alpha_init])
+    alpha_arr = _broadcast(alpha_init, len(peaks), "alpha_init")
+    for i, p in enumerate(peaks):
+        guess.extend([p["R_approx"], p["tau"], alpha_arr[i]])
     return guess
 
 
 def build_bounds(
     R0_guess:  float,
     peaks:     list[dict],
-    R_dec:     float = 1.5,
-    tau_dec:   float = 1.5,
-    alpha_min: float = 0.5,
-    alpha_max: float = 1.0,
+    R_dec:     float | list[float] = 1.5,
+    tau_dec:   float | list[float] = 1.5,
+    alpha_min: float | list[float] = 0.5,
+    alpha_max: float | list[float] = 1.0,
     include_r0: bool = True,
     r0_max:    float | None = None,
 ) -> tuple[list[float], list[float]]:
@@ -134,6 +154,10 @@ def build_bounds(
     alpha_min : lower bound for α
     alpha_max : upper bound for α
 
+    R_dec, tau_dec, alpha_min and alpha_max each accept a scalar (applied to
+    every peak — the original global behavior) or a per-peak list of length N,
+    which lets each Zarc element have its own resistance / tau / alpha range.
+
     Returns
     -------
     (lower_bounds, upper_bounds) — lists of floats, length 1 + 3*N
@@ -155,14 +179,20 @@ def build_bounds(
         lower = []
         upper = []
 
-    for p in peaks:
-        R_lo   = max(p["R_approx"] / (10 ** R_dec), 1e-3)
-        R_hi   = p["R_approx"] * (10 ** R_dec)
-        tau_lo = p["tau"] / (10 ** tau_dec)
-        tau_hi = p["tau"] * (10 ** tau_dec)
+    n = len(peaks)
+    R_dec_a   = _broadcast(R_dec,   n, "R_dec")
+    tau_dec_a = _broadcast(tau_dec, n, "tau_dec")
+    a_min_a   = _broadcast(alpha_min, n, "alpha_min")
+    a_max_a   = _broadcast(alpha_max, n, "alpha_max")
 
-        lower.extend([R_lo,  tau_lo, alpha_min])
-        upper.extend([R_hi,  tau_hi, alpha_max])
+    for i, p in enumerate(peaks):
+        R_lo   = max(p["R_approx"] / (10 ** R_dec_a[i]), 1e-3)
+        R_hi   = p["R_approx"] * (10 ** R_dec_a[i])
+        tau_lo = p["tau"] / (10 ** tau_dec_a[i])
+        tau_hi = p["tau"] * (10 ** tau_dec_a[i])
+
+        lower.extend([R_lo,  tau_lo, a_min_a[i]])
+        upper.extend([R_hi,  tau_hi, a_max_a[i]])
 
     return lower, upper
 
@@ -177,9 +207,11 @@ def fit_zarc(
     Z_im:        np.ndarray,
     peaks:       list[dict],
     R0_guess:    float | None = None,
-    R_dec:       float = 1.5,
-    tau_dec:     float = 1.5,
-    alpha_init:  float = 0.8,
+    R_dec:       float | list[float] = 1.5,
+    tau_dec:     float | list[float] = 1.5,
+    alpha_init:  float | list[float] = 0.8,
+    alpha_min:   float | list[float] = 0.5,
+    alpha_max:   float | list[float] = 1.0,
     include_r0:  bool = True,
     r0_max:      float | None = None,
     fix_params:  dict | None = None,
@@ -199,7 +231,13 @@ def fit_zarc(
     R0_guess  : estimate of R∞ (Z_re at highest frequency); auto if None
     R_dec     : R bounds in log-decades (default 1.5 = ±1.5 decades, factor ~32)
     tau_dec   : τ bounds in log-decades (default 1.5 = ±1.5 decades)
-    alpha_init: initial α for all elements (default 0.8)
+    alpha_init: initial α (default 0.8)
+    alpha_min : lower α bound (default 0.5)
+    alpha_max : upper α bound (default 1.0)
+
+    R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
+    (same for every peak) or a per-peak list of length N, so each Zarc element
+    can be given its own R / tau / alpha range instead of one global range.
 
     Returns
     -------
@@ -245,6 +283,7 @@ def fit_zarc(
     circuit_str   = build_circuit_string(n_peaks, include_r0=include_r0)
     initial_guess = build_initial_guess(R0_guess, peaks, alpha_init, include_r0=include_r0)
     lower, upper  = build_bounds(R0_guess, peaks, R_dec, tau_dec,
+                                 alpha_min=alpha_min, alpha_max=alpha_max,
                                  include_r0=include_r0, r0_max=r0_max)
 
     # Apply fix_params: pin individual parameters by collapsing bounds.
