@@ -169,7 +169,8 @@ def _arrhenius_linreg(
     Linear regression of y vs 1/T [K⁻¹].
 
     Returns (Ea_eV, Ea_err_eV, R2, slope, intercept).
-    Sign convention: slope = -Ea/k_B → Ea = -slope * KB.
+    Note: returns -slope * KB as Ea, which is correct only for conductivity
+    (where slope < 0). Callers must use slope directly for τ and C_eff.
     """
     valid = ~np.isnan(y) & ~np.isnan(inv_T)
     if valid.sum() < 2:
@@ -513,8 +514,12 @@ def build_arrhenius_results(
         ln_C      = np.log(C)
 
         Ea_cond, Ea_cond_err, R2_cond, slope_cond, int_cond = _arrhenius_linreg(inv_T_fit, ln_sigmaT)
-        Ea_pol,  Ea_pol_err,  R2_pol,  slope_pol,  int_pol  = _arrhenius_linreg(inv_T_fit, ln_tau)
-        Ea_C,    Ea_C_err,    R2_C,    slope_C,    int_C    = _arrhenius_linreg(inv_T_fit, ln_C)
+        _,       Ea_pol_err,  R2_pol,  slope_pol,  int_pol  = _arrhenius_linreg(inv_T_fit, ln_tau)
+        _,       Ea_C_err,    R2_C,    slope_C,    int_C    = _arrhenius_linreg(inv_T_fit, ln_C)
+        # τ = τ₀·exp(+Ea/kT) → slope of ln(τ) vs 1/T is +Ea/k (positive)
+        Ea_pol = slope_pol * KB
+        # C_eff = τ/R → slope_C = (Ea_pol - Ea_cond)/k; sign follows data
+        Ea_C   = slope_C   * KB
 
         results.append({
             "Peak":        f"Peak {pid}",
