@@ -293,6 +293,13 @@ def match_ism_to_furnace(
             rec.status = "OUTSIDE_RANGE"
             continue
 
+        if len(window) < 2:
+            # Single furnace log point: std is undefined — treat as insufficient data.
+            rec.T_mean = round(float(window["Tsample"].mean()), 2)
+            rec.T_std  = None
+            rec.status = "OUTSIDE_RANGE"
+            continue
+
         # Round to physically meaningful precision:
         # T_mean: 0.01 °C (well beyond furnace stability limit of ~0.5–2 °C)
         # T_std:  0.001 °C (enough to distinguish stable vs unstable)
