@@ -168,12 +168,20 @@ def scan_condition_dir(condition_dir: Path | str) -> list[IsmRecord]:
         return []
 
     records = []
+    failed  = 0
     for p in ism_files:
         try:
             rec = load_ism(p)
             records.append(rec)
         except Exception as e:
             print(f"  [WARNING] Could not read {p.name}: {e}")
+            failed += 1
+
+    if failed:
+        print(f"  [WARNING] {failed}/{len(ism_files)} file(s) failed to load in {condition_dir.name}")
+    if not records:
+        print(f"  [WARNING] No records loaded from {condition_dir.name} "
+              f"(all {len(ism_files)} file(s) failed — check file integrity or format)")
 
     # Sort chronologically by measurement start time
     records.sort(key=lambda r: r.t_start or datetime.min)
