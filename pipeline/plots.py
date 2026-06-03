@@ -280,13 +280,15 @@ def plot_nyquist_multipanel(
     save_dir:   Path | str,
     xlim:       tuple[float, float] | None = None,
     ylim:       tuple[float, float] | None = None,
+    hf_inset:   bool = True,
     save:       bool = True,
 ) -> plt.Figure:
     """
     Nyquist plot with all temperatures overlaid on a single panel.
 
-    Data are plotted as filled circles; fits as dashed lines, both using
-    the temperature colour palette (blue→red).
+    Data are plotted as filled circles; fits as solid lines, both using
+    the temperature colour palette (blue→red). An upper-right inset zooms the
+    high-frequency region so the bunched first semicircles stay readable.
 
     Parameters
     ----------
@@ -299,6 +301,9 @@ def plot_nyquist_multipanel(
     xlim, ylim : optional (min, max) in kOhm to crop the display window.
                  The fit overlay still spans the full data range — only the
                  axes are limited. None = auto-scale from data (default).
+    hf_inset   : when True (default) draw an upper-right inset zoomed on the
+                 high-frequency arcs. The zoom range auto-adapts from the
+                 highest-frequency 40 % of points across all temperatures.
     save       : when False, do not write PNG/PDF (interactive preview only).
 
     Returns
@@ -306,9 +311,10 @@ def plot_nyquist_multipanel(
     matplotlib Figure
     """
     temps = sorted(records.keys())
-    fig, ax = plt.subplots(figsize=(5, 5))
+    fig, ax = plt.subplots(figsize=(6, 6))
     vmax = 0.0
 
+    fits: dict[int, np.ndarray] = {}
     for T in temps:
         freq, Z_re, Z_im = records[T]
         color   = COLOR_MAP.get(T, "gray")
@@ -316,7 +322,7 @@ def plot_nyquist_multipanel(
         Zi_k    = Z_im / 1e3
         vmax    = max(vmax, float(Zr_k.max()), float(Zi_k.max()))
 
-        ax.plot(Zr_k, Zi_k, "o", color=color, ms=3, label=f"{T} °C")
+        ax.plot(Zr_k, Zi_k, "o", color=color, ms=3.5, label=f"{T} °C", alpha=0.9)
 
         fp = fit_params.get(T)
         if fp is not None:
@@ -327,7 +333,8 @@ def plot_nyquist_multipanel(
                     np.asarray(fp["tau"]),
                     np.asarray(fp["alpha"]),
                 )
-                ax.plot(Z_fit.real / 1e3, -Z_fit.imag / 1e3, "--", color=color, lw=1)
+                fits[T] = Z_fit
+                ax.plot(Z_fit.real / 1e3, -Z_fit.imag / 1e3, "-", color=color, lw=1.0)
             except Exception as exc:
                 warnings.warn(f"Nyquist fit overlay skipped for T={T}: "
                               f"{type(exc).__name__}: {exc}", stacklevel=2)
@@ -343,7 +350,38 @@ def plot_nyquist_multipanel(
         ax.set_ylim(bottom=ylim[0], top=ylim[1])
     else:
         ax.set_ylim(bottom=0, top=vmax * 1.1)
-    ax.legend(loc="upper left", fontsize=8)
+    ax.legend(loc="upper left", ncol=2, fontsize=9, frameon=False)
+
+    # HF-zoom inset (upper-right): the first semicircles are crushed near the
+    # origin in the full view; this resolves them. Range auto-set from the
+    # highest-frequency 40 % of points across all temperatures.
+    if hf_inset and temps:
+        hf_per_T = []
+        for T in temps:
+            freq, Z_re, Z_im = records[T]
+            if len(freq) == 0:
+                continue
+            sel = freq >= np.percentile(freq, 60.0)
+            if np.any(sel):
+                hf_per_T.append(max(float((Z_re[sel] / 1e3).max()),
+                                    float((Z_im[sel] / 1e3).max())))
+        # Favor the smaller (warm) first arcs so they read clearly; the larger
+        # cold arcs run off the inset edge (acceptable — the full panel shows them).
+        hf_max = float(np.percentile(hf_per_T, 35)) if hf_per_T else vmax * 0.1
+        if hf_max <= 0:
+            hf_max = vmax * 0.1
+        axin = ax.inset_axes([0.62, 0.63, 0.35, 0.35])
+        for T in temps:
+            freq, Z_re, Z_im = records[T]
+            color = COLOR_MAP.get(T, "gray")
+            axin.plot(Z_re / 1e3, Z_im / 1e3, "o", color=color, ms=2.4)
+            if T in fits:
+                axin.plot(fits[T].real / 1e3, -fits[T].imag / 1e3, "-",
+                          color=color, lw=0.9)
+        axin.set_xlim(0, hf_max * 1.15)
+        axin.set_ylim(0, hf_max * 1.15)
+        axin.set_aspect("equal", "box")
+        axin.tick_params(labelsize=7)
     fig.tight_layout()
     if save:
         _save(fig, save_dir, f"Nyquist_{condition}")
