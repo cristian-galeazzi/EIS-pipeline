@@ -196,6 +196,11 @@ Matches each `.ism` file to its furnace window, assigns a temperature label and 
 
 Status codes: `VALID`, `UNSTABLE`, `NEAR_TRANSITION`, `OUT_OF_RANGE`, `OUTSIDE_RANGE`.
 
+> **Non-standard temperature ranges:** `T_PLATEAU_RANGE` defaults to (395, 605) °C.
+> Measurements outside this range are classified `OUTSIDE_RANGE` and excluded.
+> Adjust both `T_PLATEAU_RANGE` and `T_ROUND_STEP` in the config cell if working
+> at different temperatures (e.g. room temperature or above 600 °C).
+
 ---
 
 ## Stage 2 - `stage2_kk.ipynb`
