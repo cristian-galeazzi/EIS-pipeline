@@ -65,15 +65,21 @@ def strip_inductive(
     Z_re:  np.ndarray,
     Z_im:  np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
-    """Drop inductive points (Z_im < 0) before Lin-KK.
+    """Drop non-physical points before Lin-KK.
 
-    IsmRecord stores Z_im with positive sign for capacitive points. Points
-    with Z_im < 0 are inductive — typically the highest-frequency end of the
-    spectrum — and violate KK causality, so they must be removed first.
+    Two kinds of points violate KK causality and must be removed first:
+      - inductive points (Z_im < 0): IsmRecord stores Z_im with positive sign
+        for capacitive points, so Z_im < 0 marks the highest-frequency
+        inductive tail.
+      - negative-real points (Z_re < 0): a high-frequency measurement artifact
+        (lead inductance resonating with stray capacitance) seen in
+        high-impedance ceramic spectra. No passive circuit can produce
+        Z_re < 0, so these points break the KK fit and any later Zarc fit.
 
-    Returns (freq, Z_re, Z_im, n_stripped).
+    Returns (freq, Z_re, Z_im, n_stripped) where n_stripped counts all points
+    removed for either reason.
     """
-    mask = Z_im >= 0
+    mask = (Z_im >= 0) & (Z_re >= 0)
     n_stripped = int((~mask).sum())
     return freq[mask], Z_re[mask], Z_im[mask], n_stripped
 
