@@ -12,7 +12,7 @@ gracefully when ipywidgets is not installed.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 
 
 def discover_conditions(sample_dir: Path | str,
@@ -41,7 +41,7 @@ def discover_conditions(sample_dir: Path | str,
     return out
 
 
-def labeled(widget, html_text: str):
+def labeled(widget: Any, html_text: str) -> Any:
     """
     Place a short grey description caption to the right of a control (L4).
 
@@ -59,7 +59,7 @@ def make_focus_panel(
     set_focus:  Callable[[str | None, int | None], None],
     init_cond:  str | None = None,
     init_T:     int | None = None,
-):
+) -> None:
     """
     Build a FOCUS selector: ON/OFF toggle + condition dropdown + temperature
     dropdown, both auto-populated. Lets the user restrict processing to one
