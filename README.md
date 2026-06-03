@@ -267,14 +267,94 @@ Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2, C_eff magnitu
 
 ## Physical formulae
 
-| Quantity              | Formula                                |
-| --------------------- | -------------------------------------- |
-| Area                  | `A = π (D/2)²`                     |
-| Conductivity          | `σ = L / (R · A)`                  |
-| Effective capacitance | `C_eff = Q^(1/α) · R^((1-α)/α)`  |
-| Permittivity          | `εᵣ = C · L / (ε₀ · A)`        |
-| Arrhenius (σT)       | `ln(σT) = ln(A₀) − Eₐ / (k_B T)` |
-| Arrhenius (τ)        | `ln(τ) = ln(τ₀) + Eₐ / (k_B T)`  |
+The equations below follow the pipeline execution order.
+
+### Stage 2 — Lin-KK validity test
+
+Each spectrum is tested for Kramers-Kronig compliance using M RC elements
+(Schönleber et al. 2014):
+
+```
+Z_KK(ω) = R_∞ + Σₖ rₖ / (1 + jωτₖ),   k = 1 … M
+```
+
+τₖ are log-spaced across the measured frequency range; rₖ are fitted by
+least squares. Two M-selection modes are available via `KK_USE_BINARY_M`:
+
+- **Binary search** (default): finds the smallest M such that the
+  sign-change fraction μ of adjacent RC weights satisfies μ ≥ `KK_MU_TARGET`
+  (default 0.50). Adaptive per spectrum; RelaxIS-compatible.
+- **Fixed ratio**: M = round(`KK_C` × N), with KK_C = 0.76 calibrated on
+  the author's dataset. Faster but spectrum-independent.
+
+Compliance is assessed by the normalised residuals:
+
+```
+W_re(ω) = (Z′_meas − Z′_KK) / |Z_meas|
+W_im(ω) = (Z″_meas − Z″_KK) / |Z_meas|
+```
+
+The KK score is the fraction of points with |W| below threshold.
+Spectra scoring below 0.90 are flagged RED and excluded from downstream analysis.
+
+### Stage 3 — Distribution of Relaxation Times
+
+The DRT γ(τ) decomposes the impedance response as:
+
+```
+Z(ω) = R_∞ + ∫ γ(τ) / (1 + jωτ) d(ln τ)
+```
+
+γ(τ) is normalised with respect to d(ln τ). Peak areas used as resistance
+seeds for the Zarc fit are therefore:
+
+```
+Rᵢ ≈ ∫_peak γ(τ) d(ln τ)
+```
+
+integrated numerically over ln(τ), consistent with the pyDRTtools kernel
+(Wan et al. 2015). Using d(log₁₀τ) instead would underestimate areas by
+a factor of ln(10) ≈ 2.303.
+
+γ(τ) is obtained by Tikhonov regularisation with 2nd-order derivative operator L:
+
+```
+minimise  ‖Aγ − Z‖² + λ ‖Lγ‖²
+```
+
+λ is set via `DRT_REG_PARAM` (custom mode) or selected automatically by GCV.
+
+### Stage 3 — Zarc equivalent circuit
+
+DRT peaks seed a non-linear least-squares fit to:
+
+```
+Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (jωτᵢ)^αᵢ)
+```
+
+where R₀ is the series resistance, Rᵢ the arc resistance, τᵢ the relaxation
+time, and αᵢ ∈ (0,1] the CPE exponent of the i-th process.
+
+### Stage 4 — Derived quantities
+
+| Quantity | Formula | Notes |
+|----------|---------|-------|
+| Area | `A = π(D/2)²` | D = pellet diameter |
+| Conductivity | `σ = L / (R · A)` | L = pellet thickness |
+| Eff. capacitance | `C_eff = τ / R` | equivalent to Q^(1/α)·R^((1-α)/α) when τ = (RQ)^(1/α) |
+| Rel. permittivity | `εᵣ = C_eff · L / (ε₀ · A)` | ε₀ = 8.854 × 10⁻¹² F/m |
+
+### Stage 4 — Arrhenius analysis
+
+Two independent fits are performed per Zarc peak:
+
+```
+ln(σT) = ln(A₀) − Eₐᶜᵒⁿᵈ / (k_B T)     conductivity   (slope < 0)
+ln(τ)  = ln(τ₀) + Eₐᵖᵒˡ  / (k_B T)     relaxation time (slope > 0)
+```
+
+A third fit on ln(C_eff) yields Eₐᶜ = Eₐᵖᵒˡ − Eₐᶜᵒⁿᵈ (from ln C = ln τ − ln R).
+Activation energies are reported in eV (k_B = 8.617 × 10⁻⁵ eV/K).
 
 ---
 
