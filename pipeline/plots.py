@@ -391,8 +391,9 @@ def plot_bode(
         freq, Z_re, Z_im = records[T]
         color   = COLOR_MAP.get(T, "gray")
         Z_mag   = np.sqrt(Z_re**2 + Z_im**2) / 1e3
-        # Phase convention: arctan(Z_im / Z_re) — Z_im > 0 in cap. region → angle > 0
-        phase   = np.degrees(np.arctan2(Z_im, Z_re))
+        # Standard EIS phase: φ = arctan(-Z''/Z') < 0 in capacitive region.
+        # IsmRecord stores Z_im = +Z'' (positive for capacitive), so negate it.
+        phase   = np.degrees(np.arctan2(-Z_im, Z_re))
 
         ax_mag.loglog(freq, Z_mag, "o", color=color, ms=3, label=f"{T} °C")
         ax_ph.semilogx(freq, phase, "o", color=color, ms=3)
@@ -407,8 +408,8 @@ def plot_bode(
                     np.asarray(fp["alpha"]),
                 )
                 Z_mag_f = np.abs(Z_fit) / 1e3
-                # Z_fit from impedance.py uses physical convention: imag < 0 in cap. region
-                phase_f = np.degrees(np.arctan2(-Z_fit.imag, Z_fit.real))
+                # Z_fit.imag < 0 in capacitive region (physical convention) → φ < 0 directly
+                phase_f = np.degrees(np.arctan2(Z_fit.imag, Z_fit.real))
                 ax_mag.loglog(freq, Z_mag_f, "--", color=color, lw=1)
                 ax_ph.semilogx(freq, phase_f, "--", color=color, lw=1)
             except Exception as exc:
