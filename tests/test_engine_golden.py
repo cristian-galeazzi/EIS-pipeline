@@ -97,6 +97,130 @@ def test_saved_fit_ceff_invariant():
     print(f"  C_eff invariant holds across {checked} saved peak rows in {len(files)} file(s)")
 
 
+# ---------------------------------------------------------------------------
+# CSV / non-Zahner entry point tests (T1–T8)
+# ---------------------------------------------------------------------------
+
+import io
+import tempfile
+import textwrap
+from contextlib import redirect_stdout
+
+
+def _make_csv(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(textwrap.dedent(content))
+
+
+def _spectra_root(tmp: Path) -> Path:
+    return tmp / "input_spectra"
+
+
+from pipeline.ingest import scan_input_spectra
+
+
+def test_csv_standard_file():
+    """T1: standard _400C.csv with temperature column is loaded correctly."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _make_csv(
+            _spectra_root(tmp) / "Ar_200_O2_10_600_400_25" / "S_Ar_200_O2_10_400C.csv",
+            "freq,Z_re,Z_im,temperature\n100000,5.3,0.2,400\n1000,30.2,44.8,400\n",
+        )
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 1
+        assert df.iloc[0]["T_nominal"] == 400.0
+        assert df.iloc[0]["T_mean"] == 400.0
+
+
+def test_csv_no_temperature_in_filename():
+    """T2: file without _NNNc pattern is skipped; no crash."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _make_csv(
+            _spectra_root(tmp) / "Ar_200" / "measurement.csv",
+            "freq,Z_re,Z_im\n100000,5.3,0.2\n1000,30.2,44.8\n",
+        )
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 0
+
+
+def test_csv_low_temperature():
+    """T3: two-digit temperature _20C is parsed correctly."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _make_csv(
+            _spectra_root(tmp) / "Ar_200_20C_constant" / "S_Ar_200_20C.csv",
+            "freq,Z_re,Z_im,temperature\n100000,5.3,0.2,20\n1000,30.2,44.8,20\n",
+        )
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 1
+        assert df.iloc[0]["T_nominal"] == 20.0
+
+
+def test_csv_four_digit_temperature():
+    """T4: four-digit temperature _1000C is parsed correctly."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _make_csv(
+            _spectra_root(tmp) / "Ar_200_1000C" / "S_Ar_200_1000C.csv",
+            "freq,Z_re,Z_im,temperature\n100000,5.3,0.2,1000\n1000,30.2,44.8,1000\n",
+        )
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 1
+        assert df.iloc[0]["T_nominal"] == 1000.0
+
+
+def test_csv_empty_condition_folder():
+    """T5: empty condition folder returns empty DataFrame without crashing."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        (_spectra_root(tmp) / "Ar_200_empty").mkdir(parents=True)
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 0
+
+
+def test_csv_missing_required_columns():
+    """T6: CSV with wrong column names raises ValueError with descriptive message."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _make_csv(
+            _spectra_root(tmp) / "Ar_200" / "S_400C.csv",
+            "frequency,real,imag\n100000,5.3,0.2\n",
+        )
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 0
+
+
+def test_csv_semicolon_separator():
+    """T7: semicolon-separated CSV is loaded correctly."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _make_csv(
+            _spectra_root(tmp) / "Ar_200_sep" / "S_400C.csv",
+            "freq;Z_re;Z_im;temperature\n100000;5.3;0.2;400\n1000;30.2;44.8;400\n",
+        )
+        df = scan_input_spectra(tmp)
+        assert df is not None and len(df) == 1
+
+
+def test_csv_loose_file_warns():
+    """T8: file directly in input_spectra/ (no condition subfolder) prints a warning and returns empty."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        _spectra_root(tmp).mkdir(parents=True)
+        (_spectra_root(tmp) / "measurement.csv").write_text(
+            "freq,Z_re,Z_im\n100000,5.3,0.2\n"
+        )
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            df = scan_input_spectra(tmp)
+        output = buf.getvalue()
+        assert df is not None and len(df) == 0
+        assert "[WARNING]" in output and "input_spectra/" in output, \
+            f"Expected loose-file warning in stdout, got: {output!r}"
+
+
 if __name__ == "__main__":
     import traceback
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
