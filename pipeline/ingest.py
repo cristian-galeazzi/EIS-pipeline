@@ -355,6 +355,18 @@ def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
     rows     = []
     n_skip   = 0
 
+    loose_files = [
+        f for f in spectra_root.iterdir()
+        if f.is_file() and f.suffix.lower() in {".csv", ".txt"}
+        and not f.name.startswith(".")
+    ]
+    if loose_files:
+        print(
+            f"  [WARNING] {len(loose_files)} file(s) found directly in input_spectra/ "
+            f"and will be ignored. Place files inside a condition sub-folder: "
+            f"input_spectra/{{Gas_SCCM_Gas_SCCM_Tmax_Tmin_deltaT}}/{{file}}.csv"
+        )
+
     for cond_dir in sorted(spectra_root.iterdir()):
         if not cond_dir.is_dir():
             continue

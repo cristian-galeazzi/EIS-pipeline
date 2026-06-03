@@ -497,6 +497,12 @@ def build_arrhenius_results(
     for i, pid in enumerate(sorted(df_peaks["peak_id"].unique())):
         sub = df_peaks[df_peaks["peak_id"] == pid].sort_values("T_nominal")
         T_C       = sub["T_nominal"].values.astype(float)
+        if len(T_C) < 3:
+            warnings.warn(
+                f"Peak {pid}: only {len(T_C)} temperature point(s) available. "
+                f"Arrhenius fit requires at least 3 temperatures for a meaningful result.",
+                stacklevel=2,
+            )
         T_K       = T_C + 273.15
         inv_T     = 1000.0 / T_K    # for x-axis (1000/T label convention)
         inv_T_fit = 1.0 / T_K       # actual 1/T for linregress
