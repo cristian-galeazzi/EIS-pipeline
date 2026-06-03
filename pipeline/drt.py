@@ -166,10 +166,12 @@ def find_drt_peaks(
     """
     Detect peaks in the DRT spectrum and estimate their areas.
 
-    Peak area R_i = ∫ γ(log τ) d(log τ) integrated between valley points
+    Peak area R_i = ∫ γ(ln τ) d(ln τ) integrated between valley points
     on either side of the peak.  This is the Tikhonov-DRT estimate of the
     resistance associated with that relaxation process.  It serves as the
     initial guess for the Zarc R_i parameter (Stage 3 fitting).
+    pyDRTtools defines γ w.r.t. d(ln τ) (natural log); integrating over
+    d(log10 τ) would underestimate R by a factor of ln(10) ≈ 2.303.
 
     Parameters
     ----------
@@ -225,7 +227,7 @@ def find_drt_peaks(
     if len(peak_indices) == 0:
         return []
 
-    log_tau = np.log10(tau)
+    ln_tau = np.log(tau)   # natural log — matches pyDRTtools' d(ln τ) convention
     n = len(tau)
 
     def valley_idx(i_left: int, i_right: int) -> int:
@@ -247,10 +249,10 @@ def find_drt_peaks(
         else:
             right_idx = valley_idx(idx, peak_indices[k + 1])
 
-        # Integrate γ over d(log10 τ)
+        # Integrate γ over d(ln τ) — correct for pyDRTtools' normalization
         R_i = float(trapezoid(
             gamma[left_idx : right_idx + 1],
-            log_tau[left_idx : right_idx + 1],
+            ln_tau[left_idx : right_idx + 1],
         ))
 
         peaks.append({
