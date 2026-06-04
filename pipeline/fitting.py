@@ -216,6 +216,7 @@ def fit_zarc(
     r0_max:      float | None = None,
     fix_params:  dict | None = None,
     weight_by_modulus: bool = True,
+    hf_weight:   float = 0.0,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
@@ -242,6 +243,13 @@ def fit_zarc(
                 far better at every temperature than unit weighting. Set False
                 for legacy unit weighting (absolute residual, dominated by the
                 large low-frequency arcs).
+    hf_weight : RelaxIS "High freq. modulus" mode (manual §10.3). 0 = plain
+                proportional weighting. >0 adds a high-frequency emphasis,
+                sigma = |Z| / (1 + hf_weight * normalized_log10 f), pinning the
+                small-|Z| bulk arc. A mild value (~1.0) both sharpens the bulk
+                fit and stabilises overlapping mid-frequency Zarcs across
+                temperature (less C_eff crossing). Overrides weight_by_modulus
+                when > 0.
 
     R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
     (same for every peak) or a per-peak list of length N, so each Zarc element
@@ -322,8 +330,21 @@ def fit_zarc(
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            circuit.fit(freq, Z_exp, bounds=(lower, upper),
-                        weight_by_modulus=weight_by_modulus)
+            if hf_weight and hf_weight > 0:
+                # RelaxIS "High freq. modulus": proportional weighting that
+                # additionally favours high frequencies, to pin the small-|Z|
+                # bulk arc. sigma = |Z| / (1 + hf_weight * normalized_log10 f),
+                # so high-f points get a smaller sigma = more weight.
+                _mod = np.abs(Z_exp)
+                _lf  = np.log10(freq)
+                _lfn = (_lf - _lf.min()) / (np.ptp(_lf) + 1e-12)
+                _sig = _mod / (1.0 + hf_weight * _lfn)
+                circuit.fit(freq, Z_exp, bounds=(lower, upper),
+                            weight_by_modulus=False,
+                            sigma=np.hstack([_sig, _sig]))
+            else:
+                circuit.fit(freq, Z_exp, bounds=(lower, upper),
+                            weight_by_modulus=weight_by_modulus)
     except Exception as exc:
         converged = False
         fit_error = f"{type(exc).__name__}: {exc}"
