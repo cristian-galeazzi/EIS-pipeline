@@ -162,6 +162,7 @@ def find_drt_peaks(
     min_height_frac:   float = 0.05,
     min_distance:      int   = 5,
     min_prom_decades:  float | None = None,
+    min_dist_decades:  float | None = None,
 ) -> list[dict]:
     """
     Detect peaks in the DRT spectrum and estimate their areas.
@@ -180,7 +181,15 @@ def find_drt_peaks(
                         (default 0.05 = 5 % of max — filters noise floor and
                         HF/LF boundary artifacts that appear at the grid edges)
     min_distance      : minimum number of grid points between peaks
-                        (default 5 on the fine log-τ grid)
+                        (default 5 on the fine log-τ grid). Used only when
+                        min_dist_decades is None.
+    min_dist_decades  : minimum peak separation expressed in decades of τ
+                        (a factor of 10 in τ = 1.0 decade). This is the
+                        RelaxIS convention (§7.2.5.2: minimum distance in
+                        ln τ units), made grid-resolution independent by
+                        converting to grid points from the actual log-τ
+                        spacing. When set, overrides min_distance. Typical:
+                        0.3–0.5 decades for overlapping electrode processes.
     min_prom_decades  : when not None, switch to log10(γ)-based detection with
                         prominence threshold in decades. Recovers sub-peaks that
                         the absolute height threshold misses when one peak
@@ -206,6 +215,16 @@ def find_drt_peaks(
     if gamma.max() == 0:
         return []
 
+    # Convert a decade-based minimum separation (RelaxIS convention) into the
+    # grid-point distance that scipy.find_peaks expects. The τ grid is
+    # log-spaced, so the step in log10(τ) per point is constant.
+    distance_pts = min_distance
+    if min_dist_decades is not None and len(tau) > 1:
+        log10_tau = np.log10(tau)
+        dlog10    = abs(log10_tau[-1] - log10_tau[0]) / (len(tau) - 1)
+        if dlog10 > 0:
+            distance_pts = max(1, int(round(min_dist_decades / dlog10)))
+
     if min_prom_decades is not None:
         # Log-prominence detection: works on log10(γ) so a peak at γ = 5 % of γ_max
         # is still found if its local rise above surrounding valleys is significant.
@@ -215,14 +234,14 @@ def find_drt_peaks(
         peak_indices, _ = find_peaks(
             log_gamma,
             prominence=float(min_prom_decades),
-            distance=min_distance,
+            distance=distance_pts,
             height=height_floor,
         )
     else:
         # Original behaviour preserved for backward compatibility.
         height_thresh = min_height_frac * gamma.max()
         peak_indices, _ = find_peaks(gamma, height=height_thresh,
-                                      distance=min_distance)
+                                      distance=distance_pts)
 
     if len(peak_indices) == 0:
         return []

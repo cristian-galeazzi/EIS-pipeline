@@ -33,13 +33,13 @@ pip install -r requirements.txt
 
 | Package                  | Purpose                           |
 | ------------------------ | --------------------------------- |
-| `zahner_analysis`    | Read Zahner `.ism` binary files     |
-| `pyDRTtools`         | DRT via Tikhonov regularisation     |
-| `impedance`          | Zarc equivalent-circuit fitting     |
-| `pandas`, `openpyxl` | Excel I/O                          |
-| `scipy`, `numpy`     | Numerics                            |
-| `matplotlib`         | Figures                             |
-| `ipywidgets`         | Interactive panels (stages 0–4)     |
+| `zahner_analysis`      | Read Zahner `.ism` binary files |
+| `pyDRTtools`           | DRT via Tikhonov regularisation   |
+| `impedance`            | Zarc equivalent-circuit fitting   |
+| `pandas`, `openpyxl` | Excel I/O                         |
+| `scipy`, `numpy`     | Numerics                          |
+| `matplotlib`           | Figures                           |
+| `ipywidgets`           | Interactive panels (stages 0–4)  |
 
 ---
 
@@ -101,13 +101,13 @@ The `{prefix}` can be anything (e.g. `MyOxide_A`). The pipeline identifies the g
 
 EIS spectra of oxide ceramics at 400–600 °C contain overlapping arcs from bulk conduction, grain boundaries and electrode processes. Separating them requires validation, deconvolution and circuit fitting in sequence. Each stage writes its output to disk as an Excel file so any stage can be re-run independently.
 
-| Stage | Notebook                   | What it does                                                                  |
-| ----- | -------------------------- | ----------------------------------------------------------------------------- |
-| 0     | `stage0_oven.ipynb` | Check that furnace plateaus match the measurement schedule                    |
-| 1     | `stage1_labeling.ipynb`  | Match `.ism` files to furnace windows, label temperatures, copy valid files |
-| 2     | `stage2_kk.ipynb` | Lin-KK validation; select best replica per (condition, T)                     |
+| Stage | Notebook                  | What it does                                                                  |
+| ----- | ------------------------- | ----------------------------------------------------------------------------- |
+| 0     | `stage0_oven.ipynb`     | Check that furnace plateaus match the measurement schedule                    |
+| 1     | `stage1_labeling.ipynb` | Match `.ism` files to furnace windows, label temperatures, copy valid files |
+| 2     | `stage2_kk.ipynb`       | Lin-KK validation; select best replica per (condition, T)                     |
 | 3     | `stage3_drt.ipynb`      | Tikhonov DRT, peak detection, Zarc circuit fit                                |
-| 4     | `stage4_plots.ipynb`         | Nyquist, Bode, DRT stacked, Arrhenius, Brouwer p(O₂)                         |
+| 4     | `stage4_plots.ipynb`    | Nyquist, Bode, DRT stacked, Arrhenius, Brouwer p(O₂)                         |
 
 ---
 
@@ -160,11 +160,11 @@ freq,Z_re,Z_im,temperature
 Separator: comma, semicolon, or tab. `Z_im` must be **positive** in the
 capacitive region. BioLogic EC-Lab exports −Im(Z): multiply by −1 before saving.
 
-| Feature | Available |
-|---------|-----------|
-| Nyquist, Bode, DRT, Zarc fit | always |
-| Arrhenius plots | requires `temperature` column and ≥ 3 temperatures |
-| Brouwer p(O₂) | never (requires lambda-probe data from Stage 0–1) |
+| Feature                      | Available                                             |
+| ---------------------------- | ----------------------------------------------------- |
+| Nyquist, Bode, DRT, Zarc fit | always                                                |
+| Arrhenius plots              | requires `temperature` column and ≥ 3 temperatures |
+| Brouwer p(O₂)               | never (requires lambda-probe data from Stage 0–1)    |
 
 ---
 
@@ -172,9 +172,9 @@ capacitive region. BioLogic EC-Lab exports −Im(Z): multiply by −1 before sav
 
 Parses furnace logs and plots T vs time with plateau annotations.
 
-| Parameter           | Default | Purpose                         |
-| ------------------- | ------- | ------------------------------- |
-| `TABLE_INTERVAL_S`  | 300 s   | Plateau table sampling interval |
+| Parameter            | Default | Purpose                         |
+| -------------------- | ------- | ------------------------------- |
+| `TABLE_INTERVAL_S` | 300 s   | Plateau table sampling interval |
 
 `sample_id` is entered via `input()`. Conditions are selected with the widget below the import cell and saved to `session.json`.
 
@@ -184,13 +184,13 @@ Parses furnace logs and plots T vs time with plateau annotations.
 
 Matches each `.ism` file to its furnace window, assigns a temperature label and copies valid files to `ISM validation/`.
 
-| Parameter            | Default    | Purpose                                   |
-| -------------------- | ---------- | ----------------------------------------- |
-| `T_STABILITY_STD`    | 1 °C       | Max std(T) during measurement             |
-| `T_PRE_MARGIN_MIN`   | 25 min     | Stability window before measurement start |
-| `T_POST_MARGIN_MIN`  | 5 min      | Stability window after measurement end    |
-| `T_ROUND_STEP`       | 25 °C      | Temperature rounding step                 |
-| `T_PLATEAU_RANGE`    | (395, 605) | Valid plateau range [°C]                  |
+| Parameter             | Default    | Purpose                                   |
+| --------------------- | ---------- | ----------------------------------------- |
+| `T_STABILITY_STD`   | 1 °C      | Max std(T) during measurement             |
+| `T_PRE_MARGIN_MIN`  | 25 min     | Stability window before measurement start |
+| `T_POST_MARGIN_MIN` | 5 min      | Stability window after measurement end    |
+| `T_ROUND_STEP`      | 25 °C     | Temperature rounding step                 |
+| `T_PLATEAU_RANGE`   | (395, 605) | Valid plateau range [°C]                 |
 
 `sample_id` and `conditions` are read from `session.json` (set in stage 0).
 
@@ -207,14 +207,14 @@ Status codes: `VALID`, `UNSTABLE`, `NEAR_TRANSITION`, `OUT_OF_RANGE`, `OUTSIDE_R
 
 Applies the Lin-KK test [Schönleber et al., 2014] to each spectrum and selects the best replica per (condition, T).
 
-| Parameter            | Default | Purpose                                    |
-| -------------------- | ------- | ------------------------------------------ |
-| `KK_C`               | 0.76    | M = round(KK_C × N)                       |
-| `KK_MU_TARGET`       | 0.50    | Sign-change fraction target                |
-| `KK_F_MIN_HARD`      | 50 Hz   | Hard lower frequency cutoff                |
-| `KK_USE_W_CRITERIA`  | False   | Ceramic-aware dual criterion (W_re + W_im) |
-| `KK_OVERRIDES`       | `{}`    | Per-(condition, T) frequency overrides     |
-| `OVERRIDES`          | `{}`    | Manual replica selection                   |
+| Parameter             | Default | Purpose                                    |
+| --------------------- | ------- | ------------------------------------------ |
+| `KK_C`              | 0.76    | M = round(KK_C × N)                       |
+| `KK_MU_TARGET`      | 0.50    | Sign-change fraction target                |
+| `KK_F_MIN_HARD`     | 50 Hz   | Hard lower frequency cutoff                |
+| `KK_USE_W_CRITERIA` | False   | Ceramic-aware dual criterion (W_re + W_im) |
+| `KK_OVERRIDES`      | `{}`  | Per-(condition, T) frequency overrides     |
+| `OVERRIDES`         | `{}`  | Manual replica selection                   |
 
 Classification: GREEN (`kk_score >= 0.97`), YELLOW (`>= 0.90`), RED.
 
@@ -228,14 +228,14 @@ Computes the DRT γ(τ) via Tikhonov regularisation, detects peaks and fits a Za
 Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 ```
 
-| Parameter               | Default  | Purpose                                     |
-| ----------------------- | -------- | ------------------------------------------- |
-| `L_m`, `D_m`            | required | Pellet thickness and diameter [m]           |
-| `DRT_REG_PARAM`         | 4e-5     | Regularisation λ (custom mode)              |
+| Parameter                 | Default  | Purpose                                     |
+| ------------------------- | -------- | ------------------------------------------- |
+| `L_m`, `D_m`          | required | Pellet thickness and diameter [m]           |
+| `DRT_REG_PARAM`         | 4e-5     | Regularisation λ (custom mode)             |
 | `PEAK_MIN_PROM_DECADES` | 0.01     | Log-prominence threshold for peak detection |
-| `ZARC_INCLUDE_R0`       | True     | Include series R₀ in circuit                |
-| `ZARC_R0_MAX`           | 200 Ω    | Upper bound on R₀                           |
-| `N_PEAKS_OVERRIDE`      | `{}`     | Force N peaks for specific (condition, T)   |
+| `ZARC_INCLUDE_R0`       | True     | Include series R₀ in circuit               |
+| `ZARC_R0_MAX`           | 200 Ω   | Upper bound on R₀                          |
+| `N_PEAKS_OVERRIDE`      | `{}`   | Force N peaks for specific (condition, T)   |
 
 **Process identification:** the pipeline assigns no process label automatically. Use the C_eff magnitude plot (log₁₀(C_eff) vs 1000/T) and Arrhenius behaviour to identify each peak. Starting-point thresholds from Vendrell & West 2018 (YSZ):
 
@@ -252,14 +252,14 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 
 Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 
-| Parameter          | Default     | Purpose                                    |
-| ------------------ | ----------- | ------------------------------------------ |
-| `L_m`, `D_m`       | required    | Pellet thickness and diameter [m]          |
-| `DRT_TAU_MAX`      | 0.1 s       | x-axis upper limit on DRT stacked plot     |
-| `BROUWER_PEAK_ID`  | 1           | Peak index for Brouwer diagram             |
-| `BROUWER_TEMPS`    | None        | Temperatures shown in Brouwer (None = all) |
-| `TAU_R2_THRESHOLD` | 0.97        | R² floor to flag a peak as physically real |
-| `PLOT_WINDOWS`     | `{}`        | Per-(condition, T) axis crop               |
+| Parameter            | Default  | Purpose                                     |
+| -------------------- | -------- | ------------------------------------------- |
+| `L_m`, `D_m`     | required | Pellet thickness and diameter [m]           |
+| `DRT_TAU_MAX`      | 0.1 s    | x-axis upper limit on DRT stacked plot      |
+| `BROUWER_PEAK_ID`  | 1        | Peak index for Brouwer diagram              |
+| `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
+| `TAU_R2_THRESHOLD` | 0.97     | R² floor to flag a peak as physically real |
+| `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
 Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2, C_eff magnitude, τ consistency. Multi-condition: Brouwer p(O₂) diagram.
 
@@ -269,7 +269,7 @@ Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2, C_eff magnitu
 
 The equations below follow the pipeline execution order.
 
-### Stage 2 — Lin-KK validity test
+### Stage 2 - Lin-KK validity test
 
 Each spectrum is tested for Kramers-Kronig compliance using M RC elements
 (Schönleber et al. 2014):
@@ -297,7 +297,7 @@ W_im(ω) = (Z″_meas − Z″_KK) / |Z_meas|
 The KK score is the fraction of points with |W| below threshold.
 Spectra scoring below 0.90 are flagged RED and excluded from downstream analysis.
 
-### Stage 3 — Distribution of Relaxation Times
+### Stage 3 - Distribution of Relaxation Times
 
 The DRT γ(τ) decomposes the impedance response as:
 
@@ -324,7 +324,7 @@ minimise  ‖Aγ − Z‖² + λ ‖Lγ‖²
 
 λ is set via `DRT_REG_PARAM` (custom mode) or selected automatically by GCV.
 
-### Stage 3 — Zarc equivalent circuit
+### Stage 3 - Zarc equivalent circuit
 
 DRT peaks seed a non-linear least-squares fit to:
 
@@ -335,16 +335,16 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (jωτᵢ)^αᵢ)
 where R₀ is the series resistance, Rᵢ the arc resistance, τᵢ the relaxation
 time, and αᵢ ∈ (0,1] the CPE exponent of the i-th process.
 
-### Stage 4 — Derived quantities
+### Stage 4 - Derived quantities
 
-| Quantity | Formula | Notes |
-|----------|---------|-------|
-| Area | `A = π(D/2)²` | D = pellet diameter |
-| Conductivity | `σ = L / (R · A)` | L = pellet thickness |
-| Eff. capacitance | `C_eff = τ / R` | equivalent to Q^(1/α)·R^((1-α)/α) when τ = (RQ)^(1/α) |
-| Rel. permittivity | `εᵣ = C_eff · L / (ε₀ · A)` | ε₀ = 8.854 × 10⁻¹² F/m |
+| Quantity          | Formula                             | Notes                                                       |
+| ----------------- | ----------------------------------- | ----------------------------------------------------------- |
+| Area              | `A = π(D/2)²`                   | D = pellet diameter                                         |
+| Conductivity      | `σ = L / (R · A)`               | L = pellet thickness                                        |
+| Eff. capacitance  | `C_eff = τ / R`                  | equivalent to Q^(1/α)·R^((1-α)/α) when τ = (RQ)^(1/α) |
+| Rel. permittivity | `εᵣ = C_eff · L / (ε₀ · A)` | ε₀ = 8.854 × 10⁻¹² F/m                                |
 
-### Stage 4 — Arrhenius analysis
+### Stage 4 - Arrhenius analysis
 
 Two independent fits are performed per Zarc peak:
 
