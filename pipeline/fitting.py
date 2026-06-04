@@ -215,7 +215,7 @@ def fit_zarc(
     include_r0:  bool = True,
     r0_max:      float | None = None,
     fix_params:  dict | None = None,
-    weight_by_modulus: bool = False,
+    weight_by_modulus: bool = True,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
@@ -235,13 +235,13 @@ def fit_zarc(
     alpha_init: initial α (default 0.8)
     alpha_min : lower α bound (default 0.5)
     alpha_max : upper α bound (default 1.0)
-    weight_by_modulus : default False = unit weighting (the optimizer minimizes
-                the absolute complex residual). True switches to modulus-weighted
-                (proportional) residuals, matching RelaxIS proportional weighting
-                and lowering rmse_rel, but it redistributes the fit across the
-                spectrum and destabilises overlapping mid-frequency Zarcs (their
-                C_eff start to cross between temperatures), so it is off by
-                default to keep the per-process capacitances physically stable.
+    weight_by_modulus : default True = modulus-weighted (proportional) residuals,
+                matching the RelaxIS "Proportional weighting (recommended)" mode
+                (manual §10.3). The optimizer minimizes the relative error, which
+                fits the small-|Z| high-frequency bulk arc (the primary datum)
+                far better at every temperature than unit weighting. Set False
+                for legacy unit weighting (absolute residual, dominated by the
+                large low-frequency arcs).
 
     R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
     (same for every peak) or a per-peak list of length N, so each Zarc element
