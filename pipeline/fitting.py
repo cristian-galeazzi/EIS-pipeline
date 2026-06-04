@@ -215,6 +215,7 @@ def fit_zarc(
     include_r0:  bool = True,
     r0_max:      float | None = None,
     fix_params:  dict | None = None,
+    weight_by_modulus: bool = True,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
@@ -234,6 +235,11 @@ def fit_zarc(
     alpha_init: initial α (default 0.8)
     alpha_min : lower α bound (default 0.5)
     alpha_max : upper α bound (default 1.0)
+    weight_by_modulus : if True (default), the optimizer minimizes the
+                modulus-weighted relative residual (same quantity as rmse_rel,
+                matches RelaxIS proportional weighting) instead of the
+                unit-weighted absolute residual that is dominated by the
+                large-|Z| low-frequency arcs. Set False for legacy behaviour.
 
     R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
     (same for every peak) or a per-peak list of length N, so each Zarc element
@@ -314,7 +320,8 @@ def fit_zarc(
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            circuit.fit(freq, Z_exp, bounds=(lower, upper))
+            circuit.fit(freq, Z_exp, bounds=(lower, upper),
+                        weight_by_modulus=weight_by_modulus)
     except Exception as exc:
         converged = False
         fit_error = f"{type(exc).__name__}: {exc}"
@@ -480,3 +487,90 @@ def fit_to_rows(
     }
 
     return peak_rows, summary_row
+
+
+def assign_tau_tracks(
+    peak_rows:        list[dict],
+    tau_tol_decades:  float = 0.5,
+    tau_key:          str   = "tau_i",
+    T_key:            str   = "T_nominal",
+) -> list[int]:
+    """
+    Group fitted peaks into physical tracks by tau continuity across temperature.
+
+    The default per-spectrum ``peak_id`` is assigned by tau rank, so the same
+    physical process can carry a different id at different temperatures whenever
+    a DRT peak merges, splits or drops out. Grouping the Arrhenius analysis by
+    that id then mixes different processes and destroys the fit. This walks the
+    temperatures from high to low (the high-T spectra have the cleanest, best
+    separated peaks and anchor the tracks) and greedily attaches each peak to the
+    nearest open track within ``tau_tol_decades`` in log10(tau); peaks with no
+    match within tolerance start a new track. Tracks are finally renumbered
+    1..K by ascending tau at the anchor temperature, so track 1 is the fastest
+    (smallest tau) process.
+
+    Parameters
+    ----------
+    peak_rows       : list of fitted-peak dicts (e.g. from fit_to_rows); each
+                      must contain ``tau_key`` and ``T_key``.
+    tau_tol_decades : maximum log10(tau) gap to keep a peak on the same track.
+    tau_key, T_key  : column names for tau and nominal temperature.
+
+    Returns
+    -------
+    list[int] of length len(peak_rows): the 1-based track_id for each input row,
+    aligned to the input order. Rows with a non-finite tau get track_id 0.
+    """
+    n = len(peak_rows)
+    if n == 0:
+        return []
+
+    # (original index, T, log10 tau); skip rows with unusable tau
+    items = []
+    for idx, row in enumerate(peak_rows):
+        tau = row.get(tau_key)
+        T   = row.get(T_key)
+        if tau is None or T is None or not np.isfinite(tau) or tau <= 0:
+            continue
+        items.append((idx, float(T), float(np.log10(tau))))
+
+    track_of = [0] * n
+    if not items:
+        return track_of
+
+    # tracks[k] = last log10(tau) added (from the most recent, higher T)
+    tracks: list[float] = []
+    members: list[list[int]] = []   # original indices per track
+
+    for T in sorted({it[1] for it in items}, reverse=True):
+        rows_T = sorted((it for it in items if it[1] == T), key=lambda it: it[2])
+        used: set[int] = set()
+        for idx, _T, ltau in rows_T:
+            best, best_gap = None, tau_tol_decades
+            for k, last in enumerate(tracks):
+                if k in used:
+                    continue
+                gap = abs(ltau - last)
+                if gap < best_gap:
+                    best, best_gap = k, gap
+            if best is None:
+                tracks.append(ltau)
+                members.append([idx])
+                used.add(len(tracks) - 1)
+            else:
+                tracks[best] = ltau
+                members[best].append(idx)
+                used.add(best)
+
+    # Renumber tracks 1..K by ascending tau at the anchor (first/highest) T.
+    anchor_ltau = []
+    for mem in members:
+        first_idx = mem[0]   # added first => highest T for this track
+        anchor_ltau.append(float(np.log10(peak_rows[first_idx][tau_key])))
+    order = sorted(range(len(members)), key=lambda k: anchor_ltau[k])
+    new_id = {k: i + 1 for i, k in enumerate(order)}
+    for k, mem in enumerate(members):
+        for idx in mem:
+            track_of[idx] = new_id[k]
+
+    return track_of
