@@ -316,6 +316,7 @@ def fit_zarc(
     weight_by_modulus: bool = True,
     hf_weight:   float = 0.0,
     n_restarts:  int = 0,
+    rmse_tol:    float = 0.02,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
@@ -353,6 +354,8 @@ def fit_zarc(
                 DRT-seeded guess only). Each restart samples R and tau log-uniformly,
                 alpha linearly. The attempt with the lowest rmse_rel is returned.
                 Values of 5-10 close most local-minimum traps for overlapping peaks.
+    rmse_tol  : early-exit threshold for restarts. If the current best rmse_rel is
+                already below this value, remaining restarts are skipped (default 0.02).
 
     R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
     (same for every peak) or a per-peak list of length N, so each Zarc element
@@ -436,6 +439,8 @@ def fit_zarc(
     if n_restarts > 0:
         rng = np.random.default_rng()
         for _ in range(n_restarts):
+            if best["rmse_rel"] < rmse_tol:
+                break
             rnd_guess = _sample_guess(lower, upper, n_peaks, include_r0, rng)
             candidate = _try_fit(circuit_str, rnd_guess, lower, upper, **_fit_kw)
             if candidate["converged"] and candidate["rmse_rel"] < best["rmse_rel"]:
