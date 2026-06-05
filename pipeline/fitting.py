@@ -198,6 +198,104 @@ def build_bounds(
 
 
 # ---------------------------------------------------------------------------
+# Fitting helpers
+# ---------------------------------------------------------------------------
+
+def _try_fit(
+    circuit_str:       str,
+    guess:             list[float],
+    lower:             list[float],
+    upper:             list[float],
+    Z_exp:             np.ndarray,
+    freq:              np.ndarray,
+    hf_weight:         float,
+    weight_by_modulus: bool,
+) -> dict:
+    """Single optimizer call. Returns dict with converged, params, conf, rmse_rel, etc."""
+    circuit = CustomCircuit(circuit_str, initial_guess=guess)
+    converged = True
+    fit_error = ""
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if hf_weight and hf_weight > 0:
+                _mod = np.abs(Z_exp)
+                _lf  = np.log10(freq)
+                _lfn = (_lf - _lf.min()) / ((_lf.max() - _lf.min()) + 1e-12)
+                _sig = _mod / (1.0 + hf_weight * _lfn)
+                circuit.fit(freq, Z_exp, bounds=(lower, upper),
+                            weight_by_modulus=False,
+                            sigma=np.hstack([_sig, _sig]))
+            else:
+                circuit.fit(freq, Z_exp, bounds=(lower, upper),
+                            weight_by_modulus=weight_by_modulus)
+    except Exception as exc:
+        converged = False
+        fit_error = f"{type(exc).__name__}: {exc}"
+
+    params = circuit.parameters_
+    if params is None:
+        params = np.array(guess)
+        conf   = np.full(len(params), np.nan)
+        rmse_rel = np.inf
+        max_rel  = np.inf
+        Z_fit    = None
+    else:
+        conf  = circuit.conf_ if hasattr(circuit, "conf_") else np.full_like(params, np.nan)
+        Z_fit = circuit.predict(freq)
+        mod_exp  = np.abs(Z_exp)
+        rel_re   = (Z_fit.real - Z_exp.real) / mod_exp
+        rel_im   = (Z_fit.imag - Z_exp.imag) / mod_exp
+        rmse_rel = float(np.sqrt(np.mean(rel_re**2 + rel_im**2)))
+        max_rel  = float(np.max(np.abs(Z_fit - Z_exp) / mod_exp))
+
+    return {
+        "converged":    converged,
+        "params":       params,
+        "conf":         conf,
+        "Z_fit":        Z_fit,
+        "rmse_rel":     rmse_rel,
+        "max_rel_err":  max_rel,
+        "fit_error":    fit_error,
+        "param_names":  circuit.get_param_names()[0],
+    }
+
+
+def _sample_guess(
+    lower:    list[float],
+    upper:    list[float],
+    n_peaks:  int,
+    has_r0:   bool,
+    rng:      np.random.Generator,
+) -> list[float]:
+    """
+    Sample a random initial guess within bounds.
+    R and tau are log-uniform (physically meaningful for quantities spanning decades).
+    Alpha is linear-uniform (already in [0,1]).
+    """
+    guess = []
+    idx = 0
+    if has_r0:
+        lo, hi = lower[idx], upper[idx]
+        guess.append(float(np.exp(rng.uniform(np.log(max(lo, 1e-12)), np.log(max(hi, 1e-12))))))
+        idx += 1
+    for _ in range(n_peaks):
+        # R: log-uniform
+        lo, hi = lower[idx], upper[idx]
+        guess.append(float(np.exp(rng.uniform(np.log(max(lo, 1e-12)), np.log(max(hi, 1e-12))))))
+        idx += 1
+        # tau: log-uniform
+        lo, hi = lower[idx], upper[idx]
+        guess.append(float(np.exp(rng.uniform(np.log(max(lo, 1e-12)), np.log(max(hi, 1e-12))))))
+        idx += 1
+        # alpha: linear-uniform
+        lo, hi = lower[idx], upper[idx]
+        guess.append(float(rng.uniform(lo, hi)))
+        idx += 1
+    return guess
+
+
+# ---------------------------------------------------------------------------
 # Fitting
 # ---------------------------------------------------------------------------
 
@@ -217,6 +315,7 @@ def fit_zarc(
     fix_params:  dict | None = None,
     weight_by_modulus: bool = True,
     hf_weight:   float = 0.0,
+    n_restarts:  int = 0,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
@@ -250,6 +349,10 @@ def fit_zarc(
                 fit and stabilises overlapping mid-frequency Zarcs across
                 temperature (less C_eff crossing). Overrides weight_by_modulus
                 when > 0.
+    n_restarts: number of additional random restarts within the bounds (default 0 =
+                DRT-seeded guess only). Each restart samples R and tau log-uniformly,
+                alpha linearly. The attempt with the lowest rmse_rel is returned.
+                Values of 5-10 close most local-minimum traps for overlapping peaks.
 
     R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
     (same for every peak) or a per-peak list of length N, so each Zarc element
@@ -323,42 +426,31 @@ def fit_zarc(
                     val = float(vals[j])
                     lower[base + k] = upper[base + k] = initial_guess[base + k] = val
 
-    circuit = CustomCircuit(circuit_str, initial_guess=initial_guess)
+    _fit_kw = dict(
+        Z_exp=Z_exp, freq=freq,
+        hf_weight=hf_weight, weight_by_modulus=weight_by_modulus,
+    )
 
-    converged = True
-    fit_error = ""
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            if hf_weight and hf_weight > 0:
-                # RelaxIS "High freq. modulus": proportional weighting that
-                # additionally favours high frequencies, to pin the small-|Z|
-                # bulk arc. sigma = |Z| / (1 + hf_weight * normalized_log10 f),
-                # so high-f points get a smaller sigma = more weight.
-                _mod = np.abs(Z_exp)
-                _lf  = np.log10(freq)
-                _lfn = (_lf - _lf.min()) / (np.ptp(_lf) + 1e-12)
-                _sig = _mod / (1.0 + hf_weight * _lfn)
-                circuit.fit(freq, Z_exp, bounds=(lower, upper),
-                            weight_by_modulus=False,
-                            sigma=np.hstack([_sig, _sig]))
-            else:
-                circuit.fit(freq, Z_exp, bounds=(lower, upper),
-                            weight_by_modulus=weight_by_modulus)
-    except Exception as exc:
-        converged = False
-        fit_error = f"{type(exc).__name__}: {exc}"
-        warnings.warn(f"Zarc fit did not converge ({circuit_str}): {fit_error}",
-                      stacklevel=2)
+    best = _try_fit(circuit_str, initial_guess, lower, upper, **_fit_kw)
 
-    params = circuit.parameters_
-    if params is None:
-        # Fit raised an exception before writing any parameters; fall back to initial guess
-        # so downstream indexing does not crash on None.
+    if n_restarts > 0:
+        rng = np.random.default_rng()
+        for _ in range(n_restarts):
+            rnd_guess = _sample_guess(lower, upper, n_peaks, include_r0, rng)
+            candidate = _try_fit(circuit_str, rnd_guess, lower, upper, **_fit_kw)
+            if candidate["converged"] and candidate["rmse_rel"] < best["rmse_rel"]:
+                best = candidate
+
+    params = best["params"]
+    conf   = best["conf"]
+    Z_fit  = best["Z_fit"]
+    if Z_fit is None:
+        # All attempts failed; fall back to initial guess for downstream safety
         params = np.array(initial_guess)
         conf   = np.full(len(params), np.nan)
-    else:
-        conf = circuit.conf_ if hasattr(circuit, "conf_") else np.full_like(params, np.nan)
+        Z_fit  = np.zeros(len(freq), dtype=complex)
+        best["rmse_rel"]    = np.inf
+        best["max_rel_err"] = np.inf
 
     # Parse parameters depending on whether R0 is included
     if include_r0:
@@ -376,20 +468,10 @@ def fit_zarc(
     # See module docstring for derivation.
     C_eff_arr = tau_arr / R_arr
 
-    # Predicted impedance
-    Z_fit = circuit.predict(freq)
-
-    # Modulus-weighted relative residuals
-    mod_exp  = np.abs(Z_exp)
-    rel_re   = (Z_fit.real - Z_exp.real) / mod_exp
-    rel_im   = (Z_fit.imag - Z_exp.imag) / mod_exp
-    rmse_rel = float(np.sqrt(np.mean(rel_re**2 + rel_im**2)))
-    max_rel  = float(np.max(np.abs(Z_fit - Z_exp) / mod_exp))
-
     return {
-        "converged":   converged,
+        "converged":   best["converged"],
         "circuit_str": circuit_str,
-        "param_names": circuit.get_param_names()[0],
+        "param_names": best["param_names"],
         "params":      params,
         "conf":        conf,
         "R0":          float(R0_fit),
@@ -398,10 +480,10 @@ def fit_zarc(
         "alpha":       alpha_arr,
         "C_eff":       C_eff_arr,
         "Z_fit":       Z_fit,
-        "rmse_rel":    rmse_rel,
-        "max_rel_err": max_rel,
+        "rmse_rel":    best["rmse_rel"],
+        "max_rel_err": best["max_rel_err"],
         "n_peaks":     n_peaks,
-        "fit_error":   fit_error,
+        "fit_error":   best["fit_error"],
     }
 
 
@@ -469,8 +551,9 @@ def fit_to_rows(
         C_eff_i = float(fit["C_eff"][i])
         sigma_i = conductivity(R_i, L_m, D_m)
 
-        # Confidence intervals (1σ) — params order: R0, R1,tau1,a1, R2,tau2,a2,...
-        base = 1 + i * 3
+        # Confidence intervals (1σ) — params order depends on include_r0
+        _has_r0 = fit["circuit_str"].startswith("R0")
+        base = (1 + i * 3) if _has_r0 else (i * 3)
         conf_R   = float(fit["conf"][base])     if len(fit["conf"]) > base   else np.nan
         conf_tau = float(fit["conf"][base + 1]) if len(fit["conf"]) > base+1 else np.nan
         conf_a   = float(fit["conf"][base + 2]) if len(fit["conf"]) > base+2 else np.nan
