@@ -175,6 +175,7 @@ def _arrhenius_linreg(
     valid = ~np.isnan(y) & ~np.isnan(inv_T)
     if valid.sum() < 2:
         return np.nan, np.nan, np.nan, np.nan, np.nan
+    # ln(σT) vs 1/T: slope < 0 → Ea = -slope·k; ln(τ) vs 1/T: slope > 0 → Ea = +slope·k
     slope, intercept, r, _, se = stats.linregress(inv_T[valid], y[valid])
     return -slope * KB, se * KB, r**2, slope, intercept
 
@@ -219,7 +220,7 @@ def plot_drt_stacked(
     temps = sorted(df_spectra["T_nominal"].unique())
     temps = [int(t) for t in temps if int(t) not in exclude_temps]
 
-    fig, ax = plt.subplots(figsize=(4, 4), dpi=200)
+    fig, ax = plt.subplots(figsize=(4, 4), dpi=200, layout="constrained")
 
     for i, T in enumerate(temps):
         sub     = df_spectra[df_spectra["T_nominal"] == T].sort_values("tau")
@@ -263,7 +264,6 @@ def plot_drt_stacked(
     ax.spines["left"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    plt.tight_layout()
     if save:
         _save(fig, save_dir, f"DRT_{condition}_Stacked")
     return fig
@@ -311,7 +311,7 @@ def plot_nyquist_multipanel(
     matplotlib Figure
     """
     temps = sorted(records.keys())
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
     vmax = 0.0
 
     fits: dict[int, np.ndarray] = {}
@@ -367,7 +367,7 @@ def plot_nyquist_multipanel(
                                     float((Z_im[sel] / 1e3).max())))
         # Favor the smaller (warm) first arcs so they read clearly; the larger
         # cold arcs run off the inset edge (acceptable — the full panel shows them).
-        hf_max = float(np.percentile(hf_per_T, 35)) if hf_per_T else vmax * 0.1
+        hf_max = float(np.percentile(hf_per_T, 50)) if hf_per_T else vmax * 0.1
         if hf_max <= 0:
             hf_max = vmax * 0.1
         axin = ax.inset_axes([0.62, 0.63, 0.35, 0.35])
@@ -382,7 +382,6 @@ def plot_nyquist_multipanel(
         axin.set_ylim(0, hf_max * 1.15)
         axin.set_aspect("equal", "box")
         axin.tick_params(labelsize=7)
-    fig.tight_layout()
     if save:
         _save(fig, save_dir, f"Nyquist_{condition}")
     return fig
@@ -423,7 +422,7 @@ def plot_bode(
     matplotlib Figure (2 stacked panels, shared x-axis)
     """
     temps = sorted(records.keys())
-    fig, (ax_mag, ax_ph) = plt.subplots(2, 1, figsize=(6, 8), sharex=True)
+    fig, (ax_mag, ax_ph) = plt.subplots(2, 1, figsize=(6, 8), sharex=True, layout="constrained")
 
     for T in temps:
         freq, Z_re, Z_im = records[T]
@@ -485,7 +484,6 @@ def plot_bode(
     if phase_lim is not None:
         ax_ph.set_ylim(bottom=phase_lim[0], top=phase_lim[1])
 
-    fig.tight_layout()
     if save:
         _save(fig, save_dir, f"Bode_{condition}")
     return fig
@@ -598,14 +596,15 @@ def build_arrhenius_results(
 
 
 def _draw_arrhenius_panel(
-    ax:        plt.Axes,
-    results:   list[dict],
-    y_key:     str,
-    slope_key: str,
-    int_key:   str,
-    ea_key:    str,
-    ea_label:  str,
-    ylabel:    str,
+    ax:          plt.Axes,
+    results:     list[dict],
+    y_key:       str,
+    slope_key:   str,
+    int_key:     str,
+    ea_key:      str,
+    ea_label:    str,
+    ylabel:      str,
+    ea_err_key:  str | None = None,
 ) -> None:
     """Draw one Arrhenius sub-panel onto ax (internal helper)."""
     for r in results:
@@ -621,6 +620,12 @@ def _draw_arrhenius_panel(
         fit_x = np.linspace(r["inv_T"].min() - 0.02, r["inv_T"].max() + 0.02, 100)
         fit_y = r[int_key] + r[slope_key] * (fit_x / 1000)
         ax.plot(fit_x, fit_y, "-", color=r["color"], linewidth=1.0, alpha=0.7)
+        if ea_err_key and not np.isnan(r.get(ea_err_key, np.nan)):
+            # 95% CI band: propagate slope SE (eV → 1/K) to fit-line uncertainty
+            se_slope = r[ea_err_key] / KB
+            ci = se_slope * np.abs(fit_x / 1000)
+            ax.fill_between(fit_x, fit_y - ci, fit_y + ci,
+                            alpha=0.12, color=r["color"], linewidth=0)
 
     ax.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
     ax.set_ylabel(ylabel, fontsize=12)
@@ -665,20 +670,19 @@ def plot_arrhenius_panel(
     results = build_arrhenius_results(df_peaks, L_m, D_m)
     A_m2    = np.pi * (D_m / 2) ** 2
 
-    fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150)
-    plt.subplots_adjust(hspace=0.6, wspace=0.20)
+    fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150, layout="constrained")
 
     _draw_arrhenius_panel(
         axes[0, 0], results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
-        r"E_a^{cond}", r"ln($\sigma T$ / S·K·m$^{-1}$)")
+        r"E_a^{cond}", r"ln($\sigma T$ / S·K·m$^{-1}$)", ea_err_key="Ea_cond_err")
 
     _draw_arrhenius_panel(
         axes[0, 1], results, "ln_tau", "slope_pol", "int_pol", "Ea_pol",
-        r"E_a^{pol}", r"ln($\tau$ / s)")
+        r"E_a^{pol}", r"ln($\tau$ / s)", ea_err_key="Ea_pol_err")
 
     _draw_arrhenius_panel(
         axes[1, 0], results, "ln_C", "slope_C", "int_C", "Ea_C",
-        r"E_a^{C}", r"ln($C$ / F)")
+        r"E_a^{C}", r"ln($C$ / F)", ea_err_key="Ea_C_err")
 
     # Panel [1,1]: log₁₀(εᵣ) — diagnostic, no fit line
     ax4 = axes[1, 1]
@@ -767,7 +771,7 @@ def plot_brouwer(
     if temps_to_plot is not None:
         sub = sub[sub["T_nominal"].isin(temps_to_plot)]
 
-    fig, ax = plt.subplots(figsize=(7, 5.5), dpi=150)
+    fig, ax = plt.subplots(figsize=(7, 5.5), dpi=150, layout="constrained")
 
     for T in sorted(sub["T_nominal"].unique()):
         group = sub[sub["T_nominal"] == T].sort_values("lg_pO2")
@@ -819,7 +823,6 @@ def plot_brouwer(
     for _sp in ax.spines.values():
         _sp.set_linewidth(1.2)
 
-    plt.tight_layout()
     stem = f"Brouwer_Peak{peak_id}_{sample_name}" if sample_name else f"Brouwer_Peak{peak_id}"
     _save(fig, save_dir, stem)
     return fig
@@ -859,7 +862,7 @@ def plot_tau_arrhenius_consistency(
     -------
     matplotlib Figure
     """
-    fig, ax = plt.subplots(figsize=(6, 5), dpi=150)
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=150, layout="constrained")
 
     for i, pid in enumerate(sorted(df_peaks["peak_id"].unique())):
         sub     = df_peaks[df_peaks["peak_id"] == pid].sort_values("T_nominal")
@@ -892,7 +895,6 @@ def plot_tau_arrhenius_consistency(
     ax.tick_params(direction="in", top=True, right=True)
     ax.grid(True, ls=":", alpha=0.3)
 
-    plt.tight_layout()
     if save:
         _save(fig, save_dir, f"TauConsistency_{condition}")
     return fig
@@ -933,7 +935,7 @@ def plot_tau_tracks(
     -------
     matplotlib Figure
     """
-    fig, ax = plt.subplots(figsize=(6, 5), dpi=150)
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=150, layout="constrained")
 
     for i, pid in enumerate(sorted(df_peaks["peak_id"].unique())):
         sub   = df_peaks[df_peaks["peak_id"] == pid].sort_values("T_nominal")
@@ -955,7 +957,6 @@ def plot_tau_tracks(
     ax.tick_params(direction="in", which="both", top=True, right=True)
     ax.grid(True, which="both", ls=":", alpha=0.3)
 
-    plt.tight_layout()
     if save:
         _save(fig, save_dir, f"TauTracks_{condition}")
     return fig
@@ -987,7 +988,7 @@ def plot_ceff_magnitude(
     -------
     matplotlib Figure
     """
-    fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=150, layout="constrained")
 
     for i, pid in enumerate(sorted(df_peaks["peak_id"].unique())):
         sub   = df_peaks[df_peaks["peak_id"] == pid].sort_values("T_nominal")
@@ -1009,7 +1010,6 @@ def plot_ceff_magnitude(
     ax.tick_params(direction="in", which="both", top=True, right=True)
     ax.grid(True, alpha=0.3, linestyle="--")
 
-    plt.tight_layout()
     if save:
         _save(fig, save_dir, f"Capacity_{condition}")
     return fig
