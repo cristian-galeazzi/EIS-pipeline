@@ -30,8 +30,9 @@ htmlcov/
 # Claude Code (machine-specific)
 .claude/
 
-# Internal planning notes
+# Internal planning/docs notes (machine-specific)
 PLAN.md
+CLAUDE.md
 
 # Session config; user-specific, never commit
 session.json

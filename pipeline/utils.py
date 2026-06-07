@@ -86,7 +86,7 @@ def build_metadata_sheet(
 ) -> pd.DataFrame:
     """Return a 2-column DataFrame (parameter, value) describing fixed config.
 
-    The schema is identical across stages so the thesis methods section can be
+    The schema is identical across stages so any methods section can be
     written by reading any ``Metadata`` sheet in the pipeline outputs.
 
     A ``processed_at`` timestamp and the stage name are prepended automatically.

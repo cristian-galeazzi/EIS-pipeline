@@ -6,27 +6,27 @@ Zarc equivalent circuit fitting using impedance.py.
 The circuit model is:  R0 - Zarc1 - Zarc2 - ... - ZarcN
 where each Zarc element has impedance:
 
-    Z_Zarc(ω) = R / (1 + (jωτ)^α)
+    Z_Zarc(ω) = R / (1 + (jωτ)^⍺) 
 
-Zarc parameters per element: R [Ohm], τ [s], α (dimensionless ∈ [0,1])
+Zarc parameters per element: R [Ohm], τ [s], ⍺ (dimensionless ∈ [0,1])
 
 Physical quantities derived from fit
 -------------------------------------
-C_eff = Q^(1/α) · R^((1-α)/α)
+C_eff = Q^(1/⍺) · R^((1-⍺)/⍺)
 
-For the Zarc parametrization (R, τ, α) the CPE admittance is:
-    Y_CPE = Q·(jω)^α  with  Q = τ^α / R
+For the Zarc parametrization (R, τ, ⍺) the CPE admittance is:
+    Y_CPE = Q·(jω)^⍺  with  Q = τ^⍺ / R
 
 Substituting into the C_eff formula:
 
-    C_eff = Q^(1/α) · R^((1-α)/α)
-          = (τ^α/R)^(1/α) · R^((1-α)/α)
-          = τ · R^(-1/α) · R^((1-α)/α)
-          = τ · R^(-1/α + 1/α - 1)
+    C_eff = Q^(1/⍺) · R^((1-⍺)/⍺)
+          = (τ^⍺/R)^(1/⍺) · R^((1-⍺)/⍺)
+          = τ · R^(-1/⍺) · R^((1-⍺)/⍺)
+          = τ · R^(-1/⍺ + 1/⍺ - 1)
           = τ · R^(-1)
           = τ / R
 
-This simplification holds exactly for any α.  C_eff = τ/R is therefore
+This simplification holds exactly for any ⍺.  C_eff = τ/R is therefore
 the correct formula when using impedance.py's built-in Zarc element.
 
 Conductivity (requires sample geometry L_m, D_m from config):
@@ -126,7 +126,7 @@ def build_bounds(
     ---------------
     R_i  : [R_drt / 10^R_dec,   R_drt * 10^R_dec]   ← ±R_dec log-decades (default ±1.5)
     τ_i  : [τ_drt / 10^tau_dec, τ_drt * 10^tau_dec] ← ±tau_dec log-decades (default ±1.5)
-    α_i  : [alpha_min,          alpha_max]            ← [0.5, 1.0]
+    ⍺_i  : [alpha_min,          alpha_max]            ← [0.5, 1.0]
     R0   : [max(R0_guess*0.1, 0.5),  max(R0_guess*20, 100)]
 
     Why the R0 floor at 0.1 × R0_guess (or 0.5 Ω)?
@@ -151,8 +151,8 @@ def build_bounds(
     peaks     : DRT peak list from find_drt_peaks()
     R_dec     : R bound in log-decades (default 1.5 → factor ~32 in each direction)
     tau_dec   : τ bound in log-decades (default 1.5 → ±1.5 decades)
-    alpha_min : lower bound for α
-    alpha_max : upper bound for α
+    alpha_min : lower bound for ⍺
+    alpha_max : upper bound for ⍺
 
     R_dec, tau_dec, alpha_min and alpha_max each accept a scalar (applied to
     every peak — the original global behavior) or a per-peak list of length N,
@@ -202,7 +202,7 @@ def build_bounds(
 # ---------------------------------------------------------------------------
 
 def _try_fit(
-    circuit_str:       str,
+    circuit,
     guess:             list[float],
     lower:             list[float],
     upper:             list[float],
@@ -211,10 +211,11 @@ def _try_fit(
     hf_weight:         float,
     weight_by_modulus: bool,
 ) -> dict:
-    """Single optimizer call. Returns dict with converged, params, conf, rmse_rel, etc."""
-    circuit = CustomCircuit(circuit_str, initial_guess=guess)
+    """Single optimizer call. Mutates circuit.initial_guess; returns dict with converged, params, conf, rmse_rel."""
+    circuit.initial_guess = list(guess)
     converged = True
     fit_error = ""
+
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -235,6 +236,7 @@ def _try_fit(
 
     params = circuit.parameters_
     if params is None:
+        converged = False
         params = np.array(guess)
         conf   = np.full(len(params), np.nan)
         rmse_rel = np.inf
@@ -317,6 +319,8 @@ def fit_zarc(
     hf_weight:   float = 0.0,
     n_restarts:  int = 0,
     rmse_tol:    float = 0.02,
+    timeout_s:   float = 30.0,
+    seed:        int | None = None,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
@@ -333,9 +337,9 @@ def fit_zarc(
     R0_guess  : estimate of R∞ (Z_re at highest frequency); auto if None
     R_dec     : R bounds in log-decades (default 1.5 = ±1.5 decades, factor ~32)
     tau_dec   : τ bounds in log-decades (default 1.5 = ±1.5 decades)
-    alpha_init: initial α (default 0.8)
-    alpha_min : lower α bound (default 0.5)
-    alpha_max : upper α bound (default 1.0)
+    alpha_init: initial ⍺ (default 0.8)
+    alpha_min : lower ⍺ bound (default 0.5)
+    alpha_max : upper ⍺ bound (default 1.0)
     weight_by_modulus : default True = modulus-weighted (proportional) residuals,
                 matching the RelaxIS "Proportional weighting (recommended)" mode
                 (manual §10.3). The optimizer minimizes the relative error, which
@@ -398,6 +402,12 @@ def fit_zarc(
             R0_guess = float(hf_pos[0])
         else:
             R0_guess = max(float(np.median(Z_re[Z_re > 0])), 0.5) if np.any(Z_re > 0) else 1.0
+            warnings.warn(
+                "fit_zarc: no HF points with Z_re > 0 found; "
+                "R0_guess derived from LF data and may be unreliable. "
+                "Consider setting R0_guess manually or using r0_max.",
+                UserWarning, stacklevel=2,
+            )
         # Clamp into the explicit R0_max window when set
         if r0_max is not None:
             R0_guess = float(np.clip(R0_guess, 0.01, r0_max))
@@ -429,20 +439,22 @@ def fit_zarc(
                     val = float(vals[j])
                     lower[base + k] = upper[base + k] = initial_guess[base + k] = val
 
+    circuit = CustomCircuit(circuit_str, initial_guess=initial_guess)
+
     _fit_kw = dict(
         Z_exp=Z_exp, freq=freq,
         hf_weight=hf_weight, weight_by_modulus=weight_by_modulus,
     )
 
-    best = _try_fit(circuit_str, initial_guess, lower, upper, **_fit_kw)
+    best = _try_fit(circuit, initial_guess, lower, upper, **_fit_kw)
 
     if n_restarts > 0:
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(seed)
         for _ in range(n_restarts):
             if best["rmse_rel"] < rmse_tol:
                 break
             rnd_guess = _sample_guess(lower, upper, n_peaks, include_r0, rng)
-            candidate = _try_fit(circuit_str, rnd_guess, lower, upper, **_fit_kw)
+            candidate = _try_fit(circuit, rnd_guess, lower, upper, **_fit_kw)
             if candidate["converged"] and candidate["rmse_rel"] < best["rmse_rel"]:
                 best = candidate
 
@@ -469,9 +481,16 @@ def fit_zarc(
         tau_arr   = params[1::3]
         alpha_arr = params[2::3]
 
-    # C_eff = tau / R  (exact for Zarc parametrization, independent of α)
+    # C_eff = tau / R  (exact for Zarc parametrization, independent of ⍺)
     # See module docstring for derivation.
     C_eff_arr = tau_arr / R_arr
+
+    if np.any((alpha_arr <= 0) | (alpha_arr > 1)):
+        warnings.warn(
+            "fit_zarc: one or more alpha values are outside (0, 1] after fitting. "
+            "Check fix_params or bounds — C_eff values may be physically meaningless.",
+            UserWarning, stacklevel=2,
+        )
 
     return {
         "converged":   best["converged"],

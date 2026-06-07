@@ -78,10 +78,10 @@ def compute_drt(
     Z_re:          np.ndarray,
     Z_im:          np.ndarray,
     cv_type:       str   = "mGCV",
-    der_used:      str   = "2nd order",
+    rbf_der:       str   = "2nd order",
     induct_used:   int   = 0,
-    coeff:         float = 0.5,
-    reg_param:     float | None = None,
+    shape_s:       float = 0.5,
+    lambda_val:    float | None = None,
     suppress_output: bool = True,
 ) -> EIS_object:
     """
@@ -97,14 +97,14 @@ def compute_drt(
                   'GCV'            — Generalized Cross-Validation
                   'LC'             — L-curve
                   'custom'         — use reg_param directly (reg_param must be set)
-    der_used    : derivative order for regularization penalty
+    rbf_der     : derivative order for regularization penalty
                   '2nd order' (default) gives smoother, better-shaped peaks
                   '1st order' gives sharper peaks
     induct_used : inductance handling
                   0 = no inductance (default — appropriate for ceramics at 400-600 °C)
                   1 = include inductance term
-    coeff       : FWHM coefficient for Gaussian RBF (default 0.5)
-    reg_param   : fixed regularization λ used when cv_type='custom'.
+    shape_s     : FWHM coefficient for Gaussian RBF — RelaxIS "Shape factor S" (default 0.5)
+    lambda_val  : fixed regularization λ used when cv_type='custom'.
                   Ignored for all other cv_type values.
                   Typical range: 1e-4 (sharp peaks) to 1e-2 (very smooth).
     suppress_output : hide pyDRTtools λ print messages
@@ -118,10 +118,10 @@ def compute_drt(
         .res_re       : fit residuals, real part
         .res_im       : fit residuals, imaginary part
     """
-    if cv_type == "custom" and reg_param is None:
+    if cv_type == "custom" and lambda_val is None:
         raise ValueError(
-            "cv_type='custom' requires reg_param to be set. "
-            "Example: reg_param=1e-3  (higher = smoother DRT)"
+            "cv_type='custom' requires lambda_val to be set. "
+            "Example: lambda_val=1e-3  (higher = smoother DRT)"
         )
 
     # pyDRTtools requires frequency in DESCENDING order (high → low) so that
@@ -135,13 +135,13 @@ def compute_drt(
         rbf_type      = "Gaussian",
         data_used     = "Combined Re-Im Data",
         induct_used   = induct_used,
-        der_used      = der_used,
+        der_used      = rbf_der,
         cv_type       = cv_type,
         shape_control = "FWHM Coefficient",
-        coeff         = coeff,
+        coeff         = shape_s,
     )
-    if reg_param is not None:
-        _kwargs["reg_param"] = reg_param
+    if lambda_val is not None:
+        _kwargs["reg_param"] = lambda_val
 
     if suppress_output:
         buf = io.StringIO()
@@ -229,8 +229,8 @@ def find_drt_peaks(
         # Log-prominence detection: works on log10(γ) so a peak at γ = 5 % of γ_max
         # is still found if its local rise above surrounding valleys is significant.
         # Keep an absolute floor at min_height_frac × γ_max to reject true noise.
-        log_gamma     = np.log10(np.maximum(gamma, 1.0))
-        height_floor  = np.log10(max(min_height_frac * gamma.max(), 1.0))
+        log_gamma     = np.log10(np.maximum(gamma, 1e-6))
+        height_floor  = np.log10(max(min_height_frac * gamma.max(), 1e-6))
         peak_indices, _ = find_peaks(
             log_gamma,
             prominence=float(min_prom_decades),
@@ -258,13 +258,13 @@ def find_drt_peaks(
     for k, idx in enumerate(peak_indices):
         # Left boundary: valley between previous peak and this one
         if k == 0:
-            left_idx = 0
+            left_idx = valley_idx(0, idx)
         else:
             left_idx = valley_idx(peak_indices[k - 1], idx)
 
         # Right boundary: valley between this peak and the next one
         if k == len(peak_indices) - 1:
-            right_idx = n - 1
+            right_idx = valley_idx(idx, n - 1)
         else:
             right_idx = valley_idx(idx, peak_indices[k + 1])
 

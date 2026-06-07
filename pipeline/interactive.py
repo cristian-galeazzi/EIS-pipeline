@@ -15,8 +15,22 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 
-def discover_conditions(sample_dir: Path | str,
-                        require: str | None = "stage2_kk.xlsx") -> list[str]:
+def discover_samples(base_dir: Path | str) -> list[str]:
+    """Return sorted list of sample folder names under base_dir.
+
+    A folder qualifies if it contains a ``Raw data/`` or ``Raw oven*/``
+    subdirectory. ``sample_template/`` is always excluded.
+    """
+    base = Path(base_dir)
+    return sorted(
+        p.name for p in base.iterdir()
+        if p.is_dir()
+        and p.name != "sample_template"
+        and (any(p.glob("Raw data")) or any(p.glob("Raw oven*")))
+    )
+
+
+def discover_conditions(sample_dir: Path | str ) -> list[str]:
     """
     List condition folders under ``{sample_dir}/Results``, sorted.
 
@@ -31,14 +45,19 @@ def discover_conditions(sample_dir: Path | str,
     -------
     list[str] : condition folder names (empty if Results/ does not exist yet).
     """
-    base = Path(sample_dir) / "Results"
-    if not base.exists():
-        return []
-    out = []
-    for d in sorted(base.iterdir()):
-        if d.is_dir() and (require is None or (d / require).exists()):
-            out.append(d.name)
-    return out
+    base = Path(sample_dir) 
+    for source in ["ISM validation", "Raw data", "input_spectra"]:
+        folder = base / source
+        if folder.exists():
+            return sorted(d.name for d in folder.iterdir() if d.is_dir())
+    for folder in sorted(base.glob("Raw oven*")):
+        if folder.is_dir():
+            return sorted(d.name for d in folder.iterdir() if d.is_dir())
+    return []
+    
+def discover_conditions_from_session(cfg: dict) -> list[str]:
+    return sorted(cfg.get("conditions", []))
+
 
 
 def labeled(widget: Any, html_text: str) -> Any:
@@ -87,7 +106,7 @@ def make_focus_panel(
         set_focus(init_cond, init_T)
         return None
 
-    ALL_C, ALL_T = "— all conditions —", "— all T —"
+    ALL_C, ALL_T = "(all conditions)", "(all T)"
     conditions = list(conditions)
     temps      = list(temps)
 
@@ -100,12 +119,12 @@ def make_focus_panel(
         options=[ALL_C] + conditions,
         value=(init_cond if init_cond in conditions else ALL_C),
         description="Condition:", layout=W.Layout(width="470px"),
-        tooltip="FOCUS_CONDITION — process only this condition folder")
+        tooltip="FOCUS_CONDITION: process only this condition folder")
     tdd = W.Dropdown(
         options=[ALL_T] + temps,
         value=(init_T if init_T in temps else ALL_T),
         description="T [°C]:", layout=W.Layout(width="200px"),
-        tooltip="FOCUS_T — process only this temperature")
+        tooltip="FOCUS_T: process only this temperature")
     lbl = W.HTML()
 
     def _sync(*_):
@@ -115,14 +134,14 @@ def make_focus_panel(
             on.button_style = "warning"
             set_focus(cond, T)
             lbl.value = (
-                "<b style='color:#b36b00'>FOCUS active</b> — "
-                f"condition = {cond or 'all'}, T = {T if T is not None else 'all'} "
-                "&mdash; re-run the batch cell to apply.")
+                "<b style='color:#b36b00'>FOCUS active</b> &nbsp;"
+                f"condition: {cond or 'all'}, T: {T if T is not None else 'all'}. "
+                "Re-run the batch cell to apply.")
         else:
             on.button_style = ""
             set_focus(None, None)
-            lbl.value = ("<span style='color:#555'>FOCUS off — "
-                         "all conditions, all temperatures.</span>")
+            lbl.value = ("<span style='color:#555'>FOCUS off. "
+                         "All conditions and temperatures will be processed.</span>")
 
     for w in (on, cdd, tdd):
         w.observe(_sync, names="value")
