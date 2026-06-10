@@ -503,6 +503,7 @@ def build_arrhenius_results(
     df_peaks: pd.DataFrame,
     L_m:      float,
     D_m:      float,
+    t_min:    float | None = None,
 ) -> list[dict]:
     """
     Compute Arrhenius fit results for each peak_id from stage3_fit.xlsx Peaks sheet.
@@ -525,6 +526,11 @@ def build_arrhenius_results(
                Required: peak_id, T_nominal, R_i, tau_i, C_eff_i
                Optional: sigma_Sm_i (recomputed if absent)
     L_m, D_m : sample geometry [m]
+    t_min    : exclude temperatures below this value [°C] from every
+               Arrhenius fit. Use when peak identity is not resolved at
+               low T (variable peak count or merged processes), so the
+               fit covers only the range where peak_id tracks one
+               physical process. None = use all temperatures.
 
     Returns
     -------
@@ -535,6 +541,9 @@ def build_arrhenius_results(
     """
     A_m2    = np.pi * (D_m / 2) ** 2
     results = []
+
+    if t_min is not None:
+        df_peaks = df_peaks[df_peaks["T_nominal"] >= t_min]
 
     for i, pid in enumerate(sorted(df_peaks["peak_id"].unique())):
         sub = df_peaks[df_peaks["peak_id"] == pid].sort_values("T_nominal")
@@ -657,6 +666,7 @@ def plot_arrhenius_panel(
     D_m:          float,
     condition:    str,
     save_dir:     Path | str,
+    t_min:        float | None = None,
 ) -> tuple[plt.Figure, list[dict]]:
     """
     2×2 Arrhenius panel: ln(σT), ln(τ), ln(C), log₁₀(εᵣ).
@@ -674,6 +684,9 @@ def plot_arrhenius_panel(
     L_m, D_m  : sample geometry [m]
     condition : label for title and filename
     save_dir  : output directory
+    t_min     : exclude temperatures below this value [°C] from the
+                Arrhenius fits (see build_arrhenius_results); the active
+                range is annotated on the figure. None = all temperatures.
 
     Returns
     -------
@@ -681,10 +694,15 @@ def plot_arrhenius_panel(
     results is the full list from build_arrhenius_results(); every peak
     is drawn regardless of its Arrhenius R².
     """
-    results = build_arrhenius_results(df_peaks, L_m, D_m)
+    results = build_arrhenius_results(df_peaks, L_m, D_m, t_min=t_min)
     A_m2 = np.pi * (D_m / 2) ** 2
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150, layout="constrained")
+
+    # The figure must declare its own fit range when low-T points are excluded
+    if t_min is not None:
+        axes[0, 0].text(0.03, 0.03, f"Arrhenius fit: T ≥ {t_min:g} °C",
+                        transform=axes[0, 0].transAxes, fontsize=8, color="#555")
 
     _draw_arrhenius_panel(
         axes[0, 0], results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",

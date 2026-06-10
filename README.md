@@ -43,7 +43,7 @@ Each notebook starts with a numbered sample list and saves its settings to
 
 ### Changing parameters: `USE_SAVED_PARAMS`
 
-Once a sample has been processed, Stage 2 and Stage 3 resume their parameters
+Once a sample has been processed, Stages 2, 3 and 4 resume their parameters
 from `session.json`; editing a value in the notebook cell has no effect on its
 own. The `USE_SAVED_PARAMS` switch at the top of each configuration cell makes
 this explicit:
@@ -302,6 +302,7 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `DRT_TAU_MAX`      | 0.1 s    | x-axis upper limit on DRT stacked plot      |
 | `BROUWER_PEAK_ID`  | 1        | Peak index for Brouwer diagram              |
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
+| `ARRHENIUS_T_MIN`  | None     | Exclude T below this [°C] from Arrhenius fits |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
 Axis crops are stored per (condition, T) in `PLOT_WINDOWS`
