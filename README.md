@@ -41,6 +41,24 @@ Copy `sample_template/` to `{SAMPLE_ID}/`, drop your data into `Raw data/` and
 Each notebook starts with a numbered sample list and saves its settings to
 `session.json`, so later stages pick up where the previous one left off.
 
+### Changing parameters: `USE_SAVED_PARAMS`
+
+Once a sample has been processed, Stage 2 and Stage 3 resume their parameters
+from `session.json`; editing a value in the notebook cell has no effect on its
+own. The `USE_SAVED_PARAMS` switch at the top of each configuration cell makes
+this explicit:
+
+- `True` (default): resume the parameters saved in `session.json`. Normal use:
+  your last calibration is picked up automatically.
+- `False`: use the values written in the notebook cell and save them to
+  `session.json`. To change parameters: edit the values, set `False`, run once,
+  then set it back to `True`.
+
+A printout in the configuration cell confirms which source is active.
+Per-spectrum decisions (frequency cuts in `kk_overrides`, manual replica
+`overrides`, per-condition fit tweaks in `condition_params`) live in separate
+`session.json` keys and are not affected by the switch.
+
 ---
 
 ## Requirements
@@ -286,8 +304,9 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
-Axis crops set in the interactive panel are stored in `session.json` and survive
-notebook restarts. Stage 4 requires Stage 3 to have run first (it reads the pellet
+Axis crops are stored per (condition, T) in `PLOT_WINDOWS`
+(`session.json → stage4_params`) and survive notebook restarts.
+Stage 4 requires Stage 3 to have run first (it reads the pellet
 geometry and the fit results from there) and says so explicitly if it has not.
 
 Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (all fitted peaks; R²(τ) of each Arrhenius fit is reported in the activation-energy summary table). Multi-condition: Brouwer p(O₂) diagram.
@@ -318,15 +337,31 @@ least squares. Two M-selection modes are available via `KK_USE_BINARY_M`:
 - **Fixed ratio** (default): M = round(`KK_C` × N), with KK_C = 0.76
   calibrated on the author's dataset. Faster but spectrum-independent.
 
-Compliance is assessed by the normalised residuals:
+Compliance is assessed on the magnitude-normalised residuals:
 
 ```
-W_re(ω) = (Z′_meas − Z′_KK) / |Z_meas|
-W_im(ω) = (Z″_meas − Z″_KK) / |Z_meas|
+Δ_re(ω) = (Z′_meas − Z′_KK) / |Z_meas|
+Δ_im(ω) = (Z″_meas − Z″_KK) / |Z_meas|
 ```
 
-The KK score is the fraction of points with |W| below threshold.
-Spectra scoring below 0.90 are flagged RED and excluded from downstream analysis.
+A KK-compliant spectrum leaves only measurement noise in Δ, so each residual
+vector is tested for normality with the Shapiro-Wilk test. Its statistics
+W_re and W_im approach 1 for gaussian (structure-free) residuals, and the
+overall score is their average: `kk_score = (W_re + W_im) / 2`.
+
+Two classification criteria are available via `KK_USE_W_CRITERIA`:
+
+- **Strict** (default, `False`): GREEN if `kk_score >= 0.97`, YELLOW if
+  `>= 0.90`, RED otherwise. Best for clean spectra.
+- **Ceramic dual criterion** (`True`): GREEN if `W_re >= 0.95` AND
+  `W_im >= 0.93` with at most 20% of points removed by the edge cutoffs
+  (YELLOW: `W_re >= 0.90`, `W_im >= 0.88`, 40%). Looser on Z″ because
+  high-impedance ceramics have intrinsically noisier imaginary parts;
+  enable it only when the strict score rejects spectra that look valid by eye.
+
+Note that μ (the sign-change fraction) is used only to select M; spectrum
+quality is always judged by the W statistics. RED spectra are excluded from
+downstream analysis.
 
 ### Stage 3 - Distribution of Relaxation Times
 
