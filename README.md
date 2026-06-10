@@ -26,6 +26,23 @@ modified; results are written to `{sample_id}/Results/`. No network calls are ma
 
 ---
 
+## Quickstart
+
+```bash
+git clone https://github.com/cristian-galeazzi/eis-pipeline.git
+cd eis-pipeline
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+jupyter lab          # or open the folder in VS Code
+```
+
+Copy `sample_template/` to `{SAMPLE_ID}/`, drop your data into `Raw data/` and
+`Raw oven/`, then run the notebooks in order: stage0 → stage1 → stage2 → stage3 → stage4.
+Each notebook starts with a numbered sample list and saves its settings to
+`session.json`, so later stages pick up where the previous one left off.
+
+---
+
 ## Requirements
 
 Python ≥ 3.10. Install dependencies:
@@ -49,7 +66,7 @@ pip install -r requirements.txt
 ## Folder layout
 
 ```
-EIS program/
+eis-pipeline/
 │
 ├── pipeline/               ← Python modules
 │   ├── ingest.py           ← ISM file reader
@@ -179,7 +196,10 @@ Parses furnace logs and plots T vs time with plateau annotations.
 | -------------------- | ------- | ------------------------------- |
 | `TABLE_INTERVAL_S` | 300 s   | Plateau table sampling interval |
 
-`sample_id` is entered via `input()`. Conditions are selected with the widget below the import cell and saved to `session.json`.
+`sample_id` is picked from a numbered list via `input()`. `TABLE_INTERVAL_S` is set
+with a small widget in the config cell and saved to `session.json` on every change.
+Conditions are selected with the checkbox panel below the import cell; the selection
+is saved to `session.json` and reused by Stage 1.
 
 ---
 
@@ -195,7 +215,10 @@ Matches each `.ism` file to its furnace window, assigns a temperature label and 
 | `T_ROUND_STEP`      | 25 °C     | Temperature rounding step                 |
 | `T_PLATEAU_RANGE`   | (395, 605) | Valid plateau range [°C]                 |
 
-`sample_id` and `conditions` are read from `session.json` (set in stage 0).
+`sample_id` and `conditions` are read from `session.json` (set in stage 0): this
+stage has no condition selector of its own. The matching cell prints one summary
+row per condition; the full per-file tables appear automatically when a temperature
+or ordering mismatch is detected, or on demand with `SHOW_DETAILS = True`.
 
 Status codes: `VALID`, `UNSTABLE`, `NEAR_TRANSITION`, `OUT_OF_RANGE`, `OUTSIDE_RANGE`.
 
@@ -214,7 +237,7 @@ Applies the Lin-KK test [Schönleber et al., 2014] to each spectrum and selects 
 | --------------------- | ------- | ------------------------------------------ |
 | `KK_C`              | 0.76    | M = round(KK_C × N)                       |
 | `KK_MU_TARGET`      | 0.50    | Sign-change fraction target                |
-| `KK_F_MIN_HARD`     | 50 Hz   | Hard lower frequency cutoff                |
+| `KK_F_MIN_HARD`     | 80 Hz   | Hard lower frequency cutoff                |
 | `KK_USE_W_CRITERIA` | False   | Ceramic-aware dual criterion (W_re + W_im) |
 | `KK_OVERRIDES`      | `{}`  | Per-(condition, T) frequency overrides     |
 | `OVERRIDES`         | `{}`  | Manual replica selection                   |
@@ -262,6 +285,10 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `BROUWER_PEAK_ID`  | 1        | Peak index for Brouwer diagram              |
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
+
+Axis crops set in the interactive panel are stored in `session.json` and survive
+notebook restarts. Stage 4 requires Stage 3 to have run first (it reads the pellet
+geometry and the fit results from there) and says so explicitly if it has not.
 
 Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (all fitted peaks; R²(τ) of each Arrhenius fit is reported in the activation-energy summary table). Multi-condition: Brouwer p(O₂) diagram.
 
@@ -383,7 +410,8 @@ pytest tests/test_engine_golden.py
 
 ## Processing a new sample
 
-1. Create `{sample_id}/` with `Raw data/` and `Raw oven/` sub-folders.
+1. Copy `sample_template/` to `{sample_id}/` and rename the condition folder(s)
+   inside `Raw data/` following the naming convention above.
 2. Run stage0 through stage4 in order. The first cell of each notebook prompts for settings or reads them from `session.json`.
 
 The pipeline discovers conditions and temperatures automatically.
@@ -411,5 +439,17 @@ The pipeline discovers conditions and temperatures automatically.
 - G. Wilson et al., *Best Practices for Scientific Computing*, PLoS Biology 12(1) (2014) e1001745.
 - G. Wilson et al., *Good Enough Practices in Scientific Computing*, PLoS Computational Biology 13(6) (2017) e1005510.
 - A. Scopatz, K. D. Huff, *Effective Computation in Physics*, O'Reilly Media (2015).
+
+---
+
+## License
+
+MIT, see [LICENSE](LICENSE).
+
+## How to cite
+
+Citation metadata are in [CITATION.cff](CITATION.cff); GitHub shows a "Cite this
+repository" button generated from it. A Zenodo DOI will be added with the first
+public release.
 
 ---
