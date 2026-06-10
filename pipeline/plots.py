@@ -554,9 +554,21 @@ def build_arrhenius_results(
         else:
             sigma = L_m / (R * A_m2)
 
-        ln_sigmaT = np.log(sigma * T_K)
-        ln_tau    = np.log(tau)
-        ln_C      = np.log(C)
+        def _safe_ln(vals: np.ndarray, label: str) -> np.ndarray:
+            # log(0) gives -inf, which passes the NaN-only mask in
+            # _arrhenius_linreg and poisons linregress; sink bad values to NaN.
+            bad = ~(vals > 0)   # catches <= 0 and NaN
+            if bad.any():
+                warnings.warn(
+                    f"Peak {pid}: {int(bad.sum())} non-positive {label} value(s) "
+                    "excluded from the Arrhenius fit.", stacklevel=3)
+            out = np.full(vals.shape, np.nan)
+            out[~bad] = np.log(vals[~bad])
+            return out
+
+        ln_sigmaT = _safe_ln(sigma * T_K, "sigma*T")
+        ln_tau    = _safe_ln(tau,         "tau")
+        ln_C      = _safe_ln(C,           "C_eff")
 
         Ea_cond, Ea_cond_err, R2_cond, slope_cond, int_cond = _arrhenius_linreg(inv_T_fit, ln_sigmaT)
         _,       Ea_pol_err,  R2_pol,  slope_pol,  int_pol  = _arrhenius_linreg(inv_T_fit, ln_tau)
