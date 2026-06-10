@@ -463,10 +463,14 @@ def plot_bode(
     # the fit when not supplied; drawn in a wheat box like the reference notebook.
     if model_label is None:
         n_set = sorted({len(fp["R"]) for fp in fit_params.values() if fp})
+        # R0 appears in the label only when it is actually in the circuit
+        # (ZARC_INCLUDE_R0=False stores R0=0 in every fit)
+        has_r0 = any(abs(fp.get("R0") or 0) > 0 for fp in fit_params.values() if fp)
+        prefix = "R0–" if has_r0 else ""
         if len(n_set) == 1:
-            model_label = "R0–" + "–".join(["Zarc"] * n_set[0])
+            model_label = prefix + "–".join(["Zarc"] * n_set[0])
         elif n_set:
-            model_label = f"R0 + Zarc×{n_set[0]}–{n_set[-1]}"
+            model_label = f"{prefix}Zarc×{n_set[0]}–{n_set[-1]}"
         else:
             model_label = ""
     if model_label:
