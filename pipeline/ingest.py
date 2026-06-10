@@ -24,6 +24,7 @@ Zahner returns Z_im with negative sign -> sign is flipped in load_ism().
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -288,7 +289,10 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     raw  = path.read_text(encoding="utf-8", errors="replace")
 
     # detect separator from the header line
-    header_line = raw.splitlines()[0]
+    _lines = raw.splitlines()
+    if not _lines or not raw.strip():
+        raise ValueError(f"{path.name}: file is empty")
+    header_line = _lines[0]
     if "\t" in header_line:
         sep = "\t"
     elif ";" in header_line:
@@ -312,7 +316,11 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     Z_re = df["Z_re"].to_numpy(dtype=float)
     Z_im = df["Z_im"].to_numpy(dtype=float)
 
+    # mean() over a column with NaNs returns NaN, which would pass the
+    # "is not None" checks downstream and poison the temperature filters
     T_mean = float(df["temperature"].mean()) if "temperature" in df.columns else None
+    if T_mean is not None and math.isnan(T_mean):
+        T_mean = None
     T_nom  = _extract_T_csv_only(path.name)
 
     rec           = IsmRecord(path=path, freq=freq, Z_re=Z_re, Z_im=Z_im,

@@ -36,6 +36,8 @@ CLAUDE.md
 
 # Session config; user-specific, never commit
 session.json
+session.json.bak
+session.json*.tmp
 
 # Knowledge graph; generated locally, never commit
 graphify-out/

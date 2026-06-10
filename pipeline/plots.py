@@ -175,7 +175,9 @@ def _arrhenius_linreg(
     valid = ~np.isnan(y) & ~np.isnan(inv_T)
     if valid.sum() < 2:
         return np.nan, np.nan, np.nan, np.nan, np.nan
-    # ln(σT) vs 1/T: slope < 0 → Ea = -slope·k; ln(τ) vs 1/T: slope > 0 → Ea = +slope·k
+    # This function always returns Ea = -slope*KB, the right sign for
+    # ln(σT) vs 1/T (slope < 0). For ln(τ) and ln(C_eff), where the slope
+    # sign differs, callers recompute Ea from the returned raw slope.
     slope, intercept, r, _, se = stats.linregress(inv_T[valid], y[valid])
     return -slope * KB, se * KB, r**2, slope, intercept
 
@@ -618,6 +620,8 @@ def _draw_arrhenius_panel(
             label=f"{r['Peak']}: ${ea_label}$ = {r[ea_key]:.2f} eV",
         )
         fit_x = np.linspace(r["inv_T"].min() - 0.02, r["inv_T"].max() + 0.02, 100)
+        # axis shows 1000/T while the regression was done on 1/T,
+        # hence the /1000 when evaluating the fit line in display units
         fit_y = r[int_key] + r[slope_key] * (fit_x / 1000)
         ax.plot(fit_x, fit_y, "-", color=r["color"], linewidth=1.0, alpha=0.7)
         if ea_err_key and not np.isnan(r.get(ea_err_key, np.nan)):
@@ -765,11 +769,27 @@ def plot_brouwer(
     """
     sub = df_all[df_all["peak_id"] == peak_id].copy()
     sub["sigma_Scm"] = sub["sigma_Sm_i"] / 100.0      # S/m → S/cm
-    sub["lg_pO2"]    = np.log10(sub["pO2_mean"].astype(float))
-    sub["lg_sigma"]  = np.log10(sub["sigma_Scm"])
+
+    # log10 of zero/negative/NaN values would silently corrupt the axis
+    # limits below (NaN min/max), so drop those rows up front
+    _pO2   = pd.to_numeric(sub["pO2_mean"], errors="coerce")
+    _sigma = pd.to_numeric(sub["sigma_Scm"], errors="coerce")
+    _ok    = (_pO2 > 0) & (_sigma > 0)
+    if (~_ok).any():
+        warnings.warn(f"Brouwer: dropping {int((~_ok).sum())} row(s) with "
+                      f"non-positive or missing pO2/sigma", stacklevel=2)
+    sub = sub[_ok]
+    sub["lg_pO2"]   = np.log10(sub["pO2_mean"].astype(float))
+    sub["lg_sigma"] = np.log10(sub["sigma_Scm"])
 
     if temps_to_plot is not None:
         sub = sub[sub["T_nominal"].isin(temps_to_plot)]
+
+    if sub.empty:
+        raise ValueError(
+            f"Brouwer: no plottable rows for peak_id={peak_id} "
+            f"(check pO2_mean/sigma values and temps_to_plot)"
+        )
 
     fig, ax = plt.subplots(figsize=(7, 5.5), dpi=150, layout="constrained")
 

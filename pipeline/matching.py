@@ -190,6 +190,11 @@ def parse_oven_file(filepath: Path) -> dict:
 
     # Build clean working DataFrame with named columns
     # Column indices match Eurotherm .txt format (0-based): 0=Time_s, 1=Tsample, 3=Toven, 7=pO2
+    if raw_df.shape[1] < 8:
+        raise ValueError(
+            f"{filepath.name}: furnace log has {raw_df.shape[1]} columns, "
+            f"expected >= 8 (Eurotherm format with pO2 at column 8)"
+        )
     df = pd.DataFrame()
     df["Time_s"]  = pd.to_numeric(raw_df.iloc[:, 0], errors="coerce")
     df["Tsample"] = pd.to_numeric(raw_df.iloc[:, 1], errors="coerce")
@@ -198,14 +203,17 @@ def parse_oven_file(filepath: Path) -> dict:
     df.dropna(subset=["Time_s", "Tsample", "pO2"], inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    # Add absolute datetime column (critical for ISM timestamp matching)
-    if start_dt is not None:
-        df["abs_datetime"] = start_dt + pd.to_timedelta(df["Time_s"], unit="s")
-    else:
-        # Fallback: abs_datetime unavailable, timestamp matching will not work
-        df["abs_datetime"] = None
-        print(f"  [WARNING] Could not parse full date from '{start_date_raw}'. "
-              f"Timestamp matching will require same-day assumption.")
+    # Add absolute datetime column (critical for ISM timestamp matching).
+    # A None column here would make every window comparison False and mark
+    # all ISM files OUTSIDE_RANGE with no hint of the real cause, so an
+    # unparseable start date must fail loudly.
+    if start_dt is None:
+        raise ValueError(
+            f"{filepath.name}: could not parse start date '{start_date_raw}' "
+            f"(expected DD.MM.YYYY_HH:MM:SS). Without it, ISM timestamp "
+            f"matching is impossible."
+        )
+    df["abs_datetime"] = start_dt + pd.to_timedelta(df["Time_s"], unit="s")
 
     return {
         "sample_name":    sample_name,

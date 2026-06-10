@@ -245,7 +245,9 @@ def _try_fit(
     else:
         conf  = circuit.conf_ if hasattr(circuit, "conf_") else np.full_like(params, np.nan)
         Z_fit = circuit.predict(freq)
-        mod_exp  = np.abs(Z_exp)
+        # floor avoids inf/nan in the quality metrics if a degenerate point
+        # has |Z| = 0; real spectra are orders of magnitude above 1e-12 Ohm
+        mod_exp  = np.maximum(np.abs(Z_exp), 1e-12)
         rel_re   = (Z_fit.real - Z_exp.real) / mod_exp
         rel_im   = (Z_fit.imag - Z_exp.imag) / mod_exp
         rmse_rel = float(np.sqrt(np.mean(rel_re**2 + rel_im**2)))

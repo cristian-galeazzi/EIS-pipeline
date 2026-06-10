@@ -30,31 +30,44 @@ def discover_samples(base_dir: Path | str) -> list[str]:
     )
 
 
-def discover_conditions(sample_dir: Path | str ) -> list[str]:
+def discover_conditions(sample_dir: Path | str,
+                        require: str | None = None) -> list[str]:
     """
-    List condition folders under ``{sample_dir}/Results``, sorted.
+    List condition folder names for a sample, sorted.
+
+    Sources are tried in order and the first existing one wins:
+    ``ISM validation/``, ``Raw data/``, ``input_spectra/``, then any
+    ``Raw oven*/`` folder. This favours the most processed source, so the
+    list matches what the later stages can actually consume.
 
     Parameters
     ----------
     sample_dir : sample root folder (e.g. ``EIS program/SAMPLE_ID``).
-    require    : if given, only folders containing this file are returned
-                 (e.g. ``"stage2_kk.xlsx"`` for NB03, ``"stage3_fit.xlsx"`` for NB04).
-                 Pass ``None`` to list every sub-folder.
+    require    : if given, keep only conditions whose ``Results/{condition}/``
+                 folder contains this file (e.g. ``"stage2_kk.xlsx"`` before
+                 stage 3, ``"stage3_fit.xlsx"`` before stage 4).
 
     Returns
     -------
-    list[str] : condition folder names (empty if Results/ does not exist yet).
+    list[str] : condition folder names (empty if no source folder exists).
     """
-    base = Path(sample_dir) 
+    base = Path(sample_dir)
+
+    def _filtered(names: list[str]) -> list[str]:
+        if require is None:
+            return sorted(names)
+        return sorted(n for n in names if (base / "Results" / n / require).exists())
+
     for source in ["ISM validation", "Raw data", "input_spectra"]:
         folder = base / source
         if folder.exists():
-            return sorted(d.name for d in folder.iterdir() if d.is_dir())
+            return _filtered([d.name for d in folder.iterdir() if d.is_dir()])
     for folder in sorted(base.glob("Raw oven*")):
         if folder.is_dir():
-            return sorted(d.name for d in folder.iterdir() if d.is_dir())
+            return _filtered([d.name for d in folder.iterdir() if d.is_dir()])
     return []
-    
+
+
 def discover_conditions_from_session(cfg: dict) -> list[str]:
     return sorted(cfg.get("conditions", []))
 

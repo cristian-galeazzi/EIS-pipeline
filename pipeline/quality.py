@@ -22,14 +22,15 @@ Two-pass approach (mirrors RelaxIS interactive trimming):
     Pass 2 — re-fit on trimmed spectrum → compute kk_score from trimmed residuals
     Frequency cutoffs from Pass 1 are propagated to Stage 3.
 
-M selection — binary search mode (default, mirrors RelaxIS binary search):
+M selection, automatic mode (use_binary_M=True):
     Finds the smallest M such that the sign-change fraction μ ≥ mu_target (0.50).
-    μ = fraction of adjacent RC weight pairs with opposite signs.
-    This statistic is monotonically non-decreasing with M, enabling binary search:
+    μ = fraction of adjacent RC weight pairs with opposite signs:
         μ → 0  for small M (underfitting: all RC weights same sign)
         μ → 1  for large M (overfitting: alternating RC weight signs)
+    The trend is not monotonic, so M is found by a linear scan from M = 3
+    upward (a bisection could skip valid M values).
     Target μ = 0.50 balances the two regimes (RelaxIS default).
-    Linear mode (use_binary_M=False): M = round(c × N_freq), c default 0.85.
+    Fixed mode (use_binary_M=False): M = round(c × N_freq), c default 0.85.
 
 Adaptive frequency cutoffs (IQR-based, mirrors RelaxIS KK Filter §7.1.6):
     iqr_fence_factor — fence = Q3_interior + factor × IQR_interior.  Default 2.0.
@@ -162,10 +163,11 @@ def _mu_sign_changes(R_weights: np.ndarray) -> float:
 
     μ = (number of sign changes between consecutive weights) / (M − 1)
 
-    Monotonically non-decreasing with M:
-        μ → 0  for small M (underfitting)
-        μ → 1  for large M (overfitting)
-    Used as the binary-search criterion to find optimal M.
+    Tends towards 0 for small M (underfitting: all RC weights same sign)
+    and towards 1 for large M (overfitting: alternating signs), but the
+    trend is NOT monotonic: individual M values can dip below or jump
+    above their neighbours. Used as the stopping criterion in the linear
+    M scan of _find_optimal_M().
     """
     if len(R_weights) < 2:
         return 0.0
@@ -182,14 +184,18 @@ def _find_optimal_M(
     add_inductance: bool  = False,
 ) -> int:
     """
-    Binary search for the optimal number of RC elements M.
+    Linear scan for the optimal number of RC elements M.
 
-    Finds the smallest M such that μ(M) ≥ mu_target, where μ is the
-    sign-change fraction of adjacent RC weights.  This mirrors the
-    RelaxIS binary search mode.
+    Returns the smallest M such that μ(M) ≥ mu_target, where μ is the
+    sign-change fraction of adjacent RC weights.
+
+    A linear scan (not bisection) is required because μ(M) is not
+    monotonic in M: bisection can skip over valid M values and settle on
+    a larger one. Scanning upward from M = 3 guarantees the true minimum
+    and stops at the first hit, so in practice it costs only a few more
+    Lin-KK fits than bisection did.
 
     Search range: M ∈ [3, N−1].
-    Maximum 30 bisection steps (more than enough for any N ≤ 10000).
 
     Parameters
     ----------
@@ -202,25 +208,16 @@ def _find_optimal_M(
     -------
     int : optimal M (clamped to [3, N−1])
     """
-    N    = len(freq)
-    M_lo = 3
-    M_hi = N - 1
-    M_best = max(3, round(0.85 * N))   # fallback if search fails
-
-    while M_lo <= M_hi:
-        M_mid = (M_lo + M_hi) // 2
-        r     = _fit_linkk(freq, Z_re, Z_im,
-                            M_override=M_mid,
-                            add_inductance=add_inductance)
+    N = len(freq)
+    for M in range(3, N):
+        r  = _fit_linkk(freq, Z_re, Z_im,
+                        M_override=M,
+                        add_inductance=add_inductance)
         mu = _mu_sign_changes(r["R_weights"])
+        if mu >= mu_target:
+            return M
 
-        if mu < mu_target:
-            M_lo = M_mid + 1       # too few elements — increase M
-        else:
-            M_best = M_mid         # feasible candidate (μ ≥ target)
-            M_hi   = M_mid - 1    # try to find a smaller feasible M
-
-    return max(3, M_best)
+    return max(3, round(0.85 * N))   # no M satisfied μ ≥ target
 
 
 def _edge_cutoffs_adaptive(
