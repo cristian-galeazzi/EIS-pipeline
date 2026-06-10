@@ -304,7 +304,18 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
 | `ARRHENIUS_T_MIN`  | None     | Exclude T below this [°C] from Arrhenius fits |
 | `TRANSF_EXPONENT`  | 0.25     | Brouwer exponent x for the σ_ion/σ_el split |
+| `TRANSF_PEAK_IDS`  | None     | Peaks shown in transference figures (None = all) |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
+
+Final Nyquist/Bode figures show only physically valid points: rows with
+Z′ < 0 or Z″ < 0 (high-frequency instrumental artifacts — no passive circuit
+can produce them) are removed by the same criterion applied before the
+Lin-KK test, and were verified not to affect the fitted parameters.
+The transference figures are drawn only for the peaks listed in
+`TRANSF_PEAK_IDS`: t_ion is physically meaningful for transport processes
+(bulk, grain boundary), not for electrode arcs, whose pO₂ dependence
+reflects the oxygen-exchange kinetics at the electrode interface. The
+exported table still covers every peak.
 
 Axis crops are stored per (condition, T) in `PLOT_WINDOWS`
 (`session.json → stage4_params`) and survive notebook restarts.

@@ -976,6 +976,7 @@ def plot_brouwer_transference(
     fig, (ax_s, ax_t) = plt.subplots(1, 2, figsize=(12, 5.2), dpi=150,
                                      layout="constrained")
 
+    _t_curves: list[tuple] = []
     for T in sorted(df_t["T_nominal"].unique()):
         g     = df_t[df_t["T_nominal"] == T].sort_values("pO2")
         sty   = _TEMP_STYLE_BROUWER.get(
@@ -995,32 +996,67 @@ def plot_brouwer_transference(
                          lw=0.8, ls="--", alpha=0.5, zorder=2)
 
         t_grid = s_ion / (s_ion + s_p * p_grid ** exponent + s_n * p_grid ** (-exponent))
-        ax_t.plot(np.log10(p_grid), t_grid, "-", color=sty["color"], lw=1.4)
-        ax_t.plot(np.log10(g["pO2"]), g["t_ion"],
-                  marker=sty["marker"], linestyle="none", color=sty["color"],
-                  markersize=sty["ms"] - 1, markeredgecolor="none", zorder=5)
+        _t_curves.append((T, sty, p_grid, t_grid, g))
 
+    # Curves that coincide numerically (typically the sigma_ion = 0 group on
+    # the zero line) are drawn with interleaved dash offsets and rotated
+    # markers, so every temperature stays visible on the shared line.
+    _groups: dict = {}
+    for entry in _t_curves:
+        key = (len(entry[3]), tuple(np.round(entry[3][::24], 5)))
+        _groups.setdefault(key, []).append(entry)
+    for members in _groups.values():
+        n = len(members)
+        for i, (T, sty, p_grid, t_grid, g) in enumerate(members):
+            if n == 1:
+                ax_t.plot(np.log10(p_grid), t_grid, "-", color=sty["color"], lw=1.4)
+                _mev = None
+            else:
+                ax_t.plot(np.log10(p_grid), t_grid,
+                          linestyle=(i * 5, (5, 5 * (n - 1))),
+                          color=sty["color"], lw=1.8)
+                _mev = (i, n)
+            ax_t.plot(np.log10(g["pO2"]), g["t_ion"],
+                      marker=sty["marker"], linestyle="none", color=sty["color"],
+                      markersize=sty["ms"] - 1, markeredgecolor="none",
+                      markevery=_mev, zorder=5)
+
+    # The fit model lives in the panel title (it can never collide with data);
+    # the ionic component gets its own legend handle instead of a corner note.
+    ax_s.set_title(
+        r"Patterson fit:  $\sigma = \sigma_{ion} + \sigma_p\,p^{+%g} + \sigma_n\,p^{-%g}$"
+        % (exponent, exponent), fontsize=10)
     ax_s.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
     ax_s.set_ylabel(
         r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
-    ax_s.legend(loc="upper left", frameon=True, fontsize=8, ncol=2,
-                handlelength=1.3, borderpad=0.5, labelspacing=0.3,
+    _handles, _labels = ax_s.get_legend_handles_labels()
+    _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
+    _labels.append(r"$\sigma_{ion}$ (fit)")
+    ax_s.legend(_handles, _labels, loc="upper left", frameon=True, fontsize=8,
+                ncol=2, handlelength=1.3, borderpad=0.5, labelspacing=0.3,
                 columnspacing=0.8)
-    ax_s.text(0.98, 0.02,
-              r"fit: $\sigma_{ion} + \sigma_p\,p^{+%g} + \sigma_n\,p^{-%g}$"
-              % (exponent, exponent) + "\n(dashed: ionic component)",
-              transform=ax_s.transAxes, fontsize=7, ha="right", va="bottom",
-              fontstyle="italic", color="#444444")
 
+    ax_t.set_title("ionic transference number", fontsize=10)
     ax_t.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
     ax_t.set_ylabel(r"$t_{ion} = \sigma_{ion}/\sigma_{tot}$", fontsize=12)
-    ax_t.set_ylim(-0.05, 1.05)
-    ax_t.axhline(1.0, color="black", lw=0.8, ls=":", alpha=0.6)
-    ax_t.axhline(0.0, color="black", lw=0.8, ls=":", alpha=0.6)
-    ax_t.text(0.02, 0.96, "purely ionic", transform=ax_t.transAxes,
-              fontsize=7, va="top", fontstyle="italic", color="#444444")
-    ax_t.text(0.02, 0.04, "purely electronic", transform=ax_t.transAxes,
-              fontsize=7, va="bottom", fontstyle="italic", color="#444444")
+    # Zoom on the data range so overlapping curves separate; the 0/1 guides
+    # and their labels appear only when they fall inside the window.
+    _t_lo, _t_hi = float(df_t["t_ion"].min()), float(df_t["t_ion"].max())
+    _pad = max(0.06, 0.15 * (_t_hi - _t_lo))
+    y_lo, y_hi = max(-0.04, _t_lo - _pad), min(1.04, _t_hi + _pad)
+    ax_t.set_ylim(y_lo, y_hi)
+    if y_hi >= 1.0:
+        ax_t.axhline(1.0, color="black", lw=0.8, ls=":", alpha=0.6)
+        ax_t.text(0.985, 1.0, "purely ionic", transform=ax_t.get_yaxis_transform(),
+                  fontsize=7, ha="right", va="bottom", fontstyle="italic",
+                  color="#444444",
+                  bbox=dict(fc="white", ec="none", alpha=0.7, pad=0.5))
+    if y_lo <= 0.0:
+        ax_t.axhline(0.0, color="black", lw=0.8, ls=":", alpha=0.6)
+        ax_t.text(0.985, 0.0, "purely electronic", transform=ax_t.get_yaxis_transform(),
+                  fontsize=7, ha="right", va="top", fontstyle="italic",
+                  color="#444444",
+                  bbox=dict(fc="white", ec="none", alpha=0.7, pad=0.5))
 
     for ax in (ax_s, ax_t):
         ax.tick_params(direction="in", which="major", labelsize=10, width=1.2, length=4)
