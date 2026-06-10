@@ -94,6 +94,48 @@ def discover_conditions_from_session(cfg: dict) -> list[str]:
     return sorted(cfg.get("conditions", []))
 
 
+def make_condition_selector(
+    conditions: Sequence[str],
+    title:      str = "Select gas conditions:",
+) -> Callable[[], list[str]]:
+    """
+    Checkbox-per-condition panel with a select/deselect-all button,
+    displayed immediately. One implementation for stages 0, 2 and 3
+    (stage 1 inherits the stage 0 selection via session.json).
+
+    Returns
+    -------
+    Zero-argument callable yielding the currently selected condition names.
+    Degrades to "all selected" when ipywidgets is not installed.
+    """
+    conditions = list(conditions)
+    try:
+        import ipywidgets as W
+        from IPython.display import display
+    except Exception as exc:  # pragma: no cover - depends on environment
+        print(f"[INFO] condition selector needs ipywidgets ({exc}); "
+              "all conditions selected.")
+        return lambda: list(conditions)
+
+    checkboxes = [
+        W.Checkbox(value=True, description=c,
+                   layout=W.Layout(width="480px"),
+                   style={"description_width": "0px"})
+        for c in conditions
+    ]
+    btn = W.Button(description="Deselect all", layout=W.Layout(width="140px"))
+
+    def _toggle(b):
+        all_checked = all(cb.value for cb in checkboxes)
+        for cb in checkboxes:
+            cb.value = not all_checked
+        b.description = "Select all" if all_checked else "Deselect all"
+
+    btn.on_click(_toggle)
+    display(W.VBox([W.Label(title)] + checkboxes + [btn]))
+    return lambda: [cb.description for cb in checkboxes if cb.value]
+
+
 
 def labeled(widget: Any, html_text: str) -> Any:
     """
