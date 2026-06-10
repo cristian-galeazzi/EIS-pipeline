@@ -18,7 +18,10 @@ reviewed and validated against experimental data.
 
 This repository contains code only. No measurement data, fitted parameters or sample
 identifiers are committed. Sample names are entered at runtime via `input()` and stored
-locally in `session.json` (gitignored). Raw `.ism` files and furnace logs are never
+locally in `session.json` (gitignored). Saves are atomic, the previous version is
+kept as `session.json.bak`, and per-condition parameters are merged rather than
+overwritten, so re-running one stage cannot erase calibrations from another.
+Raw `.ism` files and furnace logs are never
 modified; results are written to `{sample_id}/Results/`. No network calls are made.
 
 ---
@@ -231,7 +234,7 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 | Parameter                 | Default  | Purpose                                     |
 | ------------------------- | -------- | ------------------------------------------- |
 | `L_m`, `D_m`          | required | Pellet thickness and diameter [m]           |
-| `DRT_REG_PARAM`         | 4e-5     | Regularisation λ (custom mode)             |
+| `DRT_LAMBDA`            | 4e-5     | Regularisation λ (custom mode)             |
 | `PEAK_MIN_PROM_DECADES` | 0.01     | Log-prominence threshold for peak detection |
 | `ZARC_INCLUDE_R0`       | True     | Include series R₀ in circuit               |
 | `ZARC_R0_MAX`           | 200 Ω   | Upper bound on R₀                          |
@@ -261,7 +264,7 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `TAU_R2_THRESHOLD` | 0.97     | R² floor to flag a peak as physically real |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
-Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2, C_eff magnitude, τ consistency. Multi-condition: Brouwer p(O₂) diagram.
+Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (only peaks with R²(τ) ≥ `TAU_R2_THRESHOLD`). Multi-condition: Brouwer p(O₂) diagram.
 
 ---
 
@@ -281,11 +284,13 @@ Z_KK(ω) = R_∞ + Σₖ rₖ / (1 + jωτₖ),   k = 1 … M
 τₖ are log-spaced across the measured frequency range; rₖ are fitted by
 least squares. Two M-selection modes are available via `KK_USE_BINARY_M`:
 
-- **Binary search** (default): finds the smallest M such that the
-  sign-change fraction μ of adjacent RC weights satisfies μ ≥ `KK_MU_TARGET`
-  (default 0.50). Adaptive per spectrum; RelaxIS-compatible.
-- **Fixed ratio**: M = round(`KK_C` × N), with KK_C = 0.76 calibrated on
-  the author's dataset. Faster but spectrum-independent.
+- **Automatic scan** (`KK_USE_BINARY_M = True`): finds the smallest M such
+  that the sign-change fraction μ of adjacent RC weights satisfies
+  μ ≥ `KK_MU_TARGET` (default 0.50). M is scanned linearly from 3 upward
+  because μ(M) is not monotonic, so a bisection could skip valid values.
+  Adaptive per spectrum.
+- **Fixed ratio** (default): M = round(`KK_C` × N), with KK_C = 0.76
+  calibrated on the author's dataset. Faster but spectrum-independent.
 
 Compliance is assessed by the normalised residuals:
 
@@ -322,7 +327,7 @@ a factor of ln(10) ≈ 2.303.
 minimise  ‖Aγ − Z‖² + λ ‖Lγ‖²
 ```
 
-λ is set via `DRT_REG_PARAM` (custom mode) or selected automatically by GCV.
+λ is set via `DRT_LAMBDA` (custom mode) or selected automatically by GCV.
 
 ### Stage 3 - Zarc equivalent circuit
 
@@ -334,6 +339,13 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (jωτᵢ)^αᵢ)
 
 where R₀ is the series resistance, Rᵢ the arc resistance, τᵢ the relaxation
 time, and αᵢ ∈ (0,1] the CPE exponent of the i-th process.
+
+Fits run with multi-start (`ZARC_N_RESTARTS`) and a warm-start chain down
+the temperature ladder of each condition. Restart guesses use a fixed
+per-(condition, T) seed, so results are reproducible run to run.
+Independent conditions are fitted in parallel processes (`ZARC_N_JOBS`,
+0 = one per CPU core); the warm-start chain stays sequential within each
+condition, so parallelism does not change the numbers.
 
 ### Stage 4 - Derived quantities
 

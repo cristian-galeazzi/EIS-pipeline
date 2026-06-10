@@ -606,7 +606,6 @@ def _draw_arrhenius_panel(
     ea_key:      str,
     ea_label:    str,
     ylabel:      str,
-    ea_err_key:  str | None = None,
 ) -> None:
     """Draw one Arrhenius sub-panel onto ax (internal helper)."""
     for r in results:
@@ -624,12 +623,6 @@ def _draw_arrhenius_panel(
         # hence the /1000 when evaluating the fit line in display units
         fit_y = r[int_key] + r[slope_key] * (fit_x / 1000)
         ax.plot(fit_x, fit_y, "-", color=r["color"], linewidth=1.0, alpha=0.7)
-        if ea_err_key and not np.isnan(r.get(ea_err_key, np.nan)):
-            # 95% CI band: propagate slope SE (eV → 1/K) to fit-line uncertainty
-            se_slope = r[ea_err_key] / KB
-            ci = se_slope * np.abs(fit_x / 1000)
-            ax.fill_between(fit_x, fit_y - ci, fit_y + ci,
-                            alpha=0.12, color=r["color"], linewidth=0)
 
     ax.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
     ax.set_ylabel(ylabel, fontsize=12)
@@ -643,11 +636,12 @@ def _draw_arrhenius_panel(
 # ---------------------------------------------------------------------------
 
 def plot_arrhenius_panel(
-    df_peaks:  pd.DataFrame,
-    L_m:       float,
-    D_m:       float,
-    condition: str,
-    save_dir:  Path | str,
+    df_peaks:     pd.DataFrame,
+    L_m:          float,
+    D_m:          float,
+    condition:    str,
+    save_dir:     Path | str,
+    r2_threshold: float | None = None,
 ) -> tuple[plt.Figure, list[dict]]:
     """
     2×2 Arrhenius panel: ln(σT), ln(τ), ln(C), log₁₀(εᵣ).
@@ -665,28 +659,46 @@ def plot_arrhenius_panel(
     L_m, D_m  : sample geometry [m]
     condition : label for title and filename
     save_dir  : output directory
+    r2_threshold : when set, only peaks whose ln(τ) Arrhenius fit has
+                   R² ≥ threshold are drawn (thermally activated processes).
+                   If no peak qualifies, all are drawn with a warning so the
+                   figure is never silently empty.
 
     Returns
     -------
     (fig, results_all)
-    results_all is the list from build_arrhenius_results() — reuse for tables.
+    results_all is the full unfiltered list from build_arrhenius_results(),
+    so summary tables still report every peak.
     """
-    results = build_arrhenius_results(df_peaks, L_m, D_m)
-    A_m2    = np.pi * (D_m / 2) ** 2
+    results_all = build_arrhenius_results(df_peaks, L_m, D_m)
+    results     = results_all
+    if r2_threshold is not None:
+        valid = [r for r in results_all
+                 if not np.isnan(r.get("R2_pol", np.nan)) and r["R2_pol"] >= r2_threshold]
+        if valid:
+            dropped = [r["Peak"] for r in results_all if r not in valid]
+            if dropped:
+                warnings.warn(f"Arrhenius panel {condition}: hiding non-activated "
+                              f"peak(s) {dropped} (R2_pol < {r2_threshold})", stacklevel=2)
+            results = valid
+        else:
+            warnings.warn(f"Arrhenius panel {condition}: no peak reaches "
+                          f"R2_pol ≥ {r2_threshold}; drawing all peaks", stacklevel=2)
+    A_m2 = np.pi * (D_m / 2) ** 2
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150, layout="constrained")
 
     _draw_arrhenius_panel(
         axes[0, 0], results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
-        r"E_a^{cond}", r"ln($\sigma T$ / S·K·m$^{-1}$)", ea_err_key="Ea_cond_err")
+        r"E_a^{cond}", r"ln($\sigma T$ / S·K·m$^{-1}$)")
 
     _draw_arrhenius_panel(
         axes[0, 1], results, "ln_tau", "slope_pol", "int_pol", "Ea_pol",
-        r"E_a^{pol}", r"ln($\tau$ / s)", ea_err_key="Ea_pol_err")
+        r"E_a^{pol}", r"ln($\tau$ / s)")
 
     _draw_arrhenius_panel(
         axes[1, 0], results, "ln_C", "slope_C", "int_C", "Ea_C",
-        r"E_a^{C}", r"ln($C$ / F)", ea_err_key="Ea_C_err")
+        r"E_a^{C}", r"ln($C$ / F)")
 
     # Panel [1,1]: log₁₀(εᵣ) — diagnostic, no fit line
     ax4 = axes[1, 1]
@@ -707,7 +719,7 @@ def plot_arrhenius_panel(
     ax4.tick_params(direction="in", top=True, right=True)
 
     _save(fig, save_dir, f"Arrhenius_{condition}")
-    return fig, results
+    return fig, results_all
 
 
 # ---------------------------------------------------------------------------
