@@ -426,8 +426,11 @@ DRT peaks seed a non-linear least-squares fit to:
 Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (jωτᵢ)^αᵢ)
 ```
 
-where R₀ is the series resistance, Rᵢ the arc resistance, τᵢ the relaxation
-time, and αᵢ ∈ (0,1] the CPE exponent of the i-th process.
+where R₀ is the series resistance, Rᵢ the arc resistance — the diameter of
+the i-th depressed semicircle in the Nyquist plot, i.e. the DC resistance
+contribution of process i, from which σᵢ = L/(Rᵢ·A) and C_eff,ᵢ = τᵢ/Rᵢ
+follow — τᵢ the relaxation time, and αᵢ ∈ (0,1] the CPE exponent of the
+i-th process.
 
 Fits run with multi-start (`ZARC_N_RESTARTS`) and a warm-start chain down
 the temperature ladder of each condition. Restart guesses use a fixed
