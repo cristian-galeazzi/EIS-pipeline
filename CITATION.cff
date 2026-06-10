@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "EIS Analysis Pipeline"
+type: software
+authors:
+  - family-names: Galeazzi
+    given-names: Cristian
+license: MIT
+repository-code: "https://github.com/cristian-galeazzi/eis-pipeline"
+version: 1.0.0
+date-released: "2026-06-10"
+# doi: 10.5281/zenodo.XXXXXXX   # added after the first Zenodo release
