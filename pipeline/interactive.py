@@ -18,7 +18,7 @@ Button style convention (all notebook panels follow it):
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Callable, Sequence
 
 
 def discover_samples(base_dir: Path | str) -> list[str]:
@@ -140,19 +140,6 @@ def make_condition_selector(
     btn.on_click(_toggle)
     display(W.VBox([W.Label(title)] + checkboxes + [btn]))
     return lambda: [cb.description for cb in checkboxes if cb.value]
-
-
-
-def labeled(widget: Any, html_text: str) -> Any:
-    """
-    Place a short grey description caption to the right of a control (L4).
-
-    Returns an ``HBox(widget, caption)`` so the extended meaning of the
-    parameter is always visible next to the slider/button.
-    """
-    import ipywidgets as W
-    cap = W.HTML(f"<span style='color:#666;font-size:11px'>{html_text}</span>")
-    return W.HBox([widget, cap])
 
 
 def make_focus_panel(
