@@ -38,6 +38,50 @@ def _library_versions() -> list[tuple[str, str]]:
     return rows
 
 
+def check_replica_overrides(
+    sample_dir: Path | str,
+    overrides:  Mapping[str, Mapping],
+    conditions: list[str],
+) -> list[str]:
+    """
+    Cross-check session.json replica overrides against the stage2 "Selected"
+    sheets actually on disk.
+
+    A mismatch means the stage2 export predates (or never saw) the override:
+    downstream stages would silently analyse a different replica than the one
+    forced in session.json. Returns one human-readable message per mismatch;
+    an empty list means the state is consistent.
+    """
+    msgs: list[str] = []
+    for cond in conditions:
+        ov = overrides.get(cond) or {}
+        if not ov:
+            continue
+        xlsx = Path(sample_dir) / "Results" / cond / "stage2_kk.xlsx"
+        if not xlsx.exists():
+            continue
+        try:
+            sel = pd.read_excel(xlsx, sheet_name="Selected")
+        except Exception as exc:
+            msgs.append(f"{cond}: cannot read Selected sheet "
+                        f"({type(exc).__name__}: {exc})")
+            continue
+        by_T = {int(r["T_nominal"]): str(r["file"]) for _, r in sel.iterrows()}
+        for T, forced in ov.items():
+            try:
+                t_int = int(T)
+            except (TypeError, ValueError):
+                continue
+            actual = by_T.get(t_int)
+            if actual is not None and actual != forced:
+                msgs.append(
+                    f"{cond} T={t_int}: override forces '{forced}' but the "
+                    f"stage2 export on disk selected '{actual}'. Re-run the "
+                    f"stage 2 export for this condition, or delete the override."
+                )
+    return msgs
+
+
 def merge_sheet_by_T(
     xlsx_path: Path,
     sheet_name: str,
