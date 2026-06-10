@@ -261,10 +261,9 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `DRT_TAU_MAX`      | 0.1 s    | x-axis upper limit on DRT stacked plot      |
 | `BROUWER_PEAK_ID`  | 1        | Peak index for Brouwer diagram              |
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
-| `TAU_R2_THRESHOLD` | 0.97     | R² floor to flag a peak as physically real |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
-Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (only peaks with R²(τ) ≥ `TAU_R2_THRESHOLD`). Multi-condition: Brouwer p(O₂) diagram.
+Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (all fitted peaks; R²(τ) of each Arrhenius fit is reported in the activation-energy summary table). Multi-condition: Brouwer p(O₂) diagram.
 
 ---
 
