@@ -37,6 +37,8 @@ Conductivity (requires sample geometry L_m, D_m from config):
 from __future__ import annotations
 
 import warnings
+import zlib
+
 import numpy as np
 import pandas as pd
 from impedance.models.circuits import CustomCircuit
@@ -619,4 +621,136 @@ def fit_to_rows(
     }
 
     return peak_rows, summary_row
+
+
+def resolve_condition_entry(condition_params: dict, condition: str) -> dict:
+    """
+    Return the per-condition override entry matching ``condition``.
+
+    Keys may be the full condition folder name or a shorter label
+    contained in it (e.g. ``"Ar-100_O2-1"``); the first match wins.
+    Single source of truth for this lookup: the batch cell and the live
+    tuning panel must resolve parameters identically.
+    """
+    short = condition.split("_B_")[-1] if "_B_" in condition else condition
+    for key, val in condition_params.items():
+        if key == condition or key in condition or key in short:
+            return val
+    return {}
+
+
+def fit_condition_batch(
+    condition:  str,
+    tasks:      list[dict],
+    include_r0: bool,
+    r0_max:     float | None,
+    n_restarts: int,
+    rmse_tol:   float,
+    L_m:        float,
+    D_m:        float,
+) -> dict:
+    """
+    Fit all temperatures of one condition sequentially with warm-start.
+
+    Plain-data in, plain-data out, so it can run in a worker process and
+    several conditions can be fitted in parallel. Within a condition the
+    temperature order (descending) and the warm-start chain are identical
+    to the serial notebook loop, so results do not depend on parallelism.
+
+    Each task dict (ordered by descending T) must contain:
+        T_nominal, fname, ism_path, pO2, freq, Z_re, Z_im, peaks,
+        R_dec, tau_dec, alpha_init, alpha_min, alpha_max,
+        hf_weight, fix_params, ov_tag
+
+    Returns
+    -------
+    dict with keys: condition, fit_peaks, fit_summary, nyq_fits, log
+        nyq_fits : {T_nominal: {R0, R, tau, alpha, Z_fit, rmse_rel, converged}}
+        log      : printable per-temperature report (the worker cannot print)
+    """
+    log:         list[str] = []
+    fit_peaks:   list[dict] = []
+    fit_summary: list[dict] = []
+    nyq_fits:    dict[int, dict] = {}
+    prev_fit: dict | None = None
+    prev_T:   float | None = None
+
+    for t in tasks:
+        T_nom   = t["T_nominal"]
+        peaks   = t["peaks"]
+        n_peaks = len(peaks)
+        log.append(f"\n  T = {T_nom} °C  |  {t['fname']}")
+        line = (f"  Fitting {build_circuit_string(n_peaks, include_r0=include_r0)}"
+                f" ...{t.get('ov_tag', '')} ")
+
+        # Warm-start from the previous (hotter) T when the peak count matches
+        if prev_fit is not None and len(prev_fit["R"]) == n_peaks:
+            peaks_seeded = [
+                {**p, "R_approx": float(prev_fit["R"][i]), "tau": float(prev_fit["tau"][i])}
+                for i, p in enumerate(peaks)
+            ]
+            R0_seed = float(prev_fit["R0"])
+            line += f"[warm T={prev_T}] "
+        else:
+            if prev_fit is not None:
+                line += f"[cold n_peaks {len(prev_fit['R'])}→{n_peaks}] "
+            peaks_seeded = peaks
+            R0_seed = None
+
+        fit = fit_zarc(
+            t["freq"], t["Z_re"], t["Z_im"], peaks_seeded,
+            R0_guess=R0_seed,
+            R_dec=t["R_dec"],
+            tau_dec=t["tau_dec"],
+            alpha_init=t["alpha_init"],
+            alpha_min=t["alpha_min"],
+            alpha_max=t["alpha_max"],
+            include_r0=include_r0,
+            r0_max=r0_max,
+            fix_params=t["fix_params"],
+            hf_weight=t["hf_weight"],
+            n_restarts=n_restarts,
+            rmse_tol=rmse_tol,
+            # stable per-(condition, T) seed: restart guesses become
+            # reproducible across runs and independent of parallelism
+            seed=zlib.crc32(f"{condition}|{T_nom}".encode()),
+        )
+
+        line += ("converged" if fit["converged"] else "NOT CONVERGED")
+        line += f"  rmse_rel={fit['rmse_rel']:.4f}"
+        log.append(line)
+        log.append(f"    R0={fit['R0']:.4g} Ω")
+        for i in range(n_peaks):
+            C = float(fit["C_eff"][i])
+            if   C < 1e-11: proc = "bulk"
+            elif C < 1e-8:  proc = "GB"
+            elif C < 1e-6:  proc = "?"
+            else:           proc = "electrode"
+            log.append(f"    Zarc{i+1}: R={fit['R'][i]:.4g} Ω  τ={fit['tau'][i]:.3e} s  "
+                       f"α={fit['alpha'][i]:.3f}  C_eff={C:.2e} F  [{proc}]")
+
+        if fit["converged"]:
+            prev_fit, prev_T = fit, T_nom
+
+        nyq_fits[T_nom] = {
+            "R0": fit["R0"], "R": fit["R"],
+            "tau": fit["tau"], "alpha": fit["alpha"],
+            "Z_fit": fit["Z_fit"],
+            "rmse_rel": fit["rmse_rel"],
+            "converged": fit["converged"],
+        }
+
+        peak_rows, summary_row = fit_to_rows(
+            fit, condition, t["fname"], t["ism_path"], T_nom, t["pO2"], L_m, D_m,
+        )
+        fit_peaks.extend(peak_rows)
+        fit_summary.append(summary_row)
+
+    return {
+        "condition":   condition,
+        "fit_peaks":   fit_peaks,
+        "fit_summary": fit_summary,
+        "nyq_fits":    nyq_fits,
+        "log":         "\n".join(log),
+    }
 

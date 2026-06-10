@@ -30,6 +30,28 @@ def discover_samples(base_dir: Path | str) -> list[str]:
     )
 
 
+def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
+    """
+    Prompt for the sample to work on and return its folder name.
+
+    Accepts either the number shown in the discovered-samples list or a
+    folder name typed directly. Falls back to a free-text prompt when no
+    sample folders are found. One implementation for all five notebooks.
+    """
+    import sys
+
+    found = discover_samples(Path(notebook_dir))
+    if not found:
+        return input("Sample folder name: ").strip()
+    if show_list:
+        print("Available samples:")
+        for i, name in enumerate(found, 1):
+            print(f"  {i}. {name}")
+        sys.stdout.flush()
+    sel = input("Sample number (or name): ").strip()
+    return found[int(sel) - 1] if sel.isdigit() and 1 <= int(sel) <= len(found) else sel
+
+
 def discover_conditions(sample_dir: Path | str,
                         require: str | None = None) -> list[str]:
     """
