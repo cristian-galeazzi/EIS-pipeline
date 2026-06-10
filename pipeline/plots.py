@@ -641,7 +641,6 @@ def plot_arrhenius_panel(
     D_m:          float,
     condition:    str,
     save_dir:     Path | str,
-    r2_threshold: float | None = None,
 ) -> tuple[plt.Figure, list[dict]]:
     """
     2×2 Arrhenius panel: ln(σT), ln(τ), ln(C), log₁₀(εᵣ).
@@ -659,31 +658,14 @@ def plot_arrhenius_panel(
     L_m, D_m  : sample geometry [m]
     condition : label for title and filename
     save_dir  : output directory
-    r2_threshold : when set, only peaks whose ln(τ) Arrhenius fit has
-                   R² ≥ threshold are drawn (thermally activated processes).
-                   If no peak qualifies, all are drawn with a warning so the
-                   figure is never silently empty.
 
     Returns
     -------
-    (fig, results_all)
-    results_all is the full unfiltered list from build_arrhenius_results(),
-    so summary tables still report every peak.
+    (fig, results)
+    results is the full list from build_arrhenius_results(); every peak
+    is drawn regardless of its Arrhenius R².
     """
-    results_all = build_arrhenius_results(df_peaks, L_m, D_m)
-    results     = results_all
-    if r2_threshold is not None:
-        valid = [r for r in results_all
-                 if not np.isnan(r.get("R2_pol", np.nan)) and r["R2_pol"] >= r2_threshold]
-        if valid:
-            dropped = [r["Peak"] for r in results_all if r not in valid]
-            if dropped:
-                warnings.warn(f"Arrhenius panel {condition}: hiding non-activated "
-                              f"peak(s) {dropped} (R2_pol < {r2_threshold})", stacklevel=2)
-            results = valid
-        else:
-            warnings.warn(f"Arrhenius panel {condition}: no peak reaches "
-                          f"R2_pol ≥ {r2_threshold}; drawing all peaks", stacklevel=2)
+    results = build_arrhenius_results(df_peaks, L_m, D_m)
     A_m2 = np.pi * (D_m / 2) ** 2
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150, layout="constrained")
@@ -719,7 +701,7 @@ def plot_arrhenius_panel(
     ax4.tick_params(direction="in", top=True, right=True)
 
     _save(fig, save_dir, f"Arrhenius_{condition}")
-    return fig, results_all
+    return fig, results
 
 
 # ---------------------------------------------------------------------------
