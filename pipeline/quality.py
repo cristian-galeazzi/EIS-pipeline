@@ -496,7 +496,16 @@ def select_best_replica(kk_results: list[dict]) -> int:
     Returns
     -------
     int : 0-based index of the best replica
+
+    Raises
+    ------
+    ValueError : if kk_results is empty (all replicas rejected upstream).
     """
+    if not kk_results:
+        raise ValueError(
+            "select_best_replica: kk_results is empty; no replicas to score. "
+            "All spectra for this (condition, T) were likely rejected upstream."
+        )
     scores = [r["kk_score"] for r in kk_results]
     return int(np.argmax(scores))
 
