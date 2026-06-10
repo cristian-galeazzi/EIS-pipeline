@@ -4,9 +4,15 @@ pipeline/interactive.py
 UI-only helpers for the EIS notebooks (ipywidgets panels).
 
 This module contains **no calculation logic** — it only builds reusable widget
-layouts so the same controls (FOCUS selector, labelled sliders) can be dropped
-into NB02 / NB03 / NB04 without duplicating boilerplate. Every helper degrades
+layouts so the same controls (condition selector, FOCUS selector) can be dropped
+into the stage notebooks without duplicating boilerplate. Every helper degrades
 gracefully when ipywidgets is not installed.
+
+Button style convention (all notebook panels follow it):
+  ``primary``  recompute/replot in place (Retest KK, Re-fit, Replot ...)
+  ``success``  export/persist to disk (Export PLOT_WINDOWS)
+  ``warning``  apply overrides / affects the batch (Apply preset, FOCUS active)
+  neutral      pure selection (condition selector button)
 """
 
 from __future__ import annotations
