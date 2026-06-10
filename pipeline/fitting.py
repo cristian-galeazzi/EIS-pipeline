@@ -323,7 +323,6 @@ def fit_zarc(
     hf_weight:   float = 0.0,
     n_restarts:  int = 0,
     rmse_tol:    float = 0.02,
-    timeout_s:   float = 30.0,
     seed:        int | None = None,
 ) -> dict:
     """
@@ -722,12 +721,8 @@ def fit_condition_batch(
         log.append(f"    R0={fit['R0']:.4g} Ω")
         for i in range(n_peaks):
             C = float(fit["C_eff"][i])
-            if   C < 1e-11: proc = "bulk"
-            elif C < 1e-8:  proc = "GB"
-            elif C < 1e-6:  proc = "?"
-            else:           proc = "electrode"
             log.append(f"    Zarc{i+1}: R={fit['R'][i]:.4g} Ω  τ={fit['tau'][i]:.3e} s  "
-                       f"α={fit['alpha'][i]:.3f}  C_eff={C:.2e} F  [{proc}]")
+                       f"α={fit['alpha'][i]:.3f}  C_eff={C:.2e} F")
 
         if fit["converged"]:
             prev_fit, prev_T = fit, T_nom
