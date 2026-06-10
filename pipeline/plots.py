@@ -32,7 +32,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.ticker import LogLocator, LogFormatterMathtext, MultipleLocator
-from scipy import stats
+from scipy import stats, optimize
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -872,6 +872,164 @@ def plot_brouwer(
         _sp.set_linewidth(1.2)
 
     stem = f"Brouwer_Peak{peak_id}_{sample_name}" if sample_name else f"Brouwer_Peak{peak_id}"
+    _save(fig, save_dir, stem)
+    return fig
+
+
+def fit_transference(
+    df_all:   pd.DataFrame,
+    peak_id:  int = 1,
+    exponent: float = 0.25,
+    temps:    list[int] | None = None,
+) -> pd.DataFrame:
+    """
+    Decompose σ(pO₂) of one process into ionic and electronic partial
+    conductivities (Patterson analysis).
+
+    Model (dilute defect regime):
+
+        σ(pO₂) = σ_ion + σ_p · pO₂^(+x) + σ_n · pO₂^(−x)      x = ``exponent``
+
+    The model is linear in the three coefficients, so each temperature is
+    solved with non-negative least squares (σᵢ ≥ 0, no initial guesses).
+    The local Brouwer slope then satisfies d(log σ)/d(log pO₂) = x·(t_p − t_n):
+    a plateau is purely ionic, a +x slope is purely p-type electronic
+    (polaron hopping), so the ionic transference number follows directly:
+
+        t_ion(pO₂) = σ_ion / σ(pO₂)          t_el = 1 − t_ion
+
+    Parameters
+    ----------
+    df_all   : aggregated stage3_fit Peaks rows from all conditions
+               (required columns: peak_id, T_nominal, pO2_mean, sigma_Sm_i)
+    peak_id  : process to decompose
+    exponent : Brouwer exponent x (0.25 in the dilute regime; 1/6 elsewhere)
+    temps    : restrict to these temperatures [°C] (None = all)
+
+    Returns
+    -------
+    Tidy DataFrame, one row per (T, pO₂): peak_id, T_nominal, pO2,
+    sigma_Scm, sigma_ion, sigma_p, sigma_n [S/cm], R2 (per-T fit),
+    t_ion, t_el. Temperatures with fewer than 4 pO₂ points are skipped.
+    """
+    sub = df_all[df_all["peak_id"] == peak_id].copy()
+    sub["sigma_Scm"] = pd.to_numeric(sub["sigma_Sm_i"], errors="coerce") / 100.0
+    _pO2 = pd.to_numeric(sub["pO2_mean"], errors="coerce")
+    sub  = sub[(_pO2 > 0) & (sub["sigma_Scm"] > 0)]
+    if temps is not None:
+        sub = sub[sub["T_nominal"].isin(temps)]
+
+    rows: list[dict] = []
+    for T in sorted(sub["T_nominal"].unique()):
+        g = sub[sub["T_nominal"] == T].sort_values("pO2_mean")
+        p = g["pO2_mean"].to_numpy(dtype=float)
+        y = g["sigma_Scm"].to_numpy(dtype=float)
+        if len(p) < 4:
+            warnings.warn(f"transference peak {peak_id} T={T}: "
+                          f"only {len(p)} pO2 point(s), skipped", stacklevel=2)
+            continue
+        A = np.column_stack([np.ones_like(p), p ** exponent, p ** (-exponent)])
+        try:
+            coef, _ = optimize.nnls(A, y)
+        except Exception as exc:
+            warnings.warn(f"transference peak {peak_id} T={T}: NNLS failed "
+                          f"({type(exc).__name__}: {exc})", stacklevel=2)
+            continue
+        s_ion, s_p, s_n = (float(c) for c in coef)
+        y_fit  = A @ coef
+        ss_tot = float(np.sum((y - y.mean()) ** 2))
+        r2     = 1.0 - float(np.sum((y - y_fit) ** 2)) / ss_tot if ss_tot > 0 else np.nan
+        for p_i, y_i in zip(p, y):
+            tot   = s_ion + s_p * p_i ** exponent + s_n * p_i ** (-exponent)
+            t_ion = s_ion / tot if tot > 0 else np.nan
+            rows.append({
+                "peak_id": peak_id, "T_nominal": int(T), "pO2": p_i,
+                "sigma_Scm": y_i, "sigma_ion": s_ion, "sigma_p": s_p,
+                "sigma_n": s_n, "R2": r2, "t_ion": t_ion, "t_el": 1.0 - t_ion,
+            })
+    return pd.DataFrame(rows)
+
+
+def plot_brouwer_transference(
+    df_all:        pd.DataFrame,
+    save_dir:      Path | str,
+    sample_name:   str       = "",
+    peak_id:       int       = 1,
+    exponent:      float     = 0.25,
+    temps_to_plot: list[int] | None = None,
+) -> plt.Figure:
+    """
+    Two-panel ionic/electronic decomposition of the Brouwer diagram.
+
+    Left  : log₁₀(σ) vs log₁₀(pO₂) with the fitted total curve (solid) and
+            the ionic component σ_ion (dashed horizontal) per temperature.
+    Right : t_ion vs log₁₀(pO₂), one curve per temperature.
+
+    Fit model and conventions: see fit_transference(). The exponent in use
+    is annotated on the figure so the assumed defect regime is explicit.
+    """
+    df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
+                            temps=temps_to_plot)
+    if df_t.empty:
+        raise ValueError(f"transference: no usable data for peak_id={peak_id}")
+
+    fig, (ax_s, ax_t) = plt.subplots(1, 2, figsize=(12, 5.2), dpi=150,
+                                     layout="constrained")
+
+    for T in sorted(df_t["T_nominal"].unique()):
+        g     = df_t[df_t["T_nominal"] == T].sort_values("pO2")
+        sty   = _TEMP_STYLE_BROUWER.get(
+            int(T), dict(color="gray", marker="o", ms=7, label=f"{T:.0f} °C"))
+        s_ion, s_p, s_n = g["sigma_ion"].iloc[0], g["sigma_p"].iloc[0], g["sigma_n"].iloc[0]
+        p_grid = np.logspace(np.log10(g["pO2"].min()), np.log10(g["pO2"].max()), 120)
+        s_grid = s_ion + s_p * p_grid ** exponent + s_n * p_grid ** (-exponent)
+
+        ax_s.plot(np.log10(g["pO2"]), np.log10(g["sigma_Scm"]),
+                  marker=sty["marker"], linestyle="none", color=sty["color"],
+                  markersize=sty["ms"], markeredgecolor="none",
+                  label=sty["label"], zorder=5)
+        ax_s.plot(np.log10(p_grid), np.log10(s_grid),
+                  "-", color=sty["color"], lw=1.0, alpha=0.9, zorder=4)
+        if s_ion > 0:
+            ax_s.axhline(np.log10(s_ion), color=sty["color"],
+                         lw=0.8, ls="--", alpha=0.5, zorder=2)
+
+        t_grid = s_ion / (s_ion + s_p * p_grid ** exponent + s_n * p_grid ** (-exponent))
+        ax_t.plot(np.log10(p_grid), t_grid, "-", color=sty["color"], lw=1.4)
+        ax_t.plot(np.log10(g["pO2"]), g["t_ion"],
+                  marker=sty["marker"], linestyle="none", color=sty["color"],
+                  markersize=sty["ms"] - 1, markeredgecolor="none", zorder=5)
+
+    ax_s.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
+    ax_s.set_ylabel(
+        r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
+    ax_s.legend(loc="upper left", frameon=True, fontsize=8, ncol=2,
+                handlelength=1.3, borderpad=0.5, labelspacing=0.3,
+                columnspacing=0.8)
+    ax_s.text(0.98, 0.02,
+              r"fit: $\sigma_{ion} + \sigma_p\,p^{+%g} + \sigma_n\,p^{-%g}$"
+              % (exponent, exponent) + "\n(dashed: ionic component)",
+              transform=ax_s.transAxes, fontsize=7, ha="right", va="bottom",
+              fontstyle="italic", color="#444444")
+
+    ax_t.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
+    ax_t.set_ylabel(r"$t_{ion} = \sigma_{ion}/\sigma_{tot}$", fontsize=12)
+    ax_t.set_ylim(-0.05, 1.05)
+    ax_t.axhline(1.0, color="black", lw=0.8, ls=":", alpha=0.6)
+    ax_t.axhline(0.0, color="black", lw=0.8, ls=":", alpha=0.6)
+    ax_t.text(0.02, 0.96, "purely ionic", transform=ax_t.transAxes,
+              fontsize=7, va="top", fontstyle="italic", color="#444444")
+    ax_t.text(0.02, 0.04, "purely electronic", transform=ax_t.transAxes,
+              fontsize=7, va="bottom", fontstyle="italic", color="#444444")
+
+    for ax in (ax_s, ax_t):
+        ax.tick_params(direction="in", which="major", labelsize=10, width=1.2, length=4)
+        ax.tick_params(direction="in", which="minor", width=1.2, length=2.5)
+        for _sp in ax.spines.values():
+            _sp.set_linewidth(1.2)
+
+    stem = (f"Brouwer_transference_Peak{peak_id}_{sample_name}"
+            if sample_name else f"Brouwer_transference_Peak{peak_id}")
     _save(fig, save_dir, stem)
     return fig
 

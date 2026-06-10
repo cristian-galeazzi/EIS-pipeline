@@ -303,6 +303,7 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `BROUWER_PEAK_ID`  | 1        | Peak index for Brouwer diagram              |
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
 | `ARRHENIUS_T_MIN`  | None     | Exclude T below this [°C] from Arrhenius fits |
+| `TRANSF_EXPONENT`  | 0.25     | Brouwer exponent x for the σ_ion/σ_el split |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
 Axis crops are stored per (condition, T) in `PLOT_WINDOWS`
@@ -310,7 +311,22 @@ Axis crops are stored per (condition, T) in `PLOT_WINDOWS`
 Stage 4 requires Stage 3 to have run first (it reads the pellet
 geometry and the fit results from there) and says so explicitly if it has not.
 
-Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (all fitted peaks; R²(τ) of each Arrhenius fit is reported in the activation-energy summary table). Multi-condition: Brouwer p(O₂) diagram.
+Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (all fitted peaks; R²(τ) of each Arrhenius fit is reported in the activation-energy summary table). Multi-condition: Brouwer p(O₂) diagram and its ionic/electronic decomposition (Step 3).
+
+**Ionic/electronic decomposition (Step 3).** Each isotherm of the Brouwer
+diagram is fitted with the standard mixed-conduction model
+
+```
+σ(pO₂) = σ_ion + σ_p · pO₂^(+x) + σ_n · pO₂^(−x)        x = TRANSF_EXPONENT
+```
+
+which is linear in the three partial conductivities and is solved with
+non-negative least squares (σᵢ ≥ 0). The local Brouwer slope equals
+`x · t_el`, so a plateau identifies a purely ionic conductor and a +x slope
+purely p-type electronic (polaron) conduction. The ionic transference number
+`t_ion(pO₂) = σ_ion / σ_tot` is tabulated for every peak and exported to
+`Results/pO2/stage4_transference.xlsx`; x = 1/4 holds in the dilute defect
+regime (use 1/6 where that regime applies).
 
 ---
 
