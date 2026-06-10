@@ -50,6 +50,10 @@ graphify-out/
 *.pdf
 P[0-9]*/
 
+# Per-sample parameter calibration; private, never commit
+**/calibration/
+RISULTATI_CALIBRAZIONE.md
+
 # sample_template is tracked (folder structure reference for new users)
 !sample_template/
 !sample_template/**/.gitkeep
