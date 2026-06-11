@@ -531,12 +531,17 @@ The pipeline discovers conditions and temperatures automatically.
 
 **DRT**
 
-- T. H. Wan, M. Saccoccio, C. Chen, F. Ciucci, *Influence of the discretization methods on the distribution of relaxation times deconvolution*, Electrochim. Acta 184 (2015) 483–499.
+- T. H. Wan, M. Saccoccio, C. Chen, F. Ciucci, *Influence of the discretization methods on the distribution of relaxation times deconvolution: implementing radial basis functions with DRTtools*, Electrochim. Acta 184 (2015) 483–499.
 
 **Equivalent circuits**
 
 - J. T. S. Irvine, D. C. Sinclair, A. R. West, *Electroceramics: characterization by impedance spectroscopy*, Adv. Mater. 2 (1990) 132–138.
-- C. Vendrell, A. R. West, *Electrical properties of YSZ single crystal*, J. Electrochem. Soc. 165 (2018) F966–F975.
+- X. Vendrell, A. R. West, *Electrical properties of yttria-stabilized zirconia, YSZ single crystal: local AC and long range DC conduction*, J. Electrochem. Soc. 165 (2018) F966–F975.
+
+**Software used by the engine**
+
+- M. D. Murbach, B. Gerwe, N. Dawson-Elli, L.-k. Tsui, *impedance.py: A Python package for electrochemical impedance analysis*, J. Open Source Softw. 5(52) (2020) 2349.
+- pyDRTtools (Ciucci group), https://github.com/ciuccislab/pyDRTtools — implementation of the DRT method of Wan et al. (2015).
 
 **Scientific computing**
 
