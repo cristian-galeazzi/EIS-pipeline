@@ -123,7 +123,6 @@ def find_furnace_log(sample_dir: Path, condition_folder: str) -> Path:
         if condition_key in f.stem:
             return f
 
-    # Fallback: try matching by the numeric T range part only
     raise FileNotFoundError(
         f"No furnace log found for condition key '{condition_key}' "
         f"in {raw_oven_dir}.\nAvailable files: {[f.name for f in txt_files]}"
@@ -714,10 +713,10 @@ def plot_ism_selection(
     600 °C plateau plus the full descent — the long stable period at max temperature
     before the first ramp is not informative and would squash the detail.
 
-    Color + hatch coding (colorblind-safe, Okabe-Ito palette):
-      blue  solid  : VALID
-      amber hatch  : NEAR_TRANSITION (too close to a ramp edge)
-      violet hatch : UNSTABLE (T_std exceeds threshold during measurement)
+    Color + hatch coding:
+      green solid  : VALID
+      blue  hatch  : NEAR_TRANSITION (too close to a ramp edge)
+      red   hatch  : UNSTABLE (T_std exceeds threshold during measurement)
       grey         : OUTSIDE_RANGE / OUT_OF_RANGE
     """
     from collections import Counter
