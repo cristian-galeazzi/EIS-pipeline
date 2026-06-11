@@ -221,6 +221,117 @@ def test_csv_loose_file_warns():
             f"Expected loose-file warning in stdout, got: {output!r}"
 
 
+# ---------------------------------------------------------------------------
+# Engine coverage: quality.py, drt.py, fitting.fix_params, session.py,
+# matching.py (pure additions — the engine itself stays untouched)
+# ---------------------------------------------------------------------------
+
+
+def test_linkk_synthetic_consistency():
+    """run_linkk accepts a KK-consistent synthetic Zarc with tiny residuals."""
+    from pipeline.quality import run_linkk
+    rng = np.random.default_rng(0)
+    freq = np.logspace(6, 0, 60)
+    Z_re, Z_im = _synthetic_zarc(50.0, 1e4, 1e-4, 0.9, freq)
+    noise = 1.0 + rng.normal(0.0, 1e-3, freq.size)
+    res = run_linkk(freq, Z_re * noise, Z_im * noise,
+                    c=0.76, use_binary_M=False,
+                    iqr_fence_factor=2.0, iqr_window=5)
+    assert np.max(np.abs(res["res_re"])) < 0.01, "Re residual too large"
+    assert np.max(np.abs(res["res_im"])) < 0.01, "Im residual too large"
+    # a causal, stable, linear spectrum must keep (almost) the whole window
+    kept = (res["freq"] >= res["f_min_cut"]) & (res["freq"] <= res["f_max_cut"])
+    assert kept.sum() >= 0.9 * res["freq"].size, "edge cut ate a clean spectrum"
+
+
+def test_drt_total_area_equals_R():
+    """The DRT of one Zarc integrates to R over d(ln tau) — the documented
+    identity behind peak areas. Peak COUNT is not asserted: the sharp
+    production lambda is allowed to ring on broad peaks (handled by
+    N_PEAKS_CAP in the pipeline), but the total polarization is conserved."""
+    from pipeline.drt import compute_drt, find_drt_peaks
+    freq = np.logspace(6, -1, 70)
+    R, tau = 1e4, 1e-4
+    Z_re, Z_im = _synthetic_zarc(0.0, R, tau, 0.9, freq)
+    entry = compute_drt(freq, Z_re, Z_im, cv_type="custom",
+                        rbf_der="2nd order", shape_s=0.5, lambda_val=6.5e-6)
+    total = np.trapezoid(entry.gamma, np.log(entry.out_tau_vec))
+    assert np.isclose(total, R, rtol=0.10), \
+        f"integral(gamma dln tau) = {total:.4g}, expected ~{R:.4g}"
+    peaks = find_drt_peaks(entry, min_height_frac=0.05)
+    assert peaks, "no peaks detected on a clean Zarc"
+    tallest = max(peaks, key=lambda p: p["gamma_peak"])
+    assert 0.1 * tau < tallest["tau"] < 10.0 * tau, tallest["tau"]
+
+
+def test_fix_params_pins_tau():
+    """Regression for the pinned-bounds bug: an exactly fixed tau must hold."""
+    freq = np.logspace(5, -1, 60)
+    R0, R, tau, alpha = 20.0, 5000.0, 1e-3, 0.85
+    Z_re, Z_im = _synthetic_zarc(R0, R, tau, alpha, freq)
+    peaks = [{"R_approx": R, "tau": tau, "peak_id": 1}]
+    tau_fixed = 1.2e-3
+    fit = fit_zarc(freq, Z_re, Z_im, peaks, R0_guess=R0, r0_max=200,
+                   fix_params={"tau": [tau_fixed]})
+    assert fit["converged"], f"pinned fit failed: {fit.get('fit_error')}"
+    assert np.isclose(fit["tau"][0], tau_fixed, rtol=1e-9), \
+        f"tau not pinned: {fit['tau'][0]} != {tau_fixed}"
+
+
+def test_session_merge_keys():
+    """update_sample merges per-condition dicts and respects replace=True."""
+    from pipeline.session import update_sample, load_sample
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "session.json"
+        update_sample("S1", path=p, condition_params={"Ar": {"R_dec": 0.7}})
+        update_sample("S1", path=p, condition_params={"O2": {"R_dec": 0.9}})
+        entry = load_sample("S1", path=p)
+        assert entry["condition_params"] == {"Ar": {"R_dec": 0.7},
+                                             "O2": {"R_dec": 0.9}}, \
+            "second save wiped the first condition"
+        update_sample("S1", path=p, replace=True,
+                      condition_params={"O2": {"R_dec": 1.0}})
+        entry = load_sample("S1", path=p)
+        assert entry["condition_params"] == {"O2": {"R_dec": 1.0}}, \
+            "replace=True did not overwrite wholesale"
+
+
+def test_matching_classifies_windows():
+    """match_ism_to_furnace: stable plateau VALID, ramp UNSTABLE, gap OUTSIDE."""
+    import pandas as pd
+    from datetime import datetime, timedelta
+    from pipeline.ingest import IsmRecord
+    from pipeline.matching import match_ism_to_furnace
+
+    t0 = datetime(2026, 1, 1, 8, 0, 0)
+    minutes = np.arange(0, 120)
+    # 0-59 min: stable 600 C plateau; 60-119 min: linear ramp down to 500 C
+    temps = np.where(minutes < 60, 600.0,
+                     600.0 - (minutes - 60) * (100.0 / 59.0))
+    furnace_df = pd.DataFrame({
+        "abs_datetime": [t0 + timedelta(minutes=int(m)) for m in minutes],
+        "Tsample": temps,
+        "pO2": np.full(minutes.size, 0.21),
+    })
+
+    def _rec(start_min, end_min):
+        return IsmRecord(path=Path(f"fake_{start_min}.ism"),
+                         freq=np.array([1.0]), Z_re=np.array([1.0]),
+                         Z_im=np.array([1.0]),
+                         t_start=t0 + timedelta(minutes=start_min),
+                         t_end=t0 + timedelta(minutes=end_min))
+
+    records = [_rec(10, 30),    # inside the plateau -> VALID
+               _rec(70, 110),   # on the ramp        -> UNSTABLE
+               _rec(300, 320)]  # after the log ends -> OUTSIDE_RANGE
+    out = match_ism_to_furnace(records, furnace_df,
+                               pre_margin_min=0, post_margin_min=0)
+    assert out[0].status == "VALID" and out[0].T_nominal == 600.0, out[0].status
+    assert out[0].replica == 1
+    assert out[1].status == "UNSTABLE", out[1].status
+    assert out[2].status == "OUTSIDE_RANGE", out[2].status
+
+
 if __name__ == "__main__":
     import traceback
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
