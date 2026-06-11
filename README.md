@@ -94,6 +94,8 @@ eis-pipeline/
 │   ├── fitting.py          ← Zarc circuit fitting
 │   ├── plots.py            ← Publication figures
 │   ├── interactive.py      ← ipywidgets helpers (UI only)
+│   ├── session.py          ← session.json persistence (atomic, merge-safe)
+│   ├── _worker.py          ← process-pool init (caps BLAS threads per worker)
 │   └── utils.py            ← Excel helpers
 │
 ├── stage0_oven.ipynb       ← Stage 0: furnace log diagnostics
