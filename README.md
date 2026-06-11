@@ -41,6 +41,17 @@ Copy `sample_template/` to `{SAMPLE_ID}/`, drop your data into `Raw data/` and
 Each notebook starts with a numbered sample list and saves its settings to
 `session.json`, so later stages pick up where the previous one left off.
 
+### Try it without data
+
+The repository bundles `EXAMPLE_SAMPLE/`, a synthetic sample (two gas
+conditions, five temperatures, two-Zarc spectra with realistic noise,
+regenerable with `python tools/generate_example_sample.py`). It uses the CSV
+entry path, so start from `stage2_kk.ipynb`, type `EXAMPLE_SAMPLE` at the
+sample prompt, and continue through stage 3 and 4. When stage 3 asks for the
+pellet geometry, any plausible values work (e.g. thickness 1.4 mm, diameter
+10 mm). No oven log is included, so the Brouwer p(O₂) figures are skipped;
+everything else runs end to end.
+
 ### Changing parameters: `USE_SAVED_PARAMS`
 
 Once a sample has been processed, Stages 2, 3 and 4 resume their parameters
@@ -329,55 +340,66 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `TRANSF_PEAK_IDS`  | None     | Peaks shown in transference figures (None = all) |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
 
-Final Nyquist/Bode figures show only physically valid points: rows with
-Z′ < 0 or Z″ < 0 (high-frequency instrumental artifacts — no passive circuit
-can produce them) are removed by the same criterion applied before the
-Lin-KK test, and were verified not to affect the fitted parameters.
-The transference figures are drawn only for the peaks listed in
-`TRANSF_PEAK_IDS`: t_ion is physically meaningful for transport processes
-(bulk, grain boundary), not for electrode arcs, whose pO₂ dependence
-reflects the oxygen-exchange kinetics at the electrode interface. The
+### What the figures show
+
+Per condition: DRT stacked, Nyquist, Bode, and the 2×2 Arrhenius panel with
+all fitted peaks. The R²(τ) of each Arrhenius fit appears in the
+activation-energy summary table. Across conditions: the Brouwer p(O₂)
+diagram and its ionic/electronic decomposition (Step 3).
+
+Nyquist and Bode figures keep only physically valid points. Rows with
+Z′ < 0 or Z″ < 0 are high-frequency instrument artifacts, since no passive
+circuit can produce them. They are removed with the same criterion used
+before the Lin-KK test, and removing them was verified not to change the
+fitted parameters.
+
+Transference figures are drawn only for the peaks in `TRANSF_PEAK_IDS`.
+The reason is physical. t_ion makes sense for transport processes such as
+bulk and grain boundary. It does not for electrode arcs, whose pO₂
+dependence comes from the oxygen-exchange kinetics at the interface. The
 exported table still covers every peak.
 
-Axis crops are stored per (condition, T) in `PLOT_WINDOWS`
-(`session.json → stage4_params`) and survive notebook restarts.
-Stage 4 requires Stage 3 to have run first (it reads the pellet
-geometry and the fit results from there) and says so explicitly if it has not.
+Axis crops live in `PLOT_WINDOWS` (`session.json → stage4_params`), one
+entry per (condition, T), and survive notebook restarts. Stage 4 needs
+stage 3 first: it reads the pellet geometry and the fit results from there,
+and says so explicitly if they are missing.
 
-Figures per condition: DRT stacked, Nyquist, Bode, Arrhenius 2×2 (all fitted peaks; R²(τ) of each Arrhenius fit is reported in the activation-energy summary table). Multi-condition: Brouwer p(O₂) diagram and its ionic/electronic decomposition (Step 3).
+### Ionic/electronic decomposition (Step 3)
 
-**Ionic/electronic decomposition (Step 3).** Each isotherm of the Brouwer
-diagram is fitted with the standard mixed-conduction model
+Each isotherm of the Brouwer diagram is fitted with the standard
+mixed-conduction model:
 
 ```
 σ(pO₂) = σ_ion + σ_p · pO₂^(+x) + σ_n · pO₂^(−x)        x = TRANSF_EXPONENT
 ```
 
-which is linear in the three partial conductivities and is solved with
-non-negative least squares (σᵢ ≥ 0). The local Brouwer slope equals
-`x · t_el`, so a plateau identifies a purely ionic conductor and a +x slope
-purely p-type electronic (polaron) conduction. The ionic transference number
-`t_ion(pO₂) = σ_ion / σ_tot` is tabulated for every peak and exported to
-`Results/pO2/stage4_transference.xlsx`; x = 1/4 holds in the dilute defect
-regime (use 1/6 where that regime applies).
+The model is linear in the three partial conductivities, so it is solved
+with non-negative least squares (σᵢ ≥ 0). The local Brouwer slope equals
+`x · t_el`. A plateau therefore means purely ionic conduction; a +x slope
+means purely p-type (polaron) conduction. The ionic transference number
+t_ion = σ_ion / σ_tot is tabulated for every peak in
+`Results/pO2/stage4_transference.xlsx`. The default x = 1/4 holds in the
+dilute defect regime; use 1/6 where that regime applies.
 
-Step 3 also draws an Arrhenius plot of the partial conductivities
-(ln σT vs 1000/T for σ_ion and σ_p, one per peak in `TRANSF_PEAK_IDS`):
-straight lines with distinct activation energies are the rigorous check that
-the decomposition separated two physically different channels. Temperatures
-where NNLS returns a channel as exactly zero are skipped; the `n` reported in
-the legend is therefore the number of temperatures with a non-zero NNLS value
-for that channel, i.e. the points actually used in that Arrhenius regression
-(it can differ between σ_ion and σ_p at the same peak). σ_n is not drawn
-(noise floor in p-type samples) but stays in the exported table.
+Step 3 also draws the Arrhenius plot of the partial conductivities, ln(σT)
+vs 1000/T for σ_ion and σ_p, one figure per peak in `TRANSF_PEAK_IDS`. This
+is the rigorous check of the decomposition: two straight lines with
+distinct activation energies mean two physically different channels.
+Temperatures where NNLS returns exactly zero for a channel are skipped, and
+the `n` in the legend counts the temperatures actually used in that
+regression, so it can differ between σ_ion and σ_p for the same peak. σ_n
+is not drawn (in p-type samples it is a noise floor) but stays in the
+exported table.
 
-**HF-block sum (`ARRHENIUS_SUM_PEAKS`).** When two close peaks cannot be
-separated reliably below some temperature, their series resistances still
-add, so σ = L/((R₁+R₂)·A) stays well defined at every T. The single-panel
-figure `Arrhenius_sigma_HF_*` draws the separated branches only for
-T ≥ `ARRHENIUS_T_MIN` and the series sum over the full range; the figure
-declares the threshold. The sum mixes processes with different Eₐ, so its
-line may curve slightly: its Eₐ is an effective value for the block.
+### HF-block sum (`ARRHENIUS_SUM_PEAKS`)
+
+Below some temperature two close peaks may no longer separate reliably.
+Their series resistances still add, so σ = L/((R₁+R₂)·A) stays well defined
+at every T. The figure `Arrhenius_sigma_HF_*` draws the separated branches
+only for T ≥ `ARRHENIUS_T_MIN` and the series sum over the full range, and
+it declares the threshold on the plot. One caveat: the sum mixes processes
+with different Eₐ, so its line may curve slightly and its Eₐ is an
+effective value for the block.
 
 ---
 
