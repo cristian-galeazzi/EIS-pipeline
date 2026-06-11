@@ -363,7 +363,10 @@ Step 3 also draws an Arrhenius plot of the partial conductivities
 (ln σT vs 1000/T for σ_ion and σ_p, one per peak in `TRANSF_PEAK_IDS`):
 straight lines with distinct activation energies are the rigorous check that
 the decomposition separated two physically different channels. Temperatures
-where NNLS returns a channel as exactly zero are skipped; σ_n is not drawn
+where NNLS returns a channel as exactly zero are skipped; the `n` reported in
+the legend is therefore the number of temperatures with a non-zero NNLS value
+for that channel, i.e. the points actually used in that Arrhenius regression
+(it can differ between σ_ion and σ_p at the same peak). σ_n is not drawn
 (noise floor in p-type samples) but stays in the exported table.
 
 **HF-block sum (`ARRHENIUS_SUM_PEAKS`).** When two close peaks cannot be
