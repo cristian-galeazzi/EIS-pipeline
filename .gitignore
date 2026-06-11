@@ -58,3 +58,6 @@ RISULTATI_CALIBRAZIONE.md
 !sample_template/
 !sample_template/**/.gitkeep
 !sample_template/**/README.md
+
+# Bundled synthetic example sample (no real measurements; committable)
+!EXAMPLE_SAMPLE/**/*.csv
