@@ -662,40 +662,40 @@ def plot_oven(parsed: dict, save_path: Optional[Path] = None, show: bool = True)
     n_hours = len(ticks)
     fig_w   = max(14, n_hours * 0.22)
 
-    plt.rcParams.update({
+    with plt.rc_context({
         "font.family": "sans-serif", "font.size": 11,
         "axes.linewidth": 0.8, "lines.linewidth": 1.0,
         "axes.grid": True, "grid.linestyle": "-",
         "grid.color": "#cccccc", "grid.alpha": 1.0,
         "axes.facecolor": "white", "figure.facecolor": "white",
         "figure.dpi": 150,
-    })
+    }):
 
-    fig, ax = plt.subplots(figsize=(fig_w, 6))
-    ax.plot(x, tsample, color="black", linewidth=1.0, label=label, zorder=3)
+        fig, ax = plt.subplots(figsize=(fig_w, 6))
+        ax.plot(x, tsample, color="black", linewidth=1.0, label=label, zorder=3)
 
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(Y_MIN, Y_MAX)
-    ax.set_xticks(ticks)
-    ax.set_xticklabels(tick_labels, rotation=90, ha="center", fontsize=8)
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(Y_STEP))
-    ax.set_xlabel("Time", fontsize=12)
-    ax.set_ylabel("T / °C", fontsize=12)
-    ax.set_title("")
-    ax.legend(loc="upper right", framealpha=1.0, edgecolor="black",
-              fontsize=11, handlelength=1.5)
-    ax.tick_params(which="major", direction="in", top=False, right=False, length=4)
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(Y_MIN, Y_MAX)
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(tick_labels, rotation=90, ha="center", fontsize=8)
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(Y_STEP))
+        ax.set_xlabel("Time", fontsize=12)
+        ax.set_ylabel("T / °C", fontsize=12)
+        ax.set_title("")
+        ax.legend(loc="upper right", framealpha=1.0, edgecolor="black",
+                  fontsize=11, handlelength=1.5)
+        ax.tick_params(which="major", direction="in", top=False, right=False, length=4)
 
-    plt.tight_layout()
+        plt.tight_layout()
 
-    if save_path is not None:
-        fig.savefig(save_path, format="pdf", bbox_inches="tight")
-        print(f"  Saved -> {save_path.name}")
+        if save_path is not None:
+            fig.savefig(save_path, format="pdf", bbox_inches="tight")
+            print(f"  Saved -> {save_path.name}")
 
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
 
 
 def plot_ism_selection(
@@ -770,7 +770,7 @@ def plot_ism_selection(
     n_hours = len(ticks)
     fig_w   = max(12, n_hours * 0.28)
 
-    plt.rcParams.update({
+    with plt.rc_context({
         "font.family":      "sans-serif",
         "font.size":        10,
         "axes.linewidth":   1.0,
@@ -782,89 +782,89 @@ def plot_ism_selection(
         "axes.facecolor":   "white",
         "figure.facecolor": "white",
         "figure.dpi":       140,
-    })
+    }):
 
-    fig, ax = plt.subplots(figsize=(fig_w, 5))
-    ax.plot(x, tsample, color="black", linewidth=1.5, zorder=5)
+        fig, ax = plt.subplots(figsize=(fig_w, 5))
+        ax.plot(x, tsample, color="black", linewidth=1.5, zorder=5)
 
-    for rec in records:
-        if rec.t_start is None or rec.t_end is None or start_dt is None:
-            continue
-        t0 = rec.t_start.replace(tzinfo=None)
-        t1 = rec.t_end.replace(tzinfo=None)
-        x0 = (t0 - start_dt).total_seconds() + start_seconds
-        x1 = (t1 - start_dt).total_seconds() + start_seconds
-        if x1 < x_min or x0 > x_max:
-            continue
+        for rec in records:
+            if rec.t_start is None or rec.t_end is None or start_dt is None:
+                continue
+            t0 = rec.t_start.replace(tzinfo=None)
+            t1 = rec.t_end.replace(tzinfo=None)
+            x0 = (t0 - start_dt).total_seconds() + start_seconds
+            x1 = (t1 - start_dt).total_seconds() + start_seconds
+            if x1 < x_min or x0 > x_max:
+                continue
 
-        color, alpha, hatch = _STYLE.get(rec.status, (C_OOR, 0.20, None))
-        ax.axvspan(x0, x1, facecolor=color, alpha=alpha,
-                   hatch=hatch, edgecolor=color if hatch else "none",
-                   linewidth=0, zorder=2)
-        # Strong border line to make each window clearly visible
-        ax.axvline(x0, color=color, linewidth=1.2, alpha=0.8, zorder=3)
-        ax.axvline(x1, color=color, linewidth=1.2, alpha=0.8, zorder=3)
+            color, alpha, hatch = _STYLE.get(rec.status, (C_OOR, 0.20, None))
+            ax.axvspan(x0, x1, facecolor=color, alpha=alpha,
+                       hatch=hatch, edgecolor=color if hatch else "none",
+                       linewidth=0, zorder=2)
+            # Strong border line to make each window clearly visible
+            ax.axvline(x0, color=color, linewidth=1.2, alpha=0.8, zorder=3)
+            ax.axvline(x1, color=color, linewidth=1.2, alpha=0.8, zorder=3)
 
-        # T_nominal label inside VALID windows (e.g. "400°C", "400°C_1")
-        if rec.status == "VALID" and rec.T_nominal is not None:
-            xmid = (x0 + x1) / 2
-            T = int(rec.T_nominal)
-            rep = rec.replica if rec.replica is not None else 1
-            label = f"{T}°C" if rep == 1 else f"{T}°C_{rep-1}"
-            ax.text(
-                xmid, Y_MIN + 10, label,
-                ha="center", va="bottom", fontsize=7, color="black",
-                fontweight="bold", rotation=90, zorder=6,
-            )
+            # T_nominal label inside VALID windows (e.g. "400°C", "400°C_1")
+            if rec.status == "VALID" and rec.T_nominal is not None:
+                xmid = (x0 + x1) / 2
+                T = int(rec.T_nominal)
+                rep = rec.replica if rec.replica is not None else 1
+                label = f"{T}°C" if rep == 1 else f"{T}°C_{rep-1}"
+                ax.text(
+                    xmid, Y_MIN + 10, label,
+                    ha="center", va="bottom", fontsize=7, color="black",
+                    fontweight="bold", rotation=90, zorder=6,
+                )
 
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(Y_MIN, Y_MAX)
-    ax.set_xticks(ticks)
-    ax.set_xticklabels(tick_labels, rotation=90, ha="center", fontsize=7)
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(Y_STEP))
-    ax.set_xlabel("Time  (D:HH:MM:SS)", fontsize=11)
-    ax.set_ylabel("T / °C", fontsize=11)
-    ax.tick_params(which="major", direction="in", top=False, right=False, length=4)
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(Y_MIN, Y_MAX)
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(tick_labels, rotation=90, ha="center", fontsize=7)
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(Y_STEP))
+        ax.set_xlabel("Time  (D:HH:MM:SS)", fontsize=11)
+        ax.set_ylabel("T / °C", fontsize=11)
+        ax.tick_params(which="major", direction="in", top=False, right=False, length=4)
 
-    legend_items = [
-        Patch(facecolor=C_VALID,  alpha=0.7, label="VALID"),
-        Patch(facecolor=C_NEAR,   alpha=0.6, hatch="///",
-              edgecolor=C_NEAR,   label="NEAR_TRANSITION"),
-        Patch(facecolor=C_UNSTAB, alpha=0.6, hatch="xxx",
-              edgecolor=C_UNSTAB, label="UNSTABLE"),
-        Patch(facecolor=C_OOR,    alpha=0.4, label="OUT_OF_RANGE"),
-    ]
-    ax.legend(handles=legend_items, loc="upper right",
-              framealpha=1.0, edgecolor="#888888", fontsize=9)
+        legend_items = [
+            Patch(facecolor=C_VALID,  alpha=0.7, label="VALID"),
+            Patch(facecolor=C_NEAR,   alpha=0.6, hatch="///",
+                  edgecolor=C_NEAR,   label="NEAR_TRANSITION"),
+            Patch(facecolor=C_UNSTAB, alpha=0.6, hatch="xxx",
+                  edgecolor=C_UNSTAB, label="UNSTABLE"),
+            Patch(facecolor=C_OOR,    alpha=0.4, label="OUT_OF_RANGE"),
+        ]
+        ax.legend(handles=legend_items, loc="upper right",
+                  framealpha=1.0, edgecolor="#888888", fontsize=9)
 
-    # Title: condition + per-T counts
-    per_T: dict[float, int] = {}
-    for r in records:
-        if r.status == "VALID" and r.T_nominal is not None:
-            per_T[r.T_nominal] = per_T.get(r.T_nominal, 0) + 1
-    summary = "  ".join(
-        f"{int(T)}°C×{n}" for T, n in sorted(per_T.items(), reverse=True)
-    )
-    n_nt  = sum(1 for r in records if r.status == "NEAR_TRANSITION")
-    n_un  = sum(1 for r in records if r.status == "UNSTABLE")
-    n_val = sum(1 for r in records if r.status == "VALID")
-    ax.set_title(
-        f"{condition_folder}\n"
-        f"VALID: {n_val}   NEAR_TRANSITION: {n_nt}   UNSTABLE: {n_un}\n"
-        f"{summary}",
-        fontsize=9, loc="left",
-    )
+        # Title: condition + per-T counts
+        per_T: dict[float, int] = {}
+        for r in records:
+            if r.status == "VALID" and r.T_nominal is not None:
+                per_T[r.T_nominal] = per_T.get(r.T_nominal, 0) + 1
+        summary = "  ".join(
+            f"{int(T)}°C×{n}" for T, n in sorted(per_T.items(), reverse=True)
+        )
+        n_nt  = sum(1 for r in records if r.status == "NEAR_TRANSITION")
+        n_un  = sum(1 for r in records if r.status == "UNSTABLE")
+        n_val = sum(1 for r in records if r.status == "VALID")
+        ax.set_title(
+            f"{condition_folder}\n"
+            f"VALID: {n_val}   NEAR_TRANSITION: {n_nt}   UNSTABLE: {n_un}\n"
+            f"{summary}",
+            fontsize=9, loc="left",
+        )
 
-    plt.tight_layout()
+        plt.tight_layout()
 
-    if save_path is not None:
-        fig.savefig(save_path, bbox_inches="tight", dpi=150)
-        print(f"  Saved -> {save_path.name}")
+        if save_path is not None:
+            fig.savefig(save_path, bbox_inches="tight", dpi=150)
+            print(f"  Saved -> {save_path.name}")
 
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
 
 
 def extract_plateau_table(parsed: dict, interval_s: int = 300) -> pd.DataFrame:
