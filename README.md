@@ -339,6 +339,12 @@ purely p-type electronic (polaron) conduction. The ionic transference number
 `Results/pO2/stage4_transference.xlsx`; x = 1/4 holds in the dilute defect
 regime (use 1/6 where that regime applies).
 
+Step 3 also draws an Arrhenius plot of the partial conductivities
+(ln σT vs 1000/T for σ_ion and σ_p, one per peak in `TRANSF_PEAK_IDS`):
+straight lines with distinct activation energies are the rigorous check that
+the decomposition separated two physically different channels. Temperatures
+where NNLS returns a channel as exactly zero are skipped.
+
 ---
 
 ## Physical formulae

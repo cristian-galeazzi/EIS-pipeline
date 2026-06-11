@@ -1070,6 +1070,96 @@ def plot_brouwer_transference(
     return fig
 
 
+def plot_transference_arrhenius(
+    transf_df:   pd.DataFrame,
+    save_dir:    Path | str,
+    sample_name: str = "",
+    peak_id:     int | None = None,
+) -> plt.Figure | None:
+    """
+    Arrhenius plot of the partial conductivities from the Patterson
+    decomposition: ln(σT) vs 1000/T for σ_ion and σ_p (σ_n is added only
+    if NNLS ever returned it non-zero).
+
+    Straight lines here are the rigorous check that the decomposition
+    separated two physically distinct channels: each partial conductivity
+    must be thermally activated with its own Eₐ.
+
+    Temperatures where NNLS set a channel exactly to zero carry no
+    information about that channel and are skipped; the Eₐ line is fitted
+    only when a channel keeps at least 3 non-zero temperatures.
+
+    Parameters
+    ----------
+    transf_df : tidy output of fit_transference(); per-T channel values
+                are repeated across pO₂ rows and collapsed internally.
+    peak_id   : used for the title/filename (taken from the data if None).
+    """
+    if transf_df is None or transf_df.empty:
+        warnings.warn("plot_transference_arrhenius: empty input", stacklevel=2)
+        return None
+    if peak_id is None:
+        peak_id = int(transf_df["peak_id"].iloc[0])
+
+    per_T = (transf_df[transf_df["peak_id"] == peak_id]
+             .groupby("T_nominal")[["sigma_ion", "sigma_p", "sigma_n"]]
+             .first())
+    if per_T.empty:
+        warnings.warn(f"plot_transference_arrhenius: no rows for peak {peak_id}",
+                      stacklevel=2)
+        return None
+
+    T_K = per_T.index.to_numpy(dtype=float) + 273.15
+
+    channels = [
+        ("sigma_ion", r"$\sigma_{ion}$", "#0072B2", "o"),
+        ("sigma_p",   r"$\sigma_{p}$",   "#D55E00", "s"),
+    ]
+    if (per_T["sigma_n"] > 0).any():
+        channels.append(("sigma_n", r"$\sigma_{n}$", "#666666", "^"))
+
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=150, layout="constrained")
+    drew = False
+    for col, lab, color, marker in channels:
+        # NNLS zeros mean "channel absent at this T", not a measured value
+        sigma_Sm = per_T[col].to_numpy(dtype=float) * 100.0   # S/cm -> S/m
+        mask = sigma_Sm > 0
+        if not mask.any():
+            continue
+        x  = 1000.0 / T_K[mask]
+        ln = np.log(sigma_Sm[mask] * T_K[mask])
+        if mask.sum() >= 3:
+            Ea, Ea_err, r2, slope, intercept = _arrhenius_linreg(1.0 / T_K[mask], ln)
+            label = (f"{lab}: $E_a$ = {Ea:.2f} ± {Ea_err:.2f} eV"
+                     f"  (R²={r2:.3f}, n={int(mask.sum())})")
+            fit_x = np.linspace(x.min() - 0.02, x.max() + 0.02, 100)
+            ax.plot(fit_x, intercept + slope * (fit_x / 1000), "-",
+                    color=color, linewidth=1.0, alpha=0.7)
+        else:
+            label = f"{lab} (n={int(mask.sum())}, no fit)"
+        ax.plot(x, ln, marker, color=color, markersize=7,
+                markeredgecolor="black", markeredgewidth=0.5, label=label)
+        drew = True
+
+    if not drew:
+        plt.close(fig)
+        warnings.warn(f"plot_transference_arrhenius: all channels zero for "
+                      f"peak {peak_id}", stacklevel=2)
+        return None
+
+    ax.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
+    ax.set_ylabel(r"ln($\sigma T$ / S·K·m$^{-1}$)", fontsize=12)
+    ax.set_title(f"Partial conductivities (Patterson), process {peak_id}",
+                 fontsize=11)
+    ax.legend(fontsize=9, frameon=True, loc="best")
+    ax.tick_params(direction="in", top=True, right=True)
+
+    stem = (f"Transference_Arrhenius_Peak{peak_id}_{sample_name}"
+            if sample_name else f"Transference_Arrhenius_Peak{peak_id}")
+    _save(fig, save_dir, stem)
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # 7. τ Arrhenius consistency check
 # ---------------------------------------------------------------------------
