@@ -256,6 +256,9 @@ Applies the Lin-KK test [Schönleber et al., 2014] to each spectrum and selects 
 | `KK_C`              | 0.76    | M = round(KK_C × N)                       |
 | `KK_MU_TARGET`      | 0.50    | Sign-change fraction target                |
 | `KK_F_MIN_HARD`     | 80 Hz   | Hard lower frequency cutoff                |
+| `KK_F_MAX_HARD`     | None    | Hard upper frequency cutoff (None = off)   |
+| `KK_IQR_FENCE`      | 2.0     | IQR fence for the adaptive residual cut    |
+| `KK_IQR_WINDOW`     | 5       | Consecutive clean points anchoring the cut |
 | `KK_USE_W_CRITERIA` | False   | Ceramic-aware dual criterion (W_re + W_im) |
 | `KK_OVERRIDES`      | `{}`  | Per-(condition, T) frequency overrides     |
 | `OVERRIDES`         | `{}`  | Manual replica selection                   |
@@ -275,11 +278,27 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (j ω τᵢ)^αᵢ)
 | Parameter                 | Default  | Purpose                                     |
 | ------------------------- | -------- | ------------------------------------------- |
 | `L_m`, `D_m`          | required | Pellet thickness and diameter [m]           |
-| `DRT_LAMBDA`            | 4e-5     | Regularisation λ (custom mode)             |
-| `PEAK_MIN_PROM_DECADES` | 0.01     | Log-prominence threshold for peak detection |
-| `ZARC_INCLUDE_R0`       | True     | Include series R₀ in circuit               |
-| `ZARC_R0_MAX`           | 200 Ω   | Upper bound on R₀                          |
+| `DRT_CV_TYPE`           | custom   | λ selection: `custom` or cross-validation  |
+| `DRT_RBF_DER`           | 2nd order | RBF derivative order (RelaxIS: Derivative) |
+| `DRT_SHAPE_S`           | 0.5      | RBF shape factor S                          |
+| `DRT_LAMBDA`            | 6.5e-6   | Regularisation λ (custom mode)             |
+| `PEAK_MIN_PROM_DECADES` | 0        | Log-prominence threshold (0 = off)          |
+| `PEAK_HEIGHT_FRAC`      | 0.05     | Height floor as fraction of γ_max          |
+| `PEAK_MIN_DIST_DECADES` | 0.3      | Minimum peak separation in log τ           |
 | `N_PEAKS_OVERRIDE`      | `{}`   | Force N peaks for specific (condition, T)   |
+| `N_PEAKS_CAP`           | None     | Keep at most N peaks (tallest by γ)        |
+| `ZARC_INCLUDE_R0`       | False    | Include series R₀ in circuit               |
+| `ZARC_R0_MAX`           | 200 Ω   | Upper bound on R₀                          |
+| `ZARC_R_DEC`, `ZARC_TAU_DEC` | 0.70 | Search window around DRT seeds [decades] |
+| `ZARC_ALPHA_INIT`       | 0.70     | Initial α per Zarc                         |
+| `ZARC_HF_WEIGHT`        | 0        | Extra high-frequency weighting (0 = off)    |
+| `ZARC_FIX_PARAMS`       | `{}`   | Pin individual R/τ/α values per (cond, T) |
+| `ZARC_N_RESTARTS`       | 4        | Random restarts until `ZARC_RMSE_TOL`      |
+| `ZARC_N_JOBS`           | 0        | Parallel fit processes (0 = auto)           |
+
+Per-condition overrides tuned in the live panel (`condition_params`,
+`zarc_peak_bounds`) persist in `session.json` and are re-applied by the
+batch fit, so a fresh kernel reproduces the exported sheets exactly.
 
 **Process identification:** the pipeline assigns no process label automatically. Use the C_eff magnitude plot (log₁₀(C_eff) vs 1000/T) and Arrhenius behaviour to identify each peak. Starting-point thresholds from Vendrell & West 2018 (YSZ):
 
