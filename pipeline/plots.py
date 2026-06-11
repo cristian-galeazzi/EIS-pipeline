@@ -1161,8 +1161,9 @@ def plot_transference_arrhenius(
 ) -> plt.Figure | None:
     """
     Arrhenius plot of the partial conductivities from the Patterson
-    decomposition: ln(σT) vs 1000/T for σ_ion and σ_p (σ_n is added only
-    if NNLS ever returned it non-zero).
+    decomposition: ln(σT) vs 1000/T for σ_ion and σ_p. σ_n is not drawn
+    (for p-type samples it is a noise floor with no thermal activation)
+    but stays in the exported stage4_transference.xlsx table.
 
     Straight lines here are the rigorous check that the decomposition
     separated two physically distinct channels: each partial conductivity
@@ -1198,8 +1199,6 @@ def plot_transference_arrhenius(
         ("sigma_ion", r"$\sigma_{ion}$", "#0072B2", "o"),
         ("sigma_p",   r"$\sigma_{p}$",   "#D55E00", "s"),
     ]
-    if (per_T["sigma_n"] > 0).any():
-        channels.append(("sigma_n", r"$\sigma_{n}$", "#666666", "^"))
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=150, layout="constrained")
     drew = False
