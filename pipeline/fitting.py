@@ -428,11 +428,15 @@ def fit_zarc(
     #      "tau":   [value or None per peak],
     #      "alpha": [value or None per peak]}
     if fix_params:
+        # scipy.least_squares requires lower < upper strictly, so a pinned
+        # parameter gets a one-ULP window via nextafter instead of lower==upper
+        # (which would make every fit fail with "infeasible bounds").
         offset = 0
         if include_r0:
             fixed_R0 = fix_params.get("R0")
             if fixed_R0 is not None:
-                lower[0] = upper[0] = initial_guess[0] = float(fixed_R0)
+                lower[0] = initial_guess[0] = float(fixed_R0)
+                upper[0] = np.nextafter(float(fixed_R0), np.inf)
             offset = 1
         for j, peak in enumerate(peaks):
             base = offset + j * 3
@@ -440,7 +444,8 @@ def fit_zarc(
                 vals = fix_params.get(key) or []
                 if j < len(vals) and vals[j] is not None:
                     val = float(vals[j])
-                    lower[base + k] = upper[base + k] = initial_guess[base + k] = val
+                    lower[base + k] = initial_guess[base + k] = val
+                    upper[base + k] = np.nextafter(val, np.inf)
 
     circuit = CustomCircuit(circuit_str, initial_guess=initial_guess)
 
