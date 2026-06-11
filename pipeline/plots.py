@@ -1104,15 +1104,15 @@ def plot_brouwer_transference(
                       markevery=_mev, zorder=5)
 
     # No panel titles (publication style): the Patterson model formula goes in
-    # the figure caption / README. The shared legend sits below the figure so
-    # it can never collide with the 600 °C points at the top of the panel.
+    # the figure caption / README. The shared legend sits in a framed box above
+    # the figure, outside both panels, so it can never collide with the data.
     ax_s.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
     ax_s.set_ylabel(
         r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
     _handles, _labels = ax_s.get_legend_handles_labels()
     _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
     _labels.append(r"$\sigma_{ion}$ (fit)")
-    fig.legend(_handles, _labels, loc="outside lower center", frameon=False,
+    fig.legend(_handles, _labels, loc="outside upper center", frameon=True,
                fontsize=8, ncol=min(len(_labels), 7), handlelength=1.3,
                columnspacing=0.8)
 
@@ -1126,16 +1126,20 @@ def plot_brouwer_transference(
     ax_t.set_ylim(y_lo, y_hi)
     if y_hi >= 1.0:
         ax_t.axhline(1.0, color="black", lw=0.8, ls=":", alpha=0.6)
-        ax_t.text(0.985, 1.0, "purely ionic", transform=ax_t.get_yaxis_transform(),
-                  fontsize=7, ha="right", va="bottom", fontstyle="italic",
-                  color="#444444",
-                  bbox=dict(fc="white", ec="none", alpha=0.7, pad=0.5))
+        ax_t.annotate("purely ionic", xy=(0.985, 1.0),
+                      xycoords=ax_t.get_yaxis_transform(),
+                      xytext=(0, 3), textcoords="offset points",
+                      fontsize=9, ha="right", va="bottom", fontstyle="italic",
+                      color="#444444",
+                      bbox=dict(fc="white", ec="none", alpha=0.7, pad=0.5))
     if y_lo <= 0.0:
         ax_t.axhline(0.0, color="black", lw=0.8, ls=":", alpha=0.6)
-        ax_t.text(0.985, 0.0, "purely electronic", transform=ax_t.get_yaxis_transform(),
-                  fontsize=7, ha="right", va="top", fontstyle="italic",
-                  color="#444444",
-                  bbox=dict(fc="white", ec="none", alpha=0.7, pad=0.5))
+        ax_t.annotate("purely electronic", xy=(0.985, 0.0),
+                      xycoords=ax_t.get_yaxis_transform(),
+                      xytext=(0, -3), textcoords="offset points",
+                      fontsize=9, ha="right", va="top", fontstyle="italic",
+                      color="#444444",
+                      bbox=dict(fc="white", ec="none", alpha=0.7, pad=0.5))
 
     for ax in (ax_s, ax_t):
         ax.tick_params(direction="in", which="major", labelsize=10, width=1.2, length=4)
