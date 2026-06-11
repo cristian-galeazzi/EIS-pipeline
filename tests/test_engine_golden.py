@@ -278,6 +278,23 @@ def test_fix_params_pins_tau():
         f"tau not pinned: {fit['tau'][0]} != {tau_fixed}"
 
 
+def test_ci_columns_align_without_r0():
+    """fit_to_rows must map conf_R/tau/alpha from the right positions for
+    both circuit layouts (regression for the old R0-offset assumption)."""
+    from pipeline.fitting import fit_to_rows
+    freq = np.logspace(5, -1, 60)
+    Z_re, Z_im = _synthetic_zarc(0.0, 5000.0, 1e-3, 0.85, freq)
+    peaks = [{"R_approx": 5000.0, "tau": 1e-3, "peak_id": 1}]
+    for include_r0 in (False, True):
+        fit = fit_zarc(freq, Z_re, Z_im, peaks, R0_guess=10.0, r0_max=200,
+                       include_r0=include_r0)
+        rows, _ = fit_to_rows(fit, "cond", "f.ism", "/f.ism",
+                              600.0, 0.21, 1.4e-3, 10e-3)
+        base = 1 if include_r0 else 0
+        assert np.isclose(rows[0]["conf_R"],   fit["conf"][base]), include_r0
+        assert np.isclose(rows[0]["conf_tau"], fit["conf"][base + 1]), include_r0
+
+
 def test_session_merge_keys():
     """update_sample merges per-condition dicts and respects replace=True."""
     from pipeline.session import update_sample, load_sample
