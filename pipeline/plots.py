@@ -812,8 +812,7 @@ def plot_arrhenius_sigma(
         ax.text(0.03, 0.03, f"split validated for T ≥ {t_min:g} °C; "
                             "sum drawn over the full range",
                 transform=ax.transAxes, fontsize=8, color="#555")
-    ax.set_title("HF-block conductivity: separated processes and series sum",
-                 fontsize=11)
+    # No in-figure title: the file name carries the identity (publication style)
     # _draw_arrhenius_panel puts the legend below the axis; redo it inside
     ax.legend(fontsize=9, frameon=True, loc="best")
 
@@ -1104,22 +1103,19 @@ def plot_brouwer_transference(
                       markersize=sty["ms"] - 1, markeredgecolor="none",
                       markevery=_mev, zorder=5)
 
-    # The fit model lives in the panel title (it can never collide with data);
-    # the ionic component gets its own legend handle instead of a corner note.
-    ax_s.set_title(
-        r"Patterson fit:  $\sigma = \sigma_{ion} + \sigma_p\,p^{+%g} + \sigma_n\,p^{-%g}$"
-        % (exponent, exponent), fontsize=10)
+    # No panel titles (publication style): the Patterson model formula goes in
+    # the figure caption / README. The shared legend sits below the figure so
+    # it can never collide with the 600 °C points at the top of the panel.
     ax_s.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
     ax_s.set_ylabel(
         r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
     _handles, _labels = ax_s.get_legend_handles_labels()
     _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
     _labels.append(r"$\sigma_{ion}$ (fit)")
-    ax_s.legend(_handles, _labels, loc="upper left", frameon=True, fontsize=8,
-                ncol=2, handlelength=1.3, borderpad=0.5, labelspacing=0.3,
-                columnspacing=0.8)
+    fig.legend(_handles, _labels, loc="outside lower center", frameon=False,
+               fontsize=8, ncol=min(len(_labels), 7), handlelength=1.3,
+               columnspacing=0.8)
 
-    ax_t.set_title("ionic transference number", fontsize=10)
     ax_t.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
     ax_t.set_ylabel(r"$t_{ion} = \sigma_{ion}/\sigma_{tot}$", fontsize=12)
     # Zoom on the data range so overlapping curves separate; the 0/1 guides
@@ -1231,8 +1227,7 @@ def plot_transference_arrhenius(
 
     ax.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
     ax.set_ylabel(r"ln($\sigma T$ / S·K·m$^{-1}$)", fontsize=12)
-    ax.set_title(f"Partial conductivities (Patterson), process {peak_id}",
-                 fontsize=11)
+    # No in-figure title: the file name carries the identity (publication style)
     ax.legend(fontsize=9, frameon=True, loc="best")
     ax.tick_params(direction="in", top=True, right=True)
 
