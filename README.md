@@ -303,6 +303,7 @@ Reads Stage 3 outputs and generates publication figures (PNG + PDF).
 | `BROUWER_PEAK_ID`  | 1        | Peak index for Brouwer diagram              |
 | `BROUWER_TEMPS`    | None     | Temperatures shown in Brouwer (None = all)  |
 | `ARRHENIUS_T_MIN`  | None     | Exclude T below this [°C] from Arrhenius fits |
+| `ARRHENIUS_SUM_PEAKS` | None  | Peaks summed into the HF-block σ Arrhenius (e.g. `[1, 2]`) |
 | `TRANSF_EXPONENT`  | 0.25     | Brouwer exponent x for the σ_ion/σ_el split |
 | `TRANSF_PEAK_IDS`  | None     | Peaks shown in transference figures (None = all) |
 | `PLOT_WINDOWS`     | `{}`   | Per-(condition, T) axis crop                |
@@ -343,7 +344,16 @@ Step 3 also draws an Arrhenius plot of the partial conductivities
 (ln σT vs 1000/T for σ_ion and σ_p, one per peak in `TRANSF_PEAK_IDS`):
 straight lines with distinct activation energies are the rigorous check that
 the decomposition separated two physically different channels. Temperatures
-where NNLS returns a channel as exactly zero are skipped.
+where NNLS returns a channel as exactly zero are skipped; σ_n is not drawn
+(noise floor in p-type samples) but stays in the exported table.
+
+**HF-block sum (`ARRHENIUS_SUM_PEAKS`).** When two close peaks cannot be
+separated reliably below some temperature, their series resistances still
+add, so σ = L/((R₁+R₂)·A) stays well defined at every T. The single-panel
+figure `Arrhenius_sigma_HF_*` draws the separated branches only for
+T ≥ `ARRHENIUS_T_MIN` and the series sum over the full range; the figure
+declares the threshold. The sum mixes processes with different Eₐ, so its
+line may curve slightly: its Eₐ is an effective value for the block.
 
 ---
 

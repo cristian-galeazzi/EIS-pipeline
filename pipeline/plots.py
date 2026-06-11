@@ -738,6 +738,89 @@ def plot_arrhenius_panel(
     return fig, results
 
 
+def plot_arrhenius_sigma(
+    df_peaks:     pd.DataFrame,
+    L_m:          float,
+    D_m:          float,
+    condition:    str,
+    save_dir:     Path | str,
+    t_min:        float | None = None,
+    sum_peak_ids: list[int] | None = None,
+) -> plt.Figure | None:
+    """
+    Single-panel conductivity Arrhenius for the HF block: ln(σT) vs 1000/T.
+
+    Two layers:
+    - one branch per peak in ``sum_peak_ids``, restricted to T ≥ ``t_min``
+      (below it the R split between close peaks is not validated);
+    - the series sum, σ = L / (Σ Rᵢ · A), over the FULL temperature range:
+      series resistances add, so the sum stays well defined even where the
+      individual split is degenerate.
+
+    The sum mixes processes with different Eₐ, so its Arrhenius line may
+    curve slightly; its Eₐ is an effective value for the whole HF block.
+
+    Parameters
+    ----------
+    df_peaks     : stage3_fit.xlsx "Peaks" sheet for one condition
+    sum_peak_ids : peaks forming the block (e.g. [1, 2]); None disables
+                   the figure (returns None)
+    t_min        : threshold above which the split is validated [°C];
+                   None = branches drawn over the full range
+    """
+    if not sum_peak_ids or len(sum_peak_ids) < 2:
+        return None
+    A_m2 = np.pi * (D_m / 2) ** 2
+
+    sub = df_peaks[df_peaks["peak_id"].isin(sum_peak_ids)]
+    if sub.empty:
+        warnings.warn(f"plot_arrhenius_sigma: no rows for peaks {sum_peak_ids}",
+                      stacklevel=2)
+        return None
+
+    fig, ax = plt.subplots(figsize=(6.5, 5), dpi=150, layout="constrained")
+
+    # branches: validated range only
+    branch_results = build_arrhenius_results(sub, L_m, D_m, t_min=t_min)
+    _draw_arrhenius_panel(
+        ax, branch_results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
+        r"E_a", r"ln($\sigma T$ / S·K·m$^{-1}$)")
+
+    # series sum: full range, only at T where every block peak was fitted
+    wide = sub.pivot_table(index="T_nominal", columns="peak_id",
+                           values="R_i", aggfunc="first")
+    wide = wide.dropna()
+    if len(wide) >= 3:
+        T_K     = wide.index.to_numpy(dtype=float) + 273.15
+        R_sum   = wide.sum(axis=1).to_numpy(dtype=float)
+        sigma   = L_m / (R_sum * A_m2)
+        ln_sT   = np.log(sigma * T_K)
+        inv_T   = 1000.0 / T_K
+        Ea, Ea_err, r2, slope, intercept = _arrhenius_linreg(1.0 / T_K, ln_sT)
+        ids_lab = "+".join(f"P{int(p)}" for p in sorted(sum_peak_ids))
+        ax.plot(inv_T, ln_sT, "D", color="#333333", markersize=6,
+                markeredgecolor="black", markeredgewidth=0.5,
+                label=f"{ids_lab} (series sum): $E_a$ = {Ea:.2f} eV")
+        fit_x = np.linspace(inv_T.min() - 0.02, inv_T.max() + 0.02, 100)
+        ax.plot(fit_x, intercept + slope * (fit_x / 1000), "--",
+                color="#333333", linewidth=1.0, alpha=0.8)
+    else:
+        warnings.warn("plot_arrhenius_sigma: fewer than 3 temperatures with "
+                      "all block peaks fitted; sum line skipped", stacklevel=2)
+
+    if t_min is not None:
+        ax.text(0.03, 0.03, f"split validated for T ≥ {t_min:g} °C; "
+                            "sum drawn over the full range",
+                transform=ax.transAxes, fontsize=8, color="#555")
+    ax.set_title("HF-block conductivity: separated processes and series sum",
+                 fontsize=11)
+    # _draw_arrhenius_panel puts the legend below the axis; redo it inside
+    ax.legend(fontsize=9, frameon=True, loc="best")
+
+    _save(fig, save_dir, f"Arrhenius_sigma_HF_{condition}")
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # 6. Brouwer p(O₂) diagram
 # ---------------------------------------------------------------------------
