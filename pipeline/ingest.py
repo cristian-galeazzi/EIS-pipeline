@@ -429,7 +429,7 @@ def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
     has_T = df["T_mean"].notna().any()
     print(f"  temperature column present: {has_T} "
           f"({'Arrhenius available' if has_T else 'Arrhenius will be skipped'})")
-    print(f"  pO2: not available (Brouwer diagram will be skipped)")
+    print("  pO2: not available (Brouwer diagram will be skipped)")
 
     return df
 

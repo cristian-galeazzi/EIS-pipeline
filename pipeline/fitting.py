@@ -40,7 +40,6 @@ import warnings
 import zlib
 
 import numpy as np
-import pandas as pd
 from impedance.models.circuits import CustomCircuit
 
 

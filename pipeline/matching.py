@@ -719,7 +719,6 @@ def plot_ism_selection(
       red   hatch  : UNSTABLE (T_std exceeds threshold during measurement)
       grey         : OUTSIDE_RANGE / OUT_OF_RANGE
     """
-    from collections import Counter
     from matplotlib.patches import Patch
 
     Y_MIN, Y_MAX, Y_STEP = 350, 650, 25

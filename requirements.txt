@@ -31,6 +31,7 @@ tqdm>=4.0                 # progress bars in NB02 batch KK loop
 
 # Development / testing
 pytest>=8.0               # run with: pytest tests/
+ruff==0.15.17             # lint: ruff check pipeline tests tools (also run in CI)
 nbstripout>=0.7           # strips notebook outputs on git commit (run: nbstripout --install)
 
 # stdlib (no pip install needed): pathlib, shutil, datetime, re

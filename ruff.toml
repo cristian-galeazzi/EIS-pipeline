@@ -1,0 +1,8 @@
+# Lint configuration (default E/F rules). Two intentional E402 exceptions:
+# late imports forced by required bootstrap code that must run first.
+
+[lint.per-file-ignores]
+# Qt module stubs must be installed before pyDRTtools is imported
+"pipeline/drt.py" = ["E402"]
+# sys.path bootstrap must precede the pipeline imports
+"tests/test_engine_golden.py" = ["E402"]
