@@ -556,6 +556,7 @@ The pipeline discovers conditions and temperatures automatically.
 **DRT**
 
 - T. H. Wan, M. Saccoccio, C. Chen, F. Ciucci, *Influence of the discretization methods on the distribution of relaxation times deconvolution: implementing radial basis functions with DRTtools*, Electrochim. Acta 184 (2015) 483–499.
+- A. Maradesa, B. Py, T. H. Wan, M. B. Effat, F. Ciucci, *Selecting the regularization parameter in the distribution of relaxation times*, J. Electrochem. Soc. 170 (2023) 030502. (Cited for the automatic λ-selection methods exposed by `DRT_CV_TYPE`; the validated default uses a fixed λ.)
 
 **Equivalent circuits**
 
