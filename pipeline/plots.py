@@ -117,12 +117,17 @@ def apply_pub_style() -> None:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _save(fig: plt.Figure, save_dir: Path | str, stem: str) -> None:
-    """Export figure as PNG and PDF in save_dir."""
+def _save(fig: plt.Figure, save_dir: Path | str, stem: str, *, tight: bool = True) -> None:
+    """Export figure as PNG and PDF in save_dir.
+
+    tight=False keeps the full figure canvas (no "tight" crop). Needed for 3-D
+    axes, where the tight bounding box drops the rotated z-axis label.
+    """
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
+    bbox = "tight" if tight else None
     for ext in ("png", "pdf"):
-        fig.savefig(save_dir / f"{stem}.{ext}", dpi=300, bbox_inches="tight")
+        fig.savefig(save_dir / f"{stem}.{ext}", dpi=300, bbox_inches=bbox)
 
 
 def _reconstruct_Z_fit(
@@ -1039,6 +1044,7 @@ def plot_brouwer_transference(
     peak_id:       int       = 1,
     exponent:      float     = 0.25,
     temps_to_plot: list[int] | None = None,
+    df_t:          pd.DataFrame | None = None,
 ) -> plt.Figure:
     """
     Two-panel ionic/electronic decomposition of the Brouwer diagram.
@@ -1049,9 +1055,18 @@ def plot_brouwer_transference(
 
     Fit model and conventions: see fit_transference(). The exponent in use
     is annotated on the figure so the assumed defect regime is explicit.
+
+    ``df_t``: optional precomputed transference table (same columns as
+    ``fit_transference``). When given it is used directly instead of the
+    per-isotherm NNLS, so Stage 5 can redraw this figure from the refined
+    global model (``model.global_transference_table``). Default behaviour
+    (Stage 4) is unchanged.
     """
-    df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
-                            temps=temps_to_plot)
+    if df_t is None:
+        df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
+                                temps=temps_to_plot)
+    elif "peak_id" in df_t.columns:
+        df_t = df_t[df_t["peak_id"] == peak_id]
     if df_t.empty:
         raise ValueError(f"transference: no usable data for peak_id={peak_id}")
 
@@ -1425,4 +1440,92 @@ def plot_ceff_magnitude(
 
     if save:
         _save(fig, save_dir, f"Capacity_{condition}")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 8. Stage 5 — global MIEC model (2-D fit, 3-D surface, residual map)
+# ---------------------------------------------------------------------------
+# These draw the result of pipeline.model.fit_global_conductivity. The forward
+# model itself lives in pipeline.model (no physics here): we only import it to
+# evaluate the fitted curve/surface for display. Conductivity is shown in S/cm
+# (sigma_Sm_i is stored in S/m), matching the Brouwer/transference figures.
+
+def _clean_peak_xy(df_peak: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return finite, positive (pO2, T_C, sigma_S/cm) arrays from a peak frame."""
+    Tc  = pd.to_numeric(df_peak["T_nominal"], errors="coerce").to_numpy(float)
+    p   = pd.to_numeric(df_peak["pO2_mean"], errors="coerce").to_numpy(float)
+    sig = pd.to_numeric(df_peak["sigma_Sm_i"], errors="coerce").to_numpy(float) / 100.0
+    ok  = np.isfinite(Tc) & np.isfinite(p) & np.isfinite(sig) & (p > 0) & (sig > 0)
+    return p[ok], Tc[ok], sig[ok]
+
+
+def plot_conductivity_surface_3d(df_peak, params, save_dir, *, sample_name="",
+                                 peak_id=None, save=True):
+    """3-D surface sigma(pO2, T) (fitted) with the measured points scattered on it.
+
+    sigma is on the vertical axis (log10, S/cm); pO2 (log10) and T on the base.
+    """
+    from pipeline.model import predict_grid
+
+    p_obs, Tc, sig = _clean_peak_xy(df_peak)
+    if p_obs.size == 0:
+        warnings.warn("plot_conductivity_surface_3d: no usable points", stacklevel=2)
+        return None
+    p_grid = np.logspace(np.log10(p_obs.min()), np.log10(p_obs.max()), 40)
+    T_grid = np.linspace(Tc.min(), Tc.max(), 40)
+    Z = predict_grid(params, p_grid, T_grid + 273.15) / 100.0  # (nT, npO2), S/cm
+    PO2, TT = np.meshgrid(np.log10(p_grid), T_grid)
+
+    fig = plt.figure(figsize=(8, 6), dpi=150)
+    ax = fig.add_subplot(projection="3d")
+    ax.plot_surface(PO2, TT, np.log10(Z), cmap="viridis", alpha=0.6,
+                    linewidth=0, antialiased=True)
+    ax.scatter(np.log10(p_obs), Tc, np.log10(sig), color="black", s=18, depthshade=True)
+    ax.set_xlabel(r"log$_{10}$ $p$(O$_2$)/bar", fontsize=10)
+    ax.set_ylabel(r"$T$ / °C", fontsize=10)
+    ax.set_zlabel(r"log$_{10}$($\sigma$/S cm$^{-1}$)", fontsize=10, labelpad=8)
+    # pure-white cube walls instead of the default off-grey panes
+    for _pane in (ax.xaxis.pane, ax.yaxis.pane, ax.zaxis.pane):
+        _pane.set_facecolor("white")
+        _pane.set_alpha(1.0)
+    # shrink the cube slightly so the rotated z-label fits inside the canvas
+    ax.set_box_aspect(None, zoom=0.85)
+
+    if save:
+        stem = f"Stage5_surface3D_Peak{peak_id}_{sample_name}" if sample_name else f"Stage5_surface3D_Peak{peak_id}"
+        # tight=False: the 3-D z-label is dropped by the tight bounding box
+        _save(fig, save_dir, stem, tight=False)
+    return fig
+
+
+def plot_fit_residuals(df_peak, params, save_dir, *, sample_name="", peak_id=None,
+                       save=True):
+    """Relative-residual map (sigma_fit - sigma_obs)/sigma_obs over (pO2, T).
+
+    A structureless cloud means the model fits; systematic zones flag physics
+    outside the 3-channel model (e.g. departure from the dilute regime).
+    """
+    from pipeline.model import total_conductivity
+
+    p_obs, Tc, sig = _clean_peak_xy(df_peak)
+    if p_obs.size == 0:
+        warnings.warn("plot_fit_residuals: no usable points", stacklevel=2)
+        return None
+    sig_fit = total_conductivity(p_obs, Tc + 273.15, params) / 100.0
+    resid = (sig_fit - sig) / sig
+    vmax = float(np.max(np.abs(resid))) if resid.size else 1.0
+
+    fig, ax = plt.subplots(figsize=(7, 5), dpi=150)
+    sc = ax.scatter(p_obs, Tc, c=resid, cmap="coolwarm", vmin=-vmax, vmax=vmax,
+                    s=60, edgecolor="black", linewidth=0.5)
+    ax.set_xscale("log")
+    ax.set_xlabel(r"$p$(O$_2$) / bar", fontsize=12)
+    ax.set_ylabel(r"$T$ / °C", fontsize=12)
+    ax.tick_params(direction="in", which="both", top=True, right=True)
+    fig.colorbar(sc, ax=ax, label=r"relative residual $(\sigma_\mathrm{model}-\sigma_\mathrm{exp})/\sigma_\mathrm{exp}$")
+
+    if save:
+        stem = f"Stage5_residuals_Peak{peak_id}_{sample_name}" if sample_name else f"Stage5_residuals_Peak{peak_id}"
+        _save(fig, save_dir, stem)
     return fig
