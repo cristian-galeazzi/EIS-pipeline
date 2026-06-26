@@ -159,6 +159,7 @@ EIS spectra of oxide ceramics at 400–600 °C contain overlapping arcs from bul
 | 2     | `stage2_kk.ipynb`       | Lin-KK validation; select best replica per (condition, T)                     |
 | 3     | `stage3_drt.ipynb`      | Tikhonov DRT, peak detection, Zarc circuit fit                                |
 | 4     | `stage4_plots.ipynb`    | Nyquist, Bode, DRT stacked, Arrhenius, Brouwer p(O₂)                         |
+| 5     | `stage5_model.ipynb`    | Global MIEC model: fit σ(p(O₂),T) per peak with 6 parameters; validate       |
 
 ---
 
@@ -366,30 +367,53 @@ and says so explicitly if they are missing.
 
 ### Ionic/electronic decomposition (Step 3)
 
-Each isotherm of the Brouwer diagram is fitted with the standard
-mixed-conduction model:
+The conductivity of a mixed conductor is the sum of three parallel channels:
+an ionic one (oxygen vacancies, p(O₂)-independent), an n-type electronic one
+(reduction electrons, increasing as p(O₂) falls) and a p-type one (holes /
+small polarons, increasing as p(O₂) rises). In the dilute defect regime mass
+action fixes the slopes, so at each fixed temperature:
 
 ```
 σ(pO₂) = σ_ion + σ_p · pO₂^(+x) + σ_n · pO₂^(−x)        x = TRANSF_EXPONENT
 ```
 
-The model is linear in the three partial conductivities, so it is solved
-with non-negative least squares (σᵢ ≥ 0). The local Brouwer slope equals
-`x · t_el`. A plateau therefore means purely ionic conduction; a +x slope
-means purely p-type (polaron) conduction. The ionic transference number
-t_ion = σ_ion / σ_tot is tabulated for every peak in
-`Results/pO2/stage4_transference.xlsx`. The default x = 1/4 holds in the
-dilute defect regime; use 1/6 where that regime applies.
+with the three partial conductivities σ_ion, σ_p, σ_n the unknowns. Because
+the right-hand side is **linear** in those three unknowns, the fit is not a
+non-linear optimisation but a single linear least-squares solve, with one
+physical constraint: a conductivity cannot be negative (σᵢ ≥ 0). The algorithm
+that solves a linear least-squares problem under a non-negativity constraint is
+**NNLS** (non-negative least squares). Two consequences of that constraint
+matter physically:
 
-Step 3 also draws the Arrhenius plot of the partial conductivities, ln(σT)
-vs 1000/T for σ_ion and σ_p, one figure per peak in `TRANSF_PEAK_IDS`. This
-is the rigorous check of the decomposition: two straight lines with
-distinct activation energies mean two physically different channels.
-Temperatures where NNLS returns exactly zero for a channel are skipped, and
-the `n` in the legend counts the temperatures actually used in that
-regression, so it can differ between σ_ion and σ_p for the same peak. σ_n
-is not drawn (in p-type samples it is a noise floor) but stays in the
-exported table.
+- where a channel is genuinely absent (e.g. no n-type contribution at high
+  p(O₂)), NNLS sets its σᵢ to **exactly zero** instead of fitting a small
+  negative value to chase noise. A zero therefore means "this channel is not
+  present in the data at this temperature", not a measured value;
+- the fit is done **independently at each temperature** (one isotherm at a
+  time), which needs at least four p(O₂) points per temperature; temperatures
+  with fewer points are skipped.
+
+The local Brouwer slope equals `x · t_el`: a plateau means purely ionic
+conduction, a +x slope means purely p-type (polaron) conduction. The ionic
+transference number t_ion = σ_ion / σ_tot is tabulated for every peak in
+`Results/pO2/stage4_transference.xlsx`. The default x = 1/4 holds in the dilute
+defect regime; use 1/6 where that regime applies.
+
+Step 3 then takes the per-temperature σ_ion(T) and σ_p(T) from the NNLS solves
+and runs a second fit, the Arrhenius plot ln(σT) vs 1000/T, one figure per peak
+in `TRANSF_PEAK_IDS`. The slope of each line gives that channel's activation
+energy (Eₐ = −slope·k_B): the ionic Eₐ from σ_ion, the hole Eₐ from σ_p. Two
+straight lines with distinct Eₐ are the rigorous proof that the decomposition
+separated two physically different channels. Temperatures where NNLS returned
+exactly zero for a channel carry no information about it and are skipped, so the
+`n` in the legend (the number of temperatures actually used) can differ between
+σ_ion and σ_p for the same peak. σ_n is not drawn (in p-type samples it is a
+noise floor) but stays in the exported table.
+
+This two-step route (NNLS per isotherm, then Arrhenius per channel) drops
+temperatures with too few p(O₂) points and treats each isotherm in isolation.
+Stage 5 removes both limitations by fitting the whole σ(p(O₂),T) surface at
+once with a single six-parameter model.
 
 ### HF-block sum (`ARRHENIUS_SUM_PEAKS`)
 
@@ -400,6 +424,33 @@ only for T ≥ `ARRHENIUS_T_MIN` and the series sum over the full range, and
 it declares the threshold on the plot. One caveat: the sum mixes processes
 with different Eₐ, so its line may curve slightly and its Eₐ is an
 effective value for the block.
+
+### Stage 5 - global MIEC model
+
+Reads the fitted σ per peak from `stage3_fit.xlsx` across conditions and fits
+the whole conductivity surface σ(p(O₂), T) of each process with one global
+six-parameter model (the "backward" approach: from data to parameters).
+
+| Parameter          | Default | Purpose                                          |
+| ------------------ | ------- | ------------------------------------------------ |
+| `MODEL_PEAK_IDS`   | `[]`    | Peaks to fit (`[]` = all)                        |
+| `MODEL_EXPONENT`   | 0.25    | Brouwer exponent x (1/4 dilute, 1/6 otherwise)   |
+| `MODEL_CONDITIONS` | `[]`    | Conditions (pressures) to include (`[]` = all)   |
+| `MODEL_T_MIN`      | None    | Exclude T below this [°C] from the fit           |
+| `MODEL_T_MAX`      | None    | Exclude T above this [°C] from the fit           |
+
+Unlike the two-step Stage 4 decomposition (per-isotherm NNLS, then per-channel
+Arrhenius), which drops temperatures with too few p(O₂) points, the global fit
+uses every selected point at once and shares the six parameters over the whole
+surface. The fit is solved by variable projection: at fixed activation energies
+the model is linear in the three prefactors (exact non-negative NNLS, inner
+problem), and only the three Eₐ are optimised non-linearly (outer problem); a
+final six-parameter polish yields the uncertainties. Validation: the global R²,
+a structureless residual map over (p(O₂), T), and the predicted conductivity
+minimum p(O₂)_min(T). Use `MODEL_T_MIN`/`MODEL_CONDITIONS` to restrict the fit
+to the window where the ionic/electronic separation is physically reliable.
+Outputs: `Results/pO2/stage5_model.xlsx` (Parameters, Residuals, Metadata),
+the `Stage5_*` figures, and `session.json → stage5_params` (per peak).
 
 ---
 
@@ -521,6 +572,28 @@ ln(τ)  = ln(τ₀) + Eₐᵖᵒˡ  / (k_B T)     relaxation time (slope > 0)
 
 A third fit on ln(C_eff) yields Eₐᶜ = Eₐᵖᵒˡ − Eₐᶜᵒⁿᵈ (from ln C = ln τ − ln R).
 Activation energies are reported in eV (k_B = 8.617 × 10⁻⁵ eV/K).
+
+### Stage 5 - global MIEC model
+
+One global fit per process to the whole conductivity surface:
+
+```
+σ(pO₂,T) = (σ₀_ion/T)·e^(−Eₐ_ion/kT)
+         + (σ₀_p  /T)·e^(−Eₐ_p  /kT)·pO₂^(+x)
+         + (σ₀_n  /T)·e^(−Eₐ_n  /kT)·pO₂^(−x)        x = MODEL_EXPONENT
+```
+
+The three prefactors σ₀ are the intercepts of ln(σT) vs 1/T; the six parameters
+are material constants, constant over the whole (pO₂,T) surface (the validity
+test). The electronic conductivity minimum, where the n- and p-type branches
+cross, is predicted in closed form:
+
+```
+log pO₂_min(T) = (1/2x)·[ ln(σ₀_n/σ₀_p) − (Eₐ_n − Eₐ_p)/(k_B T) ]
+```
+
+and its migration with T (slope set by Eₐ_n − Eₐ_p) is an independent check
+against the data.
 
 ---
 
