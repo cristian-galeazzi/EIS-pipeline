@@ -312,6 +312,14 @@ def test_session_merge_keys():
         assert entry["condition_params"] == {"O2": {"R_dec": 1.0}}, \
             "replace=True did not overwrite wholesale"
 
+        # stage5_params merges per peak_id: refitting peak 1 must not wipe peak 2
+        update_sample("S1", path=p, stage5_params={"1": {"Ea_ion": 0.9}})
+        update_sample("S1", path=p, stage5_params={"2": {"Ea_ion": 1.1}})
+        entry = load_sample("S1", path=p)
+        assert entry["stage5_params"] == {"1": {"Ea_ion": 0.9},
+                                          "2": {"Ea_ion": 1.1}}, \
+            "second stage5 refit wiped the first peak"
+
 
 def test_matching_classifies_windows():
     """match_ism_to_furnace: stable plateau VALID, ramp UNSTABLE, gap OUTSIDE."""

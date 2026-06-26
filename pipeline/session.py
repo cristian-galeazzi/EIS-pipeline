@@ -28,7 +28,7 @@ SESSION_FILE = Path("session.json")
 # wholesale, because a notebook session may legitimately hold only a subset
 # of the conditions that were calibrated in earlier sessions.
 MERGE_KEYS = frozenset({"condition_params", "kk_overrides", "overrides",
-                        "zarc_peak_bounds"})
+                        "zarc_peak_bounds", "stage5_params"})
 
 
 def _to_jsonable(obj: Any) -> Any:
