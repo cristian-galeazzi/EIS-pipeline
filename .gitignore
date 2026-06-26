@@ -54,6 +54,9 @@ P[0-9]*/
 **/calibration/
 RISULTATI_CALIBRAZIONE.md
 
+# Private audit trail: verification & calibration scripts (provenance, never commit)
+analysis_audit/
+
 # sample_template is tracked (folder structure reference for new users)
 !sample_template/
 !sample_template/**/.gitkeep

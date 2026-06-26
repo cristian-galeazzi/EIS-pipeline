@@ -44,7 +44,7 @@ _TRUTH = ModelParams(
     sigma0_n=1.0e6, Ea_n=1.30, x=0.25,
 )
 _T_C = np.array([475, 525, 575, 625, 675], dtype=float)
-_PO2 = np.logspace(-5, 1, 7)  # atm
+_PO2 = np.logspace(-5, 1, 7)  # bar
 
 
 def _make_df(p: ModelParams, noise: float = 0.0, seed: int = 0) -> pd.DataFrame:
