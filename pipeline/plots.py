@@ -1125,8 +1125,11 @@ def plot_brouwer_transference(
     ax_s.set_ylabel(
         r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
     _handles, _labels = ax_s.get_legend_handles_labels()
-    _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
-    _labels.append(r"$\sigma_{ion}$ (fit)")
+    # No dashed sigma_ion guide in the legend when the channel is absent
+    # everywhere (no line was drawn), so a reduced model shows no phantom entry.
+    if (df_t["sigma_ion"] > 0).any():
+        _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
+        _labels.append(r"$\sigma_{ion}$ (fit)")
     fig.legend(_handles, _labels, loc="outside upper center", frameon=True,
                fontsize=8, ncol=min(len(_labels), 7), handlelength=1.3,
                columnspacing=0.8)
