@@ -38,6 +38,7 @@ CLAUDE.md
 session.json
 session.json.bak
 session.json*.tmp
+session*.json
 
 # Knowledge graph; generated locally, never commit
 graphify-out/
@@ -64,3 +65,4 @@ analysis_audit/
 
 # Bundled synthetic example sample (no real measurements; committable)
 !EXAMPLE_SAMPLE/**/*.csv
+
