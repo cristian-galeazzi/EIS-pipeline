@@ -1,7 +1,7 @@
 # EIS Analysis Pipeline
 
 Python pipeline for EIS analysis of high-resistance ceramic electrolytes. Goes from raw
-Zahner `.ism` files to publication figures in five sequential Jupyter notebooks.
+Zahner `.ism` files to publication figures in six sequential Jupyter notebooks.
 
 ---
 
@@ -438,6 +438,7 @@ six-parameter model (the "backward" approach: from data to parameters).
 | `MODEL_CONDITIONS` | `[]`    | Conditions (pressures) to include (`[]` = all)   |
 | `MODEL_T_MIN`      | None    | Exclude T below this [°C] from the fit           |
 | `MODEL_T_MAX`      | None    | Exclude T above this [°C] from the fit           |
+| `MODEL_CHANNELS`   | `["ion","p","n"]` | Channels of the model to fit (subset)  |
 
 Unlike the two-step Stage 4 decomposition (per-isotherm NNLS, then per-channel
 Arrhenius), which drops temperatures with too few p(O₂) points, the global fit
@@ -451,6 +452,17 @@ minimum p(O₂)_min(T). Use `MODEL_T_MIN`/`MODEL_CONDITIONS` to restrict the fit
 to the window where the ionic/electronic separation is physically reliable.
 Outputs: `Results/pO2/stage5_model.xlsx` (Parameters, Residuals, Metadata),
 the `Stage5_*` figures, and `session.json → stage5_params` (per peak).
+
+Which channels exist (`MODEL_CHANNELS`) is an operator decision based on
+Brouwer/defect-chemistry reasoning, not a fit outcome: e.g. drop `n` when the
+measured p(O₂) window is never reducing enough to create electrons. The fit
+never adds or removes channels on its own; an excluded channel is stored with
+σ₀ = 0 and Eₐ = NaN (all nine parameter columns are kept for schema
+stability), contributes nothing to the model surface, and appears in no
+figure. A selected channel that NNLS drives to σ₀ = 0 is reported as
+`not active (s0 = 0)` instead of a meaningless activation energy, and the
+conductivity-minimum prediction is reported only when both electronic
+channels are present.
 
 ---
 
@@ -589,7 +601,7 @@ test). The electronic conductivity minimum, where the n- and p-type branches
 cross, is predicted in closed form:
 
 ```
-log pO₂_min(T) = (1/2x)·[ ln(σ₀_n/σ₀_p) − (Eₐ_n − Eₐ_p)/(k_B T) ]
+ln pO₂_min(T) = (1/2x)·[ ln(σ₀_n/σ₀_p) − (Eₐ_n − Eₐ_p)/(k_B T) ]
 ```
 
 and its migration with T (slope set by Eₐ_n − Eₐ_p) is an independent check
@@ -601,10 +613,10 @@ against the data.
 
 Dependencies are pinned in `requirements.txt`. Each `.xlsx` output includes a `Metadata` sheet with all parameter values and installed library versions, so any result can be traced back to the exact configuration that produced it.
 
-A regression test suite (`tests/test_engine_golden.py`) verifies the C_eff = τ/R identity, synthetic Zarc recovery, and that saved results satisfy the identity to floating-point precision.
+A regression test suite verifies the engine (`tests/test_engine_golden.py`: C_eff = τ/R identity, synthetic Zarc recovery, saved results satisfying the identity to floating-point precision) and the Stage-5 global model (`tests/test_model_golden.py`: synthetic-surface parameter recovery, degenerate and reduced-channel cases).
 
 ```bash
-pytest tests/test_engine_golden.py
+pytest tests/
 ```
 
 ---
