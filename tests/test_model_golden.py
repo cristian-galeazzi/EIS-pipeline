@@ -9,7 +9,8 @@ They cover:
 3. non-negativity of the fitted prefactors;
 4. the closed-form stoichiometric-pO2 minimum;
 5. that the global fit uses every selected point (no per-temperature dropping);
-6. a descriptive error when too few points are supplied.
+6. a descriptive error when too few points are supplied;
+7. the reduced fit with an operator-excluded channel (channels=("ion", "p")).
 
 Run with either::
 
@@ -115,6 +116,28 @@ def test_uses_all_points():
     out = fit_global_conductivity(sparse, x=0.25)
     assert out["n_points"] == len(sparse), f"{out['n_points']} != {len(sparse)}"
     assert (out["residuals"]["T_C"] == 475).sum() == 2, "the sparse temperature was dropped"
+
+
+def test_two_channel_fit_excludes_n():
+    """channels=("ion","p"): n is absent by construction, ion/p still recovered."""
+    truth = ModelParams(sigma0_ion=1.0e7, Ea_ion=0.90,
+                        sigma0_p=1.0e8, Ea_p=1.10,
+                        sigma0_n=0.0, Ea_n=float("nan"), x=0.25)
+    out = fit_global_conductivity(_make_df(truth), x=0.25, channels=("ion", "p"))
+    p = out["params"]
+    assert out["r2"] > 0.999, out["r2"]
+    assert np.isclose(p.Ea_ion, 0.90, atol=0.05), p.Ea_ion
+    assert np.isclose(p.Ea_p, 1.10, atol=0.05), p.Ea_p
+    assert np.isclose(p.sigma0_ion, 1.0e7, rtol=0.15), p.sigma0_ion
+    assert np.isclose(p.sigma0_p, 1.0e8, rtol=0.15), p.sigma0_p
+    # the excluded channel is marked absent, not fitted to a leftover seed
+    assert p.sigma0_n == 0.0 and np.isnan(p.Ea_n), (p.sigma0_n, p.Ea_n)
+    assert np.isnan(out["perr"]["sigma0_n"]) and np.isnan(out["perr"]["Ea_n"]), out["perr"]
+    assert np.isfinite(out["perr"]["Ea_ion"]) and np.isfinite(out["perr"]["Ea_p"]), out["perr"]
+    # without both electronic channels there is no conductivity minimum
+    assert np.isnan(float(stoichiometric_pO2(p, 900.0 + 273.15)))
+    # and the excluded channel cannot poison the forward model with NaN
+    assert np.all(np.isfinite(total_conductivity(_PO2, 900.0 + 273.15, p)))
 
 
 def test_too_few_points_raises():
