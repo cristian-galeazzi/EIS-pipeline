@@ -801,7 +801,7 @@ def plot_arrhenius_sigma(
         sigma   = L_m / (R_sum * A_m2)
         ln_sT   = np.log(sigma * T_K)
         inv_T   = 1000.0 / T_K
-        Ea, Ea_err, r2, slope, intercept = _arrhenius_linreg(1.0 / T_K, ln_sT)
+        Ea, _, _, slope, intercept = _arrhenius_linreg(1.0 / T_K, ln_sT)
         ids_lab = "+".join(f"P{int(p)}" for p in sorted(sum_peak_ids))
         ax.plot(inv_T, ln_sT, "D", color="#333333", markersize=6,
                 markeredgecolor="black", markeredgewidth=0.5,
@@ -860,6 +860,7 @@ def plot_brouwer(
     peak_id:       int       = 1,
     temps_to_plot: list[int] | None = None,
     add_slopes:    bool      = True,
+    slopes:        tuple[str, ...] = ("-1/4", "-1/6", "0", "+1/6", "+1/4"),
 ) -> plt.Figure:
     """
     Brouwer p(O₂)-dependence diagram: log₁₀(σ₁) vs log₁₀(p(O₂)).
@@ -876,7 +877,9 @@ def plot_brouwer(
     sample_name   : sample label for title and filename stem
     peak_id       : which peak to use (default 1 = highest-frequency process)
     temps_to_plot : temperatures to show (default None = all available)
-    add_slopes    : draw −1/4, 0, +1/4 reference slopes (default True)
+    add_slopes    : draw the reference slope guides (default True)
+    slopes        : which guides to draw, any of "-1/4", "-1/6", "0",
+                    "+1/6", "+1/4" (default: all)
 
     Returns
     -------
@@ -928,20 +931,41 @@ def plot_brouwer(
     ax.xaxis.set_minor_locator(MultipleLocator(0.5))
     ax.yaxis.set_minor_locator(MultipleLocator(0.1))
 
-    if add_slopes:
+    if add_slopes and slopes:
         y_ref = y_hi + 0.22
-        _slope_line(ax, -3.6, -3.0, y_ref, slope=-1 / 4,
-                    label=r"$-1/4$", label_side="left",
-                    color="black", lw=1.0, ls="--", zorder=3)
-        _slope_line(ax, -2.0, -1.4, y_ref, slope=0,
-                    label=r"$plateau$", label_side="left",
-                    color="black", lw=1.0, ls="--", zorder=3)
-        _slope_line(ax, -0.8, -0.2, y_ref, slope=1 / 4,
-                    label=r"$+1/4$", label_side="right",
-                    color="black", lw=1.0, ls="--", zorder=3)
+        # the 1/6 guides share the fan origin of the 1/4 ones (right end
+        # for negative, left end for positive slopes) so the two candidate
+        # Brouwer exponents can be compared by eye
+        _guides = {  # name: (x0, x1, y_center, slope, label_side)
+            "-1/4": (-3.6, -3.0, y_ref,         -1 / 4, "left"),
+            "-1/6": (-3.6, -3.0, y_ref - 0.025, -1 / 6, "left"),
+            "0":    (-2.0, -1.4, y_ref,          0.0,   "left"),
+            "+1/6": (-0.8, -0.2, y_ref - 0.025,  1 / 6, "right"),
+            "+1/4": (-0.8, -0.2, y_ref,          1 / 4, "right"),
+        }
+        _bad = [s for s in slopes if s not in _guides]
+        if _bad:
+            warnings.warn(f"Brouwer: ignoring unknown slope guide(s) {_bad}; "
+                          f"valid: {list(_guides)}", stacklevel=2)
+            slopes = tuple(s for s in slopes if s in _guides)
+        for name in slopes:
+            x0, x1, yc, sl, side = _guides[name]
+            grey = name.endswith("1/6")
+            _slope_line(ax, x0, x1, yc, slope=sl,
+                        label=r"$plateau$" if name == "0" else rf"${name}$",
+                        label_side=side,
+                        label_pad=(0.15, -0.10 if grey else 0.0),
+                        color="#888888" if grey else "black",
+                        lw=1.0, ls="--", zorder=3)
+        _neg = [s for s in slopes if s.startswith("-")]
+        _pos = [s for s in slopes if s.startswith("+")]
+        _cap = "    ".join(p for p in (
+            _neg and ", ".join(rf"${s}$" for s in _neg) + r": $n$-type",
+            "0" in slopes and r"$plateau$: purely ionic",
+            _pos and ", ".join(rf"${s}$" for s in _pos) + r": $p$-type",
+        ) if p)
         ax.text(
-            0.02, 0.03,
-            r"$-1/4$: $n$-type    $plateau$: purely ionic    $+1/4$: $p$-type",
+            0.02, 0.03, _cap,
             transform=ax.transAxes, fontsize=7, va="bottom", ha="left",
             fontstyle="italic", color="#444444",
         )
