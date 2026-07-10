@@ -66,3 +66,5 @@ analysis_audit/
 # Bundled synthetic example sample (no real measurements; committable)
 !EXAMPLE_SAMPLE/**/*.csv
 
+#Backup files
+Backup
