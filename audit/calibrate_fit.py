@@ -137,7 +137,7 @@ def hf_metrics(drt_tasks: list[dict], nyq_fits: dict,
     """Frequency-resolved residuals: full band, HF band, HF Bode phase.
 
     >>> out = hf_metrics([], {})
-    >>> np.isnan(out["hf_res"])
+    >>> bool(np.isnan(out["hf_res"]))
     True
     """
     hf_res, all_res, hf_phase = [], [], []

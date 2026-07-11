@@ -30,7 +30,7 @@ DEFAULTS = {
     "peak_min_dist_decades": 0.3,
     "include_r0": False,
     "r0_max": 200.0,
-    "n_restarts": 5,
+    "n_restarts": 4,
     "rmse_tol": 0.02,
     "R_dec": 0.7,
     "tau_dec": 0.7,
