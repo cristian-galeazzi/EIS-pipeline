@@ -43,6 +43,12 @@ The pact is simple:
   `tests/test_audit_kk_mode_comparison.py`: on the causal synthetic spectra
   every mode must retain at least 80% of the frequency window and honour the
   M = round(c * N) and mu >= 0.5 contracts.
+- `zarc_window_check.py`: recomputes the R/tau fit windows from each DRT seed
+  and flags fitted parameters sitting on a window boundary, separating
+  bound-limited fits (widen the window) from seed-limited ones (fix peak
+  detection). Validated in `tests/test_audit_zarc_window_check.py` against
+  analytically constructed boundary geometries and a fabricated xlsx round
+  trip.
 
 ## Running
 
