@@ -36,7 +36,7 @@ def grid_result():
         rbf_ders=["2nd order"], lambdas=[1e-4],
         hf_weights=[0.0], caps=[2, None],
         settings=dict(common.DEFAULTS), L_m=1e-3, D_m=1e-2,
-        min_track_points=4, workers=1)
+        min_track_points=4, workers=1, use_stage2=False)
     return df
 
 
@@ -58,7 +58,7 @@ def test_ranking_discriminates_spurious_peak(grid_result):
 
 def test_activation_energy_recovery():
     spectra = cal.load_condition_spectra(_ROOT / "EXAMPLE_SAMPLE",
-                                         CONDITIONS[0])
+                                         CONDITIONS[0], use_stage2=False)
     assert [s["T_nominal"] for s in spectra] == [600, 550, 500, 450, 400]
 
     _, _, _, drt_tasks = cal.drt_job(

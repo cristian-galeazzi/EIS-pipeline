@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -42,13 +43,59 @@ DEFAULTS = {
 TRACK_MATCH_DECADES = 0.6  # max |delta log10 tau| between adjacent T steps
 
 
-def load_condition_spectra(sample_dir: Path, condition: str) -> list[dict]:
+def discover_conditions(sample_dir: Path,
+                        validated_only: bool = True) -> list[str]:
+    """Condition folders of a sample, preferring the validated ones.
+
+    With validated_only (default) only conditions that produced a stage-2
+    selection (Results/{condition}/stage2_kk.xlsx) are returned: calibrating
+    on spectra that never passed the KK test would import their artifacts
+    into the ranking. Falls back to every spectra folder when nothing is
+    validated yet (fresh sample).
+
+    >>> conds = discover_conditions(REPO / "EXAMPLE_SAMPLE",
+    ...                             validated_only=False)
+    >>> len(conds)
+    2
+    """
+    all_conds = sorted({d.name
+                        for root in ("ISM validation", "input_spectra")
+                        if (sample_dir / root).is_dir()
+                        for d in (sample_dir / root).iterdir() if d.is_dir()})
+    if validated_only:
+        validated = [c for c in all_conds
+                     if (sample_dir / "Results" / c / "stage2_kk.xlsx").exists()]
+        if validated:
+            return validated
+    return all_conds
+
+
+def run_slug(conditions: list[str]) -> str:
+    """Short deterministic tag of a condition set, for output filenames.
+
+    Runs on different condition sets get different files instead of
+    silently overwriting each other; the same set always maps to the
+    same name.
+
+    >>> run_slug(["b", "a"]) == run_slug(["a", "b"])
+    True
+    >>> run_slug(["a"]).startswith("1cond-")
+    True
+    """
+    digest = zlib.crc32("|".join(sorted(conditions)).encode()) & 0xFFFFFFFF
+    return f"{len(conditions)}cond-{digest:08x}"
+
+
+def load_condition_spectra(sample_dir: Path, condition: str,
+                           use_stage2: bool = True) -> list[dict]:
     """Load one spectrum per temperature for a condition, hottest first.
 
     Preferred source is the stage-2 output (best replica per T with the
-    Lin-KK frequency cuts applied). When stage2_kk.xlsx is absent, every
-    spectrum found under input_spectra/{condition}/ or
-    ISM validation/{condition}/ is loaded uncut, replica 1 only.
+    Lin-KK frequency cuts applied). When stage2_kk.xlsx is absent, or with
+    use_stage2=False (hermetic tests: same data regardless of whether a
+    stage-2 run happened locally), every spectrum found under
+    input_spectra/{condition}/ or ISM validation/{condition}/ is loaded
+    uncut, replica 1 only.
 
     >>> spectra = load_condition_spectra(REPO / "EXAMPLE_SAMPLE",
     ...                                  "Ar-80_O2-20_600_400_50")
@@ -56,7 +103,7 @@ def load_condition_spectra(sample_dir: Path, condition: str) -> list[dict]:
     [600, 550, 500, 450, 400]
     """
     stage2 = sample_dir / "Results" / condition / "stage2_kk.xlsx"
-    if stage2.exists():
+    if use_stage2 and stage2.exists():
         return _load_stage2_selected(sample_dir, condition, stage2)
     return _load_raw_directory(sample_dir, condition)
 

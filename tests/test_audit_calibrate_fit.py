@@ -30,7 +30,7 @@ def _grid(settings: dict):
         sample_dir=_ROOT / "EXAMPLE_SAMPLE", conditions=[CONDITION],
         hf_weights=[0.0, 1.0], r_decs=[0.7], tau_decs=[0.7],
         settings=settings, L_m=1e-3, D_m=1e-2,
-        min_track_points=4, workers=1, **FROZEN)
+        min_track_points=4, workers=1, use_stage2=False, **FROZEN)
 
 
 def test_standard_bounds_no_alpha_stress():

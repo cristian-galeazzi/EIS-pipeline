@@ -37,8 +37,9 @@ constraint bounds deserve a second look before any knob does.
 
 Outputs
 -------
-audit/output/{sample_id}/calibrate_fit_ranking.csv. Only paths and progress
-go to stdout.
+audit/output/{sample_id}/calibrate_fit_ranking_{set}.csv, where {set}
+encodes the condition set (runs on different sets never overwrite each
+other). Only paths and progress go to stdout.
 
 Usage (from the repository root)
 --------------------------------
@@ -69,7 +70,9 @@ if str(REPO) not in sys.path:
 from audit._common import (
     apply_peak_cap,
     default_min_track_points,
+    discover_conditions,
     load_condition_spectra,
+    run_slug,
     sample_settings,
     score_condition,
 )
@@ -184,7 +187,8 @@ def run_fit_grid(sample_dir: Path, conditions: list[str], rbf_der: str,
                  hf_weights: list[float], r_decs: list[float],
                  tau_decs: list[float], settings: dict,
                  L_m: float, D_m: float,
-                 min_track_points: int | None, workers: int) -> pd.DataFrame:
+                 min_track_points: int | None, workers: int,
+                 use_stage2: bool = True) -> pd.DataFrame:
     """Sweep the fit-knob grid and return the ranking (best hf_res first).
 
     With workers=1 everything runs serially in-process, which is what the
@@ -193,7 +197,8 @@ def run_fit_grid(sample_dir: Path, conditions: list[str], rbf_der: str,
     >>> # See tests/test_audit_calibrate_fit.py for a runnable example.
     """
     t0 = time.time()
-    spectra = {c: load_condition_spectra(sample_dir, c) for c in conditions}
+    spectra = {c: load_condition_spectra(sample_dir, c, use_stage2)
+               for c in conditions}
     for c, sp in spectra.items():
         if not sp:
             raise RuntimeError(f"no spectra loaded for condition '{c}'")
@@ -286,8 +291,11 @@ def main() -> None:
     parser.add_argument("--sample", required=True,
                         help="sample folder name (repo-root relative)")
     parser.add_argument("--conditions", nargs="+", default=None,
-                        help="condition folder names; default: every condition "
-                             "found under the sample's spectra folders")
+                        help="condition folder names; default: the VALIDATED "
+                             "conditions (those with a stage-2 selection)")
+    parser.add_argument("--all-conditions", action="store_true",
+                        help="with no --conditions: use every spectra folder, "
+                             "validated or not")
     parser.add_argument("--rbf-der", default="2nd order",
                         help="frozen DRT RBF derivative order")
     parser.add_argument("--lambda-val", type=float, default=1e-4,
@@ -309,24 +317,27 @@ def main() -> None:
         sys.exit(f"sample folder not found: {sample_dir}")
     conditions = args.conditions
     if conditions is None:
-        conditions = sorted({d.name for root in ("ISM validation",
-                                                 "input_spectra")
-                             if (sample_dir / root).is_dir()
-                             for d in (sample_dir / root).iterdir()
-                             if d.is_dir()})
+        conditions = discover_conditions(
+            sample_dir, validated_only=not args.all_conditions)
         if not conditions:
             sys.exit(f"no conditions found under {sample_dir}")
+    print(f"conditions in this run ({len(conditions)}):")
+    for c in conditions:
+        print(f"  {c}")
 
     settings, L_m, D_m = sample_settings(args.session, args.sample)
     cap = args.cap if args.cap > 0 else None
     df = run_fit_grid(sample_dir, conditions, args.rbf_der, args.lambda_val,
                       cap, args.hf_weights, args.r_decs, args.tau_decs,
                       settings, L_m, D_m, args.min_track_points, args.workers)
+    # self-documenting output: which conditions produced this ranking
+    df.insert(0, "conditions", ";".join(sorted(conditions)))
 
     out_dir = args.output / args.sample
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_csv = out_dir / "calibrate_fit_ranking.csv"
+        # per-set filename: runs on different condition sets never overwrite
+        out_csv = out_dir / f"calibrate_fit_ranking_{run_slug(conditions)}.csv"
         df.to_csv(out_csv, index=False)
     except OSError as exc:
         sys.exit(f"cannot write ranking: {exc}")
