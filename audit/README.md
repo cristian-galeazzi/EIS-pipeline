@@ -29,6 +29,13 @@ The pact is simple:
   Validated in `tests/test_audit_calibrate_drt.py`: on the bundled synthetic
   sample the ranking must prefer the peak cap equal to the true process count
   and recover both known activation energies within 0.05 eV.
+- `calibrate_fit.py`: with the DRT frozen at the set chosen above, sweeps the
+  Zarc-fit knobs (HF weight, R/tau seed windows) and ranks by high-frequency
+  fidelity under a physics guard, reporting the fraction of alpha exponents
+  pinned at their bounds as an over-constraint stress signal. Validated in
+  `tests/test_audit_calibrate_fit.py`: on the synthetic sample the standard
+  alpha window must leave every exponent unpinned, and a window squeezed
+  below the true exponents must pin them all and cost HF fidelity.
 
 ## Running
 
