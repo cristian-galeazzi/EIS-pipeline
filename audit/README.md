@@ -49,6 +49,10 @@ The pact is simple:
   detection). Validated in `tests/test_audit_zarc_window_check.py` against
   analytically constructed boundary geometries and a fabricated xlsx round
   trip.
+- `fitting_v2_design.md`: design document for the v2 Zarc fitting engine
+  (log-space parametrization, analytic Jacobian, robust loss) with the
+  acceptance gates G1-G5 fixed before any result was produced. The prototype
+  lives on the `fitting-v2-prototype` branch until the gates decide its fate.
 
 ## Running
 
