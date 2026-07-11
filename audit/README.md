@@ -36,6 +36,13 @@ The pact is simple:
   `tests/test_audit_calibrate_fit.py`: on the synthetic sample the standard
   alpha window must leave every exponent unpinned, and a window squeezed
   below the true exponents must pin them all and cost HF fidelity.
+- `kk_mode_comparison.py`: runs the Lin-KK validity test with the RelaxIS
+  Percentage modes and the Schoenleber automatic mu = 0.5 mode on every
+  spectrum, tabulating KK score, M, mu and the adaptive frequency cuts so the
+  M-selection mode can be chosen per instrument and material. Validated in
+  `tests/test_audit_kk_mode_comparison.py`: on the causal synthetic spectra
+  every mode must retain at least 80% of the frequency window and honour the
+  M = round(c * N) and mu >= 0.5 contracts.
 
 ## Running
 
