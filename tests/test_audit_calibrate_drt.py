@@ -11,7 +11,6 @@ Arrhenius slopes.
 """
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
 
@@ -21,10 +20,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-_spec = importlib.util.spec_from_file_location(
-    "calibrate_drt", _ROOT / "audit" / "calibrate_drt.py")
-cal = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(cal)
+from audit import calibrate_drt as cal
+from audit import _common as common
 
 CONDITIONS = ["Ar-80_O2-20_600_400_50", "O2-100_600_400_50"]
 TRUE_EA = (0.90, 1.10)   # eV, from tools/generate_example_sample.py
@@ -38,7 +35,7 @@ def grid_result():
         conditions=CONDITIONS,
         rbf_ders=["2nd order"], lambdas=[1e-4],
         hf_weights=[0.0], caps=[2, None],
-        settings=dict(cal.DEFAULTS), L_m=1e-3, D_m=1e-2,
+        settings=dict(common.DEFAULTS), L_m=1e-3, D_m=1e-2,
         min_track_points=4, workers=1)
     return df
 
@@ -65,17 +62,17 @@ def test_activation_energy_recovery():
     assert [s["T_nominal"] for s in spectra] == [600, 550, 500, 450, 400]
 
     _, _, _, drt_tasks = cal.drt_job(
-        ("2nd order", 1e-4, CONDITIONS[0], spectra, dict(cal.DEFAULTS)))
+        ("2nd order", 1e-4, CONDITIONS[0], spectra, dict(common.DEFAULTS)))
     combo = ("2nd order", 1e-4, 0.0, 2)
     _, _, peak_rows, summary = cal.fit_job(
-        (combo, CONDITIONS[0], drt_tasks, dict(cal.DEFAULTS), 1e-3, 1e-2))
+        (combo, CONDITIONS[0], drt_tasks, dict(common.DEFAULTS), 1e-3, 1e-2))
 
-    tracks = [t for t in cal.build_tracks(peak_rows) if len(t) >= 4]
+    tracks = [t for t in common.build_tracks(peak_rows) if len(t) >= 4]
     assert len(tracks) == 2
     # ascending tau at 600 C = (bulk, grain boundary) order of the generator
     tracks.sort(key=lambda t: t[0]["tau_i"])
     for pts, ea_true, tau_true in zip(tracks, TRUE_EA, TRUE_TAU_600):
-        ea = cal.track_activation_energy(pts)
+        ea = common.track_activation_energy(pts)
         assert ea == pytest.approx(ea_true, abs=0.05)
         tau_600 = next(p["tau_i"] for p in pts if p["T_nominal"] == 600)
         assert tau_600 == pytest.approx(tau_true, rel=0.25)
