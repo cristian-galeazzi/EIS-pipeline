@@ -66,5 +66,10 @@ analysis_audit/
 # Bundled synthetic example sample (no real measurements; committable)
 !EXAMPLE_SAMPLE/**/*.csv
 
-#Backup files
-Backup
+# Backup files (both spellings: gitignore matching is case-sensitive on Linux)
+backup/
+Backup/
+
+# Local results of the public audit scripts; the scripts are tracked, their
+# outputs run on private data and never enter the repository
+audit/output/
