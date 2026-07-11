@@ -123,6 +123,10 @@ def _load_raw_directory(sample_dir: Path, condition: str) -> list[dict]:
             if rec.T_nominal is None or (rec.replica or 1) != 1:
                 continue
             records.append((path, rec))
+        if records:
+            # a condition duplicated in both source folders would otherwise
+            # contribute every temperature twice
+            break
     records.sort(key=lambda pr: -pr[1].T_nominal)
     return [{"T_nominal": int(rec.T_nominal), "fname": path.name,
              "ism_path": str(path), "pO2": None,
