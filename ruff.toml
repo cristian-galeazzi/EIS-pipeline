@@ -7,3 +7,5 @@
 # sys.path bootstrap must precede the pipeline imports
 "tests/test_engine_golden.py" = ["E402"]
 "tests/test_model_golden.py" = ["E402"]
+# audit scripts bootstrap sys.path to the repo root before pipeline imports
+"audit/*.py" = ["E402"]

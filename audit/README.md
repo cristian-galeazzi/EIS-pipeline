@@ -22,7 +22,13 @@ The pact is simple:
 
 ## Scripts
 
-(Added one at a time as each is generalized and validated.)
+- `calibrate_drt.py`: sweeps the stage-3 DRT grid (RBF derivative,
+  regularization lambda, HF weight, peak cap) and ranks each combination by
+  Arrhenius consistency of the tracked peaks instead of raw residual, so that
+  overfitting noise into extra peaks is penalized rather than rewarded.
+  Validated in `tests/test_audit_calibrate_drt.py`: on the bundled synthetic
+  sample the ranking must prefer the peak cap equal to the true process count
+  and recover both known activation energies within 0.05 eV.
 
 ## Running
 
