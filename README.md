@@ -621,6 +621,28 @@ pytest tests/
 
 ---
 
+## Methodological transparency
+
+The default parameter values shipped in the notebooks (DRT regularization
+strength, peak cap, Lin-KK M-selection mode, fit seed windows) were not
+guessed: each was chosen by a documented calibration procedure run on the
+authors' datasets. Those procedures live in [`audit/`](audit/README.md) as
+runnable scripts, so any user can repeat the same decisions on their own
+data instead of trusting values calibrated on someone else's material.
+
+Two properties are worth stating explicitly. First, the shipped defaults are
+dataset-calibrated starting points, not universal constants: a different
+material, geometry, or frequency window can legitimately prefer different
+values, and the audit scripts exist precisely to find them. Second, every
+audit script is validated against a synthetic case with a known answer
+(bundled in `EXAMPLE_SAMPLE/` and exercised by the test suite), so the
+procedures themselves are under the same regression protection as the
+calculation engine. No measured spectrum, fitted parameter, or ranking
+derived from real data enters the repository: the scripts write to the
+gitignored `audit/output/`.
+
+---
+
 ## Processing a new sample
 
 1. Copy `sample_template/` to `{sample_id}/` and rename the condition folder(s)
