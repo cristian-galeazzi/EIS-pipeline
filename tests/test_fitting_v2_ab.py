@@ -21,7 +21,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from audit.fitting_v2 import ab_harness as ab
-from pipeline.zarc_v2 import zarc_model
+from pipeline.fitting import zarc_model
 
 TEMPS = (600, 500)
 TRUE = {600: [(8e3, 2e-6, 0.92), (2.5e4, 3e-4, 0.88)],

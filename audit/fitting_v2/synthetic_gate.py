@@ -50,8 +50,8 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from pipeline.fitting import fit_zarc
-from pipeline.zarc_v2 import fit_zarc_v2, zarc_model
+from audit.fitting_v2.v1_reference import fit_zarc_v1
+from pipeline.fitting import fit_zarc, zarc_model
 
 FREQ = np.logspace(6, -1, 60)
 NOISE_LEVELS = (0.001, 0.005, 0.02)
@@ -139,7 +139,7 @@ def run_gate(replicates: int, noise_levels: tuple[float, ...],
                 Z_re, Z_im = make_spectrum(case, noise, stream)
                 seeds = make_seeds(procs, stream)
                 fit_seed = zlib.crc32(f"{name}|{noise}|{rep}|fit".encode())
-                for engine, fn in (("v1", fit_zarc), ("v2", fit_zarc_v2)):
+                for engine, fn in (("v1", fit_zarc_v1), ("v2", fit_zarc)):
                     t1 = time.time()
                     try:
                         fit = fn(FREQ, Z_re, Z_im, seeds,

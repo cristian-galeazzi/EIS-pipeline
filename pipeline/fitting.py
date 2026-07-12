@@ -1,7 +1,7 @@
 """
 pipeline/fitting.py
 ===================
-Zarc equivalent circuit fitting using impedance.py.
+Zarc equivalent circuit fitting (log-space TRF, analytic Jacobian).
 
 The circuit model is:  R0 - Zarc1 - Zarc2 - ... - ZarcN
 where each Zarc element has impedance:
@@ -40,7 +40,7 @@ import warnings
 import zlib
 
 import numpy as np
-from impedance.models.circuits import CustomCircuit
+from scipy.optimize import least_squares
 
 
 # ---------------------------------------------------------------------------
@@ -202,70 +202,6 @@ def build_bounds(
 # Fitting helpers
 # ---------------------------------------------------------------------------
 
-def _try_fit(
-    circuit,
-    guess:             list[float],
-    lower:             list[float],
-    upper:             list[float],
-    Z_exp:             np.ndarray,
-    freq:              np.ndarray,
-    hf_weight:         float,
-    weight_by_modulus: bool,
-) -> dict:
-    """Single optimizer call. Mutates circuit.initial_guess; returns dict with converged, params, conf, rmse_rel."""
-    circuit.initial_guess = list(guess)
-    converged = True
-    fit_error = ""
-
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            if hf_weight and hf_weight > 0:
-                _mod = np.abs(Z_exp)
-                _lf  = np.log10(freq)
-                _lfn = (_lf - _lf.min()) / ((_lf.max() - _lf.min()) + 1e-12)
-                _sig = _mod / (1.0 + hf_weight * _lfn)
-                circuit.fit(freq, Z_exp, bounds=(lower, upper),
-                            weight_by_modulus=False,
-                            sigma=np.hstack([_sig, _sig]))
-            else:
-                circuit.fit(freq, Z_exp, bounds=(lower, upper),
-                            weight_by_modulus=weight_by_modulus)
-    except Exception as exc:
-        converged = False
-        fit_error = f"{type(exc).__name__}: {exc}"
-
-    params = circuit.parameters_
-    if params is None:
-        converged = False
-        params = np.array(guess)
-        conf   = np.full(len(params), np.nan)
-        rmse_rel = np.inf
-        max_rel  = np.inf
-        Z_fit    = None
-    else:
-        conf  = circuit.conf_ if hasattr(circuit, "conf_") else np.full_like(params, np.nan)
-        Z_fit = circuit.predict(freq)
-        # floor avoids inf/nan in the quality metrics if a degenerate point
-        # has |Z| = 0; real spectra are orders of magnitude above 1e-12 Ohm
-        mod_exp  = np.maximum(np.abs(Z_exp), 1e-12)
-        rel_re   = (Z_fit.real - Z_exp.real) / mod_exp
-        rel_im   = (Z_fit.imag - Z_exp.imag) / mod_exp
-        rmse_rel = float(np.sqrt(np.mean(rel_re**2 + rel_im**2)))
-        max_rel  = float(np.max(np.abs(Z_fit - Z_exp) / mod_exp))
-
-    return {
-        "converged":    converged,
-        "params":       params,
-        "conf":         conf,
-        "Z_fit":        Z_fit,
-        "rmse_rel":     rmse_rel,
-        "max_rel_err":  max_rel,
-        "fit_error":    fit_error,
-        "param_names":  circuit.get_param_names()[0],
-    }
-
-
 def _sample_guess(
     lower:    list[float],
     upper:    list[float],
@@ -300,6 +236,155 @@ def _sample_guess(
     return guess
 
 
+_LOSSES = ("linear", "soft_l1", "huber")
+
+
+def zarc_model(freq: np.ndarray, params: np.ndarray,
+               include_r0: bool) -> np.ndarray:
+    """Series-Zarc impedance in the physical convention (Im Z < 0 capacitive).
+
+    `params` is the linear-space vector (R0?, R_1, tau_1, alpha_1, ...).
+
+    >>> Z = zarc_model(np.array([1.0]), np.array([100.0, 1.0, 0.9]), False)
+    >>> bool(abs(Z[0] - 100 / (1 + (2j * np.pi) ** 0.9)) < 1e-12)
+    True
+    """
+    freq = np.asarray(freq, dtype=float)
+    w = 2.0 * np.pi * freq
+    off = 1 if include_r0 else 0
+    Z = np.full(len(freq), params[0] if include_r0 else 0.0, dtype=complex)
+    for k in range(off, len(params), 3):
+        R, tau, alpha = params[k], params[k + 1], params[k + 2]
+        u = (1j * w * tau) ** alpha
+        Z += R / (1.0 + u)
+    return Z
+
+
+def zarc_model_jac(freq: np.ndarray, params: np.ndarray,
+                   include_r0: bool) -> tuple[np.ndarray, np.ndarray]:
+    """Model and complex Jacobian w.r.t. x = (ln R0?, ln R, ln tau, alpha).
+
+    Returns (Z, dZ) with dZ of shape (n_freq, n_params), column order equal
+    to the linear parameter order. See the module docstring for the
+    derivation.
+
+    >>> Z, dZ = zarc_model_jac(np.array([10.0, 100.0]),
+    ...                        np.array([50.0, 1e3, 1e-3, 0.8]), True)
+    >>> dZ.shape
+    (2, 4)
+    >>> bool(np.allclose(dZ[:, 0], 50.0))   # dZ/dlnR0 = R0
+    True
+    """
+    freq = np.asarray(freq, dtype=float)
+    w = 2.0 * np.pi * freq
+    n = len(params)
+    Z = np.zeros(len(freq), dtype=complex)
+    dZ = np.zeros((len(freq), n), dtype=complex)
+    off = 0
+    if include_r0:
+        Z += params[0]
+        dZ[:, 0] = params[0]
+        off = 1
+    for k in range(off, n, 3):
+        R, tau, alpha = params[k], params[k + 1], params[k + 2]
+        jwt = 1j * w * tau
+        u = jwt ** alpha
+        denom = (1.0 + u) ** 2
+        Zk = R / (1.0 + u)
+        # principal branch: ln(j w tau) = ln(w tau) + j pi/2 for w, tau > 0
+        ln_jwt = np.log(w * tau) + 1j * (np.pi / 2.0)
+        Z += Zk
+        dZ[:, k] = Zk
+        dZ[:, k + 1] = -R * alpha * u / denom
+        dZ[:, k + 2] = -R * u * ln_jwt / denom
+    return Z, dZ
+
+
+def _weights(freq: np.ndarray, Z_exp: np.ndarray, hf_weight: float,
+             weight_by_modulus: bool) -> np.ndarray:
+    """Per-frequency sigma replicating the v1 weighting modes.
+
+    >>> f = np.array([1.0, 10.0, 100.0])
+    >>> Z = np.array([3.0 + 0j, 4.0 + 0j, 5.0 + 0j])
+    >>> _weights(f, Z, 0.0, True).tolist()
+    [3.0, 4.0, 5.0]
+    """
+    if hf_weight and hf_weight > 0:
+        mod = np.abs(Z_exp)
+        lf = np.log10(freq)
+        lfn = (lf - lf.min()) / ((lf.max() - lf.min()) + 1e-12)
+        return mod / (1.0 + hf_weight * lfn)
+    if weight_by_modulus:
+        return np.abs(Z_exp)
+    return np.ones(len(freq))
+
+
+def _to_internal(params: np.ndarray, include_r0: bool) -> np.ndarray:
+    """Linear parameters -> optimizer space (ln R0?, ln R, ln tau, alpha)."""
+    x = np.array(params, dtype=float)
+    off = 1 if include_r0 else 0
+    if include_r0:
+        x[0] = np.log(x[0])
+    for k in range(off, len(x), 3):
+        x[k] = np.log(x[k])
+        x[k + 1] = np.log(x[k + 1])
+    return x
+
+
+def _to_linear(x: np.ndarray, include_r0: bool) -> np.ndarray:
+    """Optimizer space -> linear parameters; inverse of _to_internal.
+
+    >>> p = np.array([50.0, 1e3, 1e-3, 0.8])
+    >>> bool(np.allclose(_to_linear(_to_internal(p, True), True), p))
+    True
+    """
+    params = np.array(x, dtype=float)
+    off = 1 if include_r0 else 0
+    if include_r0:
+        params[0] = np.exp(params[0])
+    for k in range(off, len(params), 3):
+        params[k] = np.exp(params[k])
+        params[k + 1] = np.exp(params[k + 1])
+    return params
+
+
+def _quality(Z_fit: np.ndarray, Z_exp: np.ndarray) -> tuple[float, float]:
+    """(rmse_rel, max_rel_err), computed exactly as v1 does."""
+    mod_exp = np.maximum(np.abs(Z_exp), 1e-12)
+    rel_re = (Z_fit.real - Z_exp.real) / mod_exp
+    rel_im = (Z_fit.imag - Z_exp.imag) / mod_exp
+    rmse_rel = float(np.sqrt(np.mean(rel_re**2 + rel_im**2)))
+    max_rel = float(np.max(np.abs(Z_fit - Z_exp) / mod_exp))
+    return rmse_rel, max_rel
+
+
+def _confidence(res, free_idx: np.ndarray, params_lin: np.ndarray,
+                n_params: int, include_r0: bool,
+                n_residuals: int) -> np.ndarray:
+    """1-sigma confidence intervals in LINEAR units from the TRF Jacobian.
+
+    The covariance in optimizer space is s2 * inv(J^T J); the delta method
+    maps ln-space deviations back to linear units (sigma_R = sigma_lnR * R).
+    Fixed parameters get conf = 0 like v1's collapsed-bound pinning.
+    """
+    conf = np.zeros(n_params)
+    dof = n_residuals - len(free_idx)
+    if dof <= 0 or res.jac is None:
+        return np.full(n_params, np.nan)
+    try:
+        JTJ = res.jac.T @ res.jac
+        cov = np.linalg.pinv(JTJ) * (2.0 * res.cost / dof)
+        sig_x = np.sqrt(np.maximum(np.diag(cov), 0.0))
+    except np.linalg.LinAlgError:
+        return np.full(n_params, np.nan)
+    off = 1 if include_r0 else 0
+    for pos, k in enumerate(free_idx):
+        is_log = (include_r0 and k == 0) or ((k - off) % 3 in (0, 1))
+        conf[k] = sig_x[pos] * (params_lin[k] if is_log else 1.0)
+    return conf
+
+
+
 # ---------------------------------------------------------------------------
 # Fitting
 # ---------------------------------------------------------------------------
@@ -323,79 +408,92 @@ def fit_zarc(
     n_restarts:  int = 0,
     rmse_tol:    float = 0.02,
     seed:        int | None = None,
+    loss:        str = "linear",
+    f_scale:     float = 1.0,
 ) -> dict:
     """
     Fit a series-Zarc equivalent circuit to Z(f) data.
 
-    The number of Zarc elements equals len(peaks).
-    Initial guesses and bounds are derived from the DRT peaks.
+    The number of Zarc elements equals len(peaks). Initial guesses and
+    bounds are derived from the DRT peaks. The optimizer works in log space
+    (ln R0?, ln R, ln tau, alpha) with an analytic Jacobian and bounded TRF
+    least squares; the mathematics and the migration record are in
+    docs/MATHEMATICS.md section 3 and audit/fitting_v2/.
 
     Parameters
     ----------
     freq      : frequency [Hz] (after Stage 2 frequency clipping)
     Z_re      : real impedance [Ohm]
-    Z_im      : imaginary impedance [Ohm], positive in capacitive region (−Z″)
-    peaks     : DRT peak list from find_drt_peaks() — sets N and initial bounds
-    R0_guess  : estimate of R∞ (Z_re at highest frequency); auto if None
-    R_dec     : R bounds in log-decades (default 1.5 = ±1.5 decades, factor ~32)
-    tau_dec   : τ bounds in log-decades (default 1.5 = ±1.5 decades)
-    alpha_init: initial ⍺ (default 0.8)
-    alpha_min : lower ⍺ bound (default 0.5)
-    alpha_max : upper ⍺ bound (default 1.0)
-    weight_by_modulus : default True = modulus-weighted (proportional) residuals,
-                matching the RelaxIS "Proportional weighting (recommended)" mode
-                (manual §10.3). The optimizer minimizes the relative error, which
-                fits the small-|Z| high-frequency bulk arc (the primary datum)
-                far better at every temperature than unit weighting. Set False
-                for legacy unit weighting (absolute residual, dominated by the
-                large low-frequency arcs).
-    hf_weight : RelaxIS "High freq. modulus" mode (manual §10.3). 0 = plain
-                proportional weighting. >0 adds a high-frequency emphasis,
-                sigma = |Z| / (1 + hf_weight * normalized_log10 f), pinning the
-                small-|Z| bulk arc. A mild value (~1.0) both sharpens the bulk
-                fit and stabilises overlapping mid-frequency Zarcs across
-                temperature (less C_eff crossing). Overrides weight_by_modulus
-                when > 0.
-    n_restarts: number of additional random restarts within the bounds (default 0 =
-                DRT-seeded guess only). Each restart samples R and tau log-uniformly,
-                alpha linearly. The attempt with the lowest rmse_rel is returned.
-                Values of 5-10 close most local-minimum traps for overlapping peaks.
-    rmse_tol  : early-exit threshold for restarts. If the current best rmse_rel is
-                already below this value, remaining restarts are skipped (default 0.02).
+    Z_im      : imaginary impedance [Ohm], positive in capacitive region (-Z'')
+    peaks     : DRT peak list from find_drt_peaks(); sets N and initial bounds
+    R0_guess  : estimate of R_inf (Z_re at highest frequency); auto if None
+    R_dec     : R bounds in log-decades around the seed (default 1.5)
+    tau_dec   : tau bounds in log-decades around the seed (default 1.5)
+    alpha_init: initial alpha (default 0.8)
+    alpha_min : lower alpha bound (default 0.5)
+    alpha_max : upper alpha bound (default 1.0)
+    weight_by_modulus : default True = modulus-weighted (proportional)
+                residuals, matching the RelaxIS "Proportional weighting
+                (recommended)" mode. The optimizer minimizes the relative
+                error, which fits the small-|Z| high-frequency bulk arc far
+                better at every temperature than unit weighting. Set False
+                for legacy unit weighting.
+    hf_weight : RelaxIS "High freq. modulus" mode. 0 = plain proportional
+                weighting. >0 adds a high-frequency emphasis,
+                sigma = |Z| / (1 + hf_weight * normalized_log10 f), pinning
+                the small-|Z| bulk arc. Overrides weight_by_modulus when > 0.
+    n_restarts: number of additional random restarts within the bounds
+                (default 0 = DRT-seeded guess only). Each restart samples R
+                and tau log-uniformly, alpha linearly; the attempt with the
+                lowest rmse_rel is returned.
+    rmse_tol  : early-exit threshold for restarts (default 0.02).
+    seed      : seed for the restart RNG (deterministic re-runs).
+    loss      : "linear" (plain L2, default), "soft_l1" or "huber" (robust
+                losses that bound the pull of outlier points).
+    f_scale   : residual scale for the robust losses; residuals are
+                relative, so ~0.01 means "points worse than 1% relative
+                error count as outliers". Irrelevant when loss="linear".
 
     R_dec, tau_dec, alpha_init, alpha_min and alpha_max each accept a scalar
-    (same for every peak) or a per-peak list of length N, so each Zarc element
-    can be given its own R / tau / alpha range instead of one global range.
+    (same for every peak) or a per-peak list of length N, so each Zarc
+    element can be given its own R / tau / alpha range.
 
     Returns
     -------
     dict with keys:
         converged     : bool
-        circuit_str   : impedance.py circuit string used
+        circuit_str   : circuit string (impedance.py-style notation)
         param_names   : list of parameter name strings
         params        : np.ndarray of fitted values
-        conf          : np.ndarray of 1σ confidence intervals
+        conf          : np.ndarray of 1-sigma confidence intervals
         R0, R, tau, alpha, C_eff : arrays of derived quantities
         Z_fit         : complex impedance from fit (same freq as input)
         rmse_rel      : RMSE of relative residuals (modulus-weighted)
         max_rel_err   : max |Z_fit - Z_exp| / |Z_exp|
         n_peaks       : number of Zarc elements fitted
+
+    >>> f = np.logspace(5, -1, 30)
+    >>> Z = zarc_model(f, np.array([1e3, 1e-4, 0.9]), False)
+    >>> pk = [{"R_approx": 8e2, "tau": 2e-4}]
+    >>> out = fit_zarc(f, Z.real, -Z.imag, pk, include_r0=False)
+    >>> bool(out["converged"]), round(float(out["alpha"][0]), 3)
+    (True, 0.9)
     """
+    if loss not in _LOSSES:
+        raise ValueError(f"loss must be one of {_LOSSES}, got {loss!r}")
     n_peaks = len(peaks)
     if n_peaks == 0:
         raise ValueError("No peaks provided — cannot build circuit.")
 
-    # Convention: impedance.py uses Z = Z_re + j*Z_im_physical
-    # where Z_im_physical < 0 in capacitive region
-    # Our IsmRecord stores Z_im = -Z_im_physical > 0 in capacitive region
+    freq = np.asarray(freq, dtype=float)
+    Z_re = np.asarray(Z_re, dtype=float)
+    Z_im = np.asarray(Z_im, dtype=float)
+    # IsmRecord stores Z_im positive in the capacitive region
     Z_exp = Z_re - 1j * Z_im
 
     if R0_guess is None:
-        # Improved HF intercept: 10th percentile of POSITIVE Z_re values among
-        # the top 30% highest-frequency points. Excludes inductive noise points
-        # (Z_re < 0) which previously inflated the guess by orders of magnitude
-        # in high-resistance ceramic samples where the true R0 (contact + wire) is 1–100 Ω.
-        n_hf  = max(5, int(0.3 * len(freq)))
+        # identical HF-intercept heuristic to v1 (see fit_zarc)
+        n_hf = max(5, int(0.3 * len(freq)))
         idx_hf = np.argsort(freq)[-n_hf:]
         hf_pos = Z_re[idx_hf][Z_re[idx_hf] > 0]
         if hf_pos.size >= 2:
@@ -403,106 +501,143 @@ def fit_zarc(
         elif hf_pos.size == 1:
             R0_guess = float(hf_pos[0])
         else:
-            R0_guess = max(float(np.median(Z_re[Z_re > 0])), 0.5) if np.any(Z_re > 0) else 1.0
+            R0_guess = (max(float(np.median(Z_re[Z_re > 0])), 0.5)
+                        if np.any(Z_re > 0) else 1.0)
             warnings.warn(
                 "fit_zarc: no HF points with Z_re > 0 found; "
-                "R0_guess derived from LF data and may be unreliable. "
-                "Consider setting R0_guess manually or using r0_max.",
-                UserWarning, stacklevel=2,
-            )
-        # Clamp into the explicit R0_max window when set
+                "R0_guess derived from LF data and may be unreliable.",
+                UserWarning, stacklevel=2)
         if r0_max is not None:
             R0_guess = float(np.clip(R0_guess, 0.01, r0_max))
 
-    circuit_str   = build_circuit_string(n_peaks, include_r0=include_r0)
-    initial_guess = build_initial_guess(R0_guess, peaks, alpha_init, include_r0=include_r0)
-    lower, upper  = build_bounds(R0_guess, peaks, R_dec, tau_dec,
-                                 alpha_min=alpha_min, alpha_max=alpha_max,
-                                 include_r0=include_r0, r0_max=r0_max)
+    circuit_str = build_circuit_string(n_peaks, include_r0=include_r0)
+    initial_guess = build_initial_guess(R0_guess, peaks, alpha_init,
+                                        include_r0=include_r0)
+    lower, upper = build_bounds(R0_guess, peaks, R_dec, tau_dec,
+                                alpha_min=alpha_min, alpha_max=alpha_max,
+                                include_r0=include_r0, r0_max=r0_max)
+    n_params = len(initial_guess)
 
-    # Apply fix_params: pin individual parameters by collapsing bounds.
-    # fix_params schema:
-    #     {"R0":    value or None,
-    #      "R":     [value or None per peak],
-    #      "tau":   [value or None per peak],
-    #      "alpha": [value or None per peak]}
+    # fix_params pins parameters by removing them from the free vector
+    # (numerically cleaner in log space than v1's one-ULP bound collapse,
+    # same observable effect: the value is held exactly)
+    fixed = np.full(n_params, np.nan)
     if fix_params:
-        # scipy.least_squares requires lower < upper strictly, so a pinned
-        # parameter gets a one-ULP window via nextafter instead of lower==upper
-        # (which would make every fit fail with "infeasible bounds").
-        offset = 0
+        off = 0
         if include_r0:
-            fixed_R0 = fix_params.get("R0")
-            if fixed_R0 is not None:
-                lower[0] = initial_guess[0] = float(fixed_R0)
-                upper[0] = np.nextafter(float(fixed_R0), np.inf)
-            offset = 1
-        for j, peak in enumerate(peaks):
-            base = offset + j * 3
+            if fix_params.get("R0") is not None:
+                fixed[0] = float(fix_params["R0"])
+            off = 1
+        for j in range(n_peaks):
+            base = off + j * 3
             for k, key in enumerate(("R", "tau", "alpha")):
                 vals = fix_params.get(key) or []
                 if j < len(vals) and vals[j] is not None:
-                    val = float(vals[j])
-                    lower[base + k] = initial_guess[base + k] = val
-                    upper[base + k] = np.nextafter(val, np.inf)
+                    fixed[base + k] = float(vals[j])
+    free_idx = np.flatnonzero(np.isnan(fixed))
+    guess0 = np.array(initial_guess, dtype=float)
+    guess0[~np.isnan(fixed)] = fixed[~np.isnan(fixed)]
 
-    circuit = CustomCircuit(circuit_str, initial_guess=initial_guess)
+    sig = _weights(freq, Z_exp, hf_weight, weight_by_modulus)
+    x_lo = _to_internal(np.asarray(lower, dtype=float), include_r0)[free_idx]
+    x_hi = _to_internal(np.asarray(upper, dtype=float), include_r0)[free_idx]
 
-    _fit_kw = dict(
-        Z_exp=Z_exp, freq=freq,
-        hf_weight=hf_weight, weight_by_modulus=weight_by_modulus,
-    )
+    x_base = _to_internal(guess0, include_r0)
 
-    best = _try_fit(circuit, initial_guess, lower, upper, **_fit_kw)
+    def _assemble(x_free: np.ndarray) -> np.ndarray:
+        x_full = x_base.copy()
+        x_full[free_idx] = x_free
+        params = _to_linear(x_full, include_r0)
+        # exact held values, immune to the ln/exp round trip
+        params[~np.isnan(fixed)] = fixed[~np.isnan(fixed)]
+        return params
+
+    def _residuals(x_free: np.ndarray) -> np.ndarray:
+        Z = zarc_model(freq, _assemble(x_free), include_r0)
+        d = (Z - Z_exp) / sig
+        return np.concatenate([d.real, d.imag])
+
+    def _jacobian(x_free: np.ndarray) -> np.ndarray:
+        _, dZ = zarc_model_jac(freq, _assemble(x_free), include_r0)
+        dZw = dZ[:, free_idx] / sig[:, None]
+        return np.vstack([dZw.real, dZw.imag])
+
+    def _attempt(guess_lin: np.ndarray) -> dict:
+        x0 = _to_internal(guess_lin, include_r0)[free_idx]
+        x0 = np.clip(x0, x_lo, x_hi)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # tolerances one order tighter than the scipy defaults:
+                # with the analytic Jacobian the extra iterations are cheap
+                # and the solution lands measurably closer to the exact
+                # weighted-LS minimum than v1's curve_fit stopping point
+                res = least_squares(_residuals, x0, jac=_jacobian,
+                                    bounds=(x_lo, x_hi), method="trf",
+                                    x_scale="jac", loss=loss,
+                                    f_scale=f_scale,
+                                    xtol=1e-12, ftol=1e-12, gtol=1e-12)
+        except Exception as exc:
+            return {"converged": False, "params": guess_lin,
+                    "conf": np.full(n_params, np.nan), "Z_fit": None,
+                    "rmse_rel": np.inf, "max_rel_err": np.inf,
+                    "fit_error": f"{type(exc).__name__}: {exc}", "res": None}
+        params = _assemble(res.x)
+        Z_fit = zarc_model(freq, params, include_r0)
+        rmse_rel, max_rel = _quality(Z_fit, Z_exp)
+        conf = _confidence(res, free_idx, params, n_params, include_r0,
+                           2 * len(freq))
+        return {"converged": bool(res.success), "params": params,
+                "conf": conf, "Z_fit": Z_fit, "rmse_rel": rmse_rel,
+                "max_rel_err": max_rel, "fit_error": "", "res": res}
+
+    best = _attempt(guess0)
 
     if n_restarts > 0:
         rng = np.random.default_rng(seed)
         for _ in range(n_restarts):
             if best["rmse_rel"] < rmse_tol:
                 break
-            rnd_guess = _sample_guess(lower, upper, n_peaks, include_r0, rng)
-            candidate = _try_fit(circuit, rnd_guess, lower, upper, **_fit_kw)
-            if candidate["converged"] and candidate["rmse_rel"] < best["rmse_rel"]:
-                best = candidate
+            rnd = np.array(_sample_guess(list(lower), list(upper), n_peaks,
+                                         include_r0, rng), dtype=float)
+            cand = _attempt(rnd)
+            if cand["converged"] and cand["rmse_rel"] < best["rmse_rel"]:
+                best = cand
 
-    params = best["params"]
-    conf   = best["conf"]
-    Z_fit  = best["Z_fit"]
+    params = np.asarray(best["params"], dtype=float)
+    conf = best["conf"]
+    Z_fit = best["Z_fit"]
     if Z_fit is None:
-        # All attempts failed; fall back to initial guess for downstream safety
-        params = np.array(initial_guess)
-        conf   = np.full(len(params), np.nan)
-        Z_fit  = np.zeros(len(freq), dtype=complex)
-        best["rmse_rel"]    = np.inf
-        best["max_rel_err"] = np.inf
+        params = guess0.copy()
+        conf = np.full(n_params, np.nan)
+        Z_fit = np.zeros(len(freq), dtype=complex)
 
-    # Parse parameters depending on whether R0 is included
     if include_r0:
-        R0_fit    = params[0]
-        R_arr     = params[1::3]
-        tau_arr   = params[2::3]
-        alpha_arr = params[3::3]
+        R0_fit = params[0]
+        R_arr, tau_arr, alpha_arr = params[1::3], params[2::3], params[3::3]
     else:
-        R0_fit    = 0.0
-        R_arr     = params[0::3]
-        tau_arr   = params[1::3]
-        alpha_arr = params[2::3]
+        R0_fit = 0.0
+        R_arr, tau_arr, alpha_arr = params[0::3], params[1::3], params[2::3]
 
-    # C_eff = tau / R  (exact for Zarc parametrization, independent of ⍺)
-    # See module docstring for derivation.
+    # C_eff = tau / R, exact for the Zarc parametrization (see fitting.py)
     C_eff_arr = tau_arr / R_arr
 
     if np.any((alpha_arr <= 0) | (alpha_arr > 1)):
         warnings.warn(
-            "fit_zarc: one or more alpha values are outside (0, 1] after fitting. "
-            "Check fix_params or bounds — C_eff values may be physically meaningless.",
-            UserWarning, stacklevel=2,
-        )
+            "fit_zarc: one or more alpha values are outside (0, 1] after "
+            "fitting. Check fix_params or bounds — C_eff values may be "
+            "physically meaningless.", UserWarning, stacklevel=2)
+
+    param_names = []
+    if include_r0:
+        param_names.append("R0")
+    for i in range(1, n_peaks + 1):
+        param_names += [f"Zarc{i}_0", f"Zarc{i}_1", f"Zarc{i}_2"]
 
     return {
         "converged":   best["converged"],
         "circuit_str": circuit_str,
-        "param_names": best["param_names"],
+        "param_names": param_names,
         "params":      params,
         "conf":        conf,
         "R0":          float(R0_fit),
@@ -518,9 +653,6 @@ def fit_zarc(
     }
 
 
-# ---------------------------------------------------------------------------
-# Conductivity
-# ---------------------------------------------------------------------------
 
 def conductivity(R_ohm: float, L_m: float, D_m: float) -> float:
     """

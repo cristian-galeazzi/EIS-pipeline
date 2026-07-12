@@ -1,4 +1,4 @@
-"""Tests for the v2 Zarc engine (pipeline/zarc_v2.py).
+"""Tests for the v2 Zarc engine (pipeline/fitting.py::fit_zarc).
 
 Covers, in this order: the analytic Jacobian against central finite
 differences (the load-bearing piece), exact parameter recovery on noiseless
@@ -17,11 +17,11 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from pipeline.fitting import fit_zarc
-from pipeline.zarc_v2 import (
+from audit.fitting_v2.v1_reference import fit_zarc_v1
+from pipeline.fitting import (
     _to_internal,
     _to_linear,
-    fit_zarc_v2,
+    fit_zarc,
     zarc_model,
     zarc_model_jac,
 )
@@ -85,7 +85,7 @@ def test_noiseless_recovery_two_zarc():
     true = np.array([8e3, 2e-6, 0.92, 2.5e4, 3e-4, 0.88])
     Z_re, Z_im = _synth(true, include_r0=False)
     peaks = [{"R_approx": 5e3, "tau": 4e-6}, {"R_approx": 4e4, "tau": 1e-4}]
-    out = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, include_r0=False,
+    out = fit_zarc(FREQ, Z_re, Z_im, peaks, include_r0=False,
                       R_dec=1.0, tau_dec=1.0, alpha_init=0.7)
     assert out["converged"]
     assert out["rmse_rel"] < 1e-8
@@ -99,8 +99,8 @@ def test_output_schema_matches_v1():
     Z_re, Z_im = _synth(true, include_r0=True, noise=0.002)
     peaks = [{"R_approx": 8e3, "tau": 2e-4}]
     kw = dict(include_r0=True, r0_max=200.0, n_restarts=2, seed=42)
-    v1 = fit_zarc(FREQ, Z_re, Z_im, peaks, **kw)
-    v2 = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, **kw)
+    v1 = fit_zarc_v1(FREQ, Z_re, Z_im, peaks, **kw)
+    v2 = fit_zarc(FREQ, Z_re, Z_im, peaks, **kw)
     assert set(v2) == set(v1)
     assert v2["circuit_str"] == v1["circuit_str"]
     assert v2["param_names"] == list(v1["param_names"])
@@ -115,7 +115,7 @@ def test_ceff_identity_exact():
     true = np.array([8e3, 2e-6, 0.92, 2.5e4, 3e-4, 0.88])
     Z_re, Z_im = _synth(true, include_r0=False, noise=0.003)
     peaks = [{"R_approx": 8e3, "tau": 2e-6}, {"R_approx": 2.5e4, "tau": 3e-4}]
-    out = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, include_r0=False)
+    out = fit_zarc(FREQ, Z_re, Z_im, peaks, include_r0=False)
     assert np.allclose(out["C_eff"], out["tau"] / out["R"], rtol=0, atol=0)
 
 
@@ -124,7 +124,7 @@ def test_fix_params_held_exactly():
     Z_re, Z_im = _synth(true, include_r0=False, noise=0.002)
     peaks = [{"R_approx": 8e3, "tau": 2e-6}, {"R_approx": 2.5e4, "tau": 3e-4}]
     fix = {"tau": [None, 2.718e-4], "alpha": [0.9, None]}
-    out = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, include_r0=False,
+    out = fit_zarc(FREQ, Z_re, Z_im, peaks, include_r0=False,
                       fix_params=fix)
     assert out["tau"][1] == 2.718e-4      # exact, no ULP drift
     assert out["alpha"][0] == 0.9
@@ -141,8 +141,8 @@ def test_determinism_same_seed():
     # deliberately bad seeds so the restarts actually engage
     peaks = [{"R_approx": 1e3, "tau": 5e-5}, {"R_approx": 1e5, "tau": 5e-3}]
     kw = dict(include_r0=False, n_restarts=5, rmse_tol=1e-12, seed=1234)
-    a = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, **kw)
-    b = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, **kw)
+    a = fit_zarc(FREQ, Z_re, Z_im, peaks, **kw)
+    b = fit_zarc(FREQ, Z_re, Z_im, peaks, **kw)
     assert np.array_equal(a["params"], b["params"])
     assert a["rmse_rel"] == b["rmse_rel"]
 
@@ -152,7 +152,7 @@ def test_bounds_respected():
     Z_re, Z_im = _synth(true, include_r0=False)
     # seed far from truth with a window that excludes it
     peaks = [{"R_approx": 1e2, "tau": 1e-3}]
-    out = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, include_r0=False,
+    out = fit_zarc(FREQ, Z_re, Z_im, peaks, include_r0=False,
                       R_dec=0.5, tau_dec=0.5)
     assert 1e2 / 10**0.5 <= out["R"][0] <= 1e2 * 10**0.5
     assert 1e-3 / 10**0.5 <= out["tau"][0] <= 1e-3 * 10**0.5
@@ -166,8 +166,8 @@ def test_robust_loss_downweights_outliers():
     Z_im[-2:] *= 1.3
     peaks = [{"R_approx": 8e3, "tau": 2e-6}, {"R_approx": 2.5e4, "tau": 3e-4}]
     kw = dict(include_r0=False, R_dec=1.0, tau_dec=1.0)
-    lin = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, loss="linear", **kw)
-    rob = fit_zarc_v2(FREQ, Z_re, Z_im, peaks, loss="soft_l1",
+    lin = fit_zarc(FREQ, Z_re, Z_im, peaks, loss="linear", **kw)
+    rob = fit_zarc(FREQ, Z_re, Z_im, peaks, loss="soft_l1",
                       f_scale=0.01, **kw)
     true_R = true[[0, 3]]
     err_lin = np.max(np.abs(lin["R"] - true_R) / true_R)
@@ -177,7 +177,7 @@ def test_robust_loss_downweights_outliers():
 
 def test_invalid_loss_rejected():
     with pytest.raises(ValueError):
-        fit_zarc_v2(FREQ, FREQ, FREQ, [{"R_approx": 1, "tau": 1}],
+        fit_zarc(FREQ, FREQ, FREQ, [{"R_approx": 1, "tau": 1}],
                     loss="cauchy")
     with pytest.raises(ValueError):
-        fit_zarc_v2(FREQ, FREQ, FREQ, [], include_r0=False)
+        fit_zarc(FREQ, FREQ, FREQ, [], include_r0=False)

@@ -1,5 +1,11 @@
 # Design: robust Zarc fitting engine (v2)
 
+> STATUS (2026-07-12): migration completed. The v2 engine described here
+> IS now `pipeline/fitting.py::fit_zarc`; the old v1 engine survives only
+> as `audit/fitting_v2/v1_reference.py` so the gates below stay
+> reproducible. Path references in this document describe the layout at
+> design time and are kept as the historical record.
+
 Design document for the v2 fitting engine, developed on the branch
 `fitting-v2-prototype`. Its defining property is the ordering: the
 acceptance gates in section 4 were written and frozen BEFORE any result was

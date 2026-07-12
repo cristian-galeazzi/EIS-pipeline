@@ -172,9 +172,12 @@ Z(ω) = R₀ + Σᵢ Rᵢ / (1 + (jωτᵢ)^αᵢ)
 where Rᵢ is the arc resistance (the diameter of the i-th depressed
 semicircle, i.e. the DC resistance of process i), τᵢ its relaxation time and
 αᵢ ∈ (0, 1] the CPE exponent. R and τ are bounded to `ZARC_R_DEC` /
-`ZARC_TAU_DEC` decades around their DRT seeds; fits run with deterministic
-multi-start (`ZARC_N_RESTARTS`, fixed per-(condition, T) seed) and a
-warm-start chain down the temperature ladder. Independent conditions are
+`ZARC_TAU_DEC` decades around their DRT seeds; the optimizer works in log
+space (ln R, ln τ, α) with an analytic Jacobian and bounded trust-region
+least squares, which conditions the decades-spanning valley properly (the
+engine-migration validation record lives in `audit/fitting_v2/`). Fits run
+with deterministic multi-start (`ZARC_N_RESTARTS`, fixed per-(condition, T)
+seed) and a warm-start chain down the temperature ladder. Independent conditions are
 fitted in parallel processes; the warm-start chain stays sequential within a
 condition, so parallelism does not change the numbers.
 

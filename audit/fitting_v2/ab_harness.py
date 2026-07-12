@@ -53,9 +53,9 @@ if str(REPO) not in sys.path:
 
 from audit._common import load_condition_spectra
 from audit.zarc_window_check import bounds_from_seed, edge_distance
+from audit.fitting_v2.v1_reference import fit_zarc_v1
 from pipeline.fitting import (fit_zarc, resolve_condition_entry,
                               resolve_peak_windows)
-from pipeline.zarc_v2 import fit_zarc_v2
 
 PIN_MARGIN = 0.15   # same "pinned" threshold as zarc_window_check (gate G4)
 
@@ -152,10 +152,10 @@ def run_condition_pair(condition: str, tasks: list[dict],
 
     Each engine keeps its OWN warm-start state, exactly as it would in its
     own production run of fit_condition_batch. v2_loss/v2_f_scale are passed
-    to fit_zarc_v2 only: v1 has no robust-loss option, so the comparison
+    to the v2 engine (pipeline.fitting.fit_zarc) only: v1 has no robust-loss option, so the comparison
     stays meaningful (v1 = plain L2 baseline vs v2 under the chosen loss).
     """
-    engines = {"v1": fit_zarc, "v2": fit_zarc_v2}
+    engines = {"v1": fit_zarc_v1, "v2": fit_zarc}
     prev: dict[str, dict | None] = {"v1": None, "v2": None}
     rows: list[dict] = []
     for t in tasks:

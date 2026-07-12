@@ -208,19 +208,28 @@ below the noise floor.
 
 ### 3.6 Optimizer
 
-The engine minimizes ||r(θ)||² with bounded nonlinear least squares
-(scipy's trust-region reflective method, called through impedance.py's
-`CustomCircuit.fit`) directly in the linear parameters
-θ = (R0?, R_k, τ_k, α_k), with the Jacobian estimated by finite
-differences. Parameters held via `ZARC_FIX_PARAMS` are implemented by
-collapsing their box to a one-ULP window (`np.nextafter`), because the
-solver requires strictly lower < upper bounds.
+The engine minimizes ||r(θ)||² with scipy's trust-region reflective (TRF)
+bounded least squares in a **logarithmic parametrization**
+x = (ln R0?, ln R_k, ln τ_k, α_k). R and τ span decades, so in linear space
+the least-squares valley is a long ill-conditioned trench, while in log
+space the decade boxes of §3.4 become plain symmetric intervals and the
+conditioning improves by orders of magnitude. The Jacobian is analytic:
+with p = ln R, q = ln τ, a = α and u = (jωτ)^a,
 
-A validated successor engine (log-space parametrization x = (ln R0?,
-ln R_k, ln τ_k, α_k) with an analytic Jacobian, same objective, same output
-schema) is documented with its synthetic ground-truth gates in
-`audit/fitting_v2/`; this section will be updated when it replaces the
-implementation above.
+    ∂Z/∂p = Z_k ,
+    ∂Z/∂q = − R u a / (1 + u)² ,
+    ∂Z/∂a = − R u ln(jωτ) / (1 + u)² ,   ln(jωτ) = ln(ωτ) + jπ/2 ,
+
+each column stacked as real/imaginary parts and divided by the same s_i as
+the residual (weighting commutes with differentiation). Parameters held via
+`ZARC_FIX_PARAMS` are removed from the free vector and substituted exactly.
+The 1σ confidence intervals come from the Gauss-Newton covariance
+s² (JᵀJ)⁻¹ at the optimum, mapped back to linear units by the delta method
+(σ_R = σ_lnR · R). The analytic Jacobian is verified against central finite
+differences to relative error < 10⁻⁶ (`tests/test_zarc_v2.py`), and the
+migration from the previous linear-space engine is recorded, with its
+pre-registered synthetic ground-truth gates and the frozen v1 reference
+implementation, in `audit/fitting_v2/`.
 
 ### 3.7 Derived quantities
 
