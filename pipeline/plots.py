@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.figure import Figure
 from matplotlib.ticker import LogLocator, LogFormatterMathtext, MultipleLocator
 from scipy import stats, optimize
 from pathlib import Path
@@ -909,7 +910,12 @@ def plot_brouwer(
             f"(check pO2_mean/sigma values and temps_to_plot)"
         )
 
-    fig, ax = plt.subplots(figsize=(7, 5.5), dpi=150, layout="constrained")
+    # raw Figure, never pyplot-registered: this function runs inside the
+    # stage-4 replot widget callback, where a pyplot figure would be
+    # re-rendered by the inline backend's post-execute flush (the June 2026
+    # live-panel rule: callbacks use matplotlib.figure.Figure only)
+    fig = Figure(figsize=(7, 5.5), dpi=150, layout="constrained")
+    ax = fig.add_subplot()
 
     for T in sorted(sub["T_nominal"].unique()):
         group = sub[sub["T_nominal"] == T].sort_values("lg_pO2")
