@@ -441,6 +441,13 @@ fit), `scipy`/`numpy`, `pandas`/`openpyxl` (Excel I/O), `matplotlib`,
 
 ## Reproducibility and transparency
 
+The full mathematical formulation of every engine step (Lin-KK basis and
+M selection, Tikhonov DRT, the Zarc objective and its constraint windows,
+the stage-4 NNLS decomposition, the stage-5 VARPRO global fit with its
+covariance estimate) is stated with code pointers in
+[`docs/MATHEMATICS.md`](docs/MATHEMATICS.md), written to be reviewable by a
+mathematician without opening the source.
+
 Dependencies are pinned in `requirements.txt`. Every `.xlsx` output includes
 a `Metadata` sheet with all parameter values and installed library versions,
 so any result can be traced back to the exact configuration that produced
