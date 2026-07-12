@@ -1,9 +1,9 @@
 """Known-answer validation of audit/calibrate_fit.py on the synthetic sample.
 
-EXAMPLE_SAMPLE carries two Zarc processes with alpha = 0.92 and 0.88 and
+EXAMPLE_SAMPLE carries two Zarc processes with alpha = 0.90 and 0.86 and
 uniform 0.3% noise. With the standard alpha window (0.5, 1.0) both exponents
 must settle inside the bounds (alpha_pinned = 0) and the physics guard must
-hold for every knob combination. Squeezing the window to alpha_max = 0.85,
+hold for every knob combination. Squeezing the window to alpha_max = 0.80,
 below both true exponents, must drive every fitted alpha onto the bound
 (alpha_pinned = 1): this is the stress signal the script exists to expose.
 """
@@ -46,7 +46,7 @@ def test_standard_bounds_no_alpha_stress():
 
 def test_tight_alpha_window_pins_every_exponent():
     settings = dict(common.DEFAULTS)
-    settings["alpha_max"] = 0.85   # below both true exponents on purpose
+    settings["alpha_max"] = 0.80   # below both true exponents (0.90 / 0.86) on purpose
     df = _grid(settings)
     assert (df["alpha_pinned"] == 1.0).all()
     # the stress must also cost measurable HF fidelity vs the true model

@@ -42,13 +42,14 @@ the previous one left off. Conditions and temperatures are discovered
 automatically from the folder names.
 
 **Try it without data:** the repository bundles `EXAMPLE_SAMPLE/`, a
-synthetic sample (two gas conditions, five temperatures, two-Zarc spectra
-with realistic noise, regenerable with
-`python tools/generate_example_sample.py`). It uses the CSV entry path, so
-start from `stage2_kk.ipynb`, type `EXAMPLE_SAMPLE` at the sample prompt,
-and continue through stages 3 and 4. Any plausible pellet geometry works
-(e.g. thickness 1.4 mm, diameter 10 mm). Without an oven log the Brouwer
-p(O₂) figures are skipped; everything else runs end to end.
+synthetic sample (four p(O₂) conditions, five temperatures, two-Zarc spectra
+of a mixed ionic + p-type bulk and a pure-ionic grain boundary, with
+realistic noise, regenerable with `python tools/generate_example_sample.py`).
+It uses the CSV entry path, so start from `stage2_kk.ipynb`, type
+`EXAMPLE_SAMPLE` at the sample prompt, and continue through stage 5. Any
+plausible pellet geometry works (e.g. thickness 1.4 mm, diameter 10 mm). The
+CSVs carry a p(O₂) column, so the Brouwer, transference and Stage 5 analyses
+run end to end without an oven log.
 
 **Changing parameters (`USE_SAVED_PARAMS`):** once a sample has been
 processed, stages 2 to 4 resume their parameters from `session.json`, so
@@ -134,7 +135,7 @@ is always judged by the W statistics.
 | --------- | ------- | ------- |
 | `KK_C` | 0.76 | M = round(KK_C × N) in Percentage mode |
 | `KK_MU_TARGET` | 0.50 | Sign-change target in automatic mode |
-| `KK_F_MIN_HARD` | 80 Hz | Hard lower frequency cutoff |
+| `KK_F_MIN_HARD` | None | Hard lower frequency cutoff (None = adaptive only) |
 | `KK_F_MAX_HARD` | None | Hard upper frequency cutoff (None = off) |
 | `KK_IQR_FENCE` | 2.0 | IQR fence for the adaptive residual cut |
 | `KK_IQR_WINDOW` | 5 | Consecutive clean points anchoring the cut |
@@ -196,7 +197,7 @@ geometry, σᵢ = L/(Rᵢ·A) with A = π(D/2)². The relative permittivity is
 | `DRT_LAMBDA` | 6.5e-6 | Regularisation λ (custom mode) |
 | `PEAK_HEIGHT_FRAC` | 0.05 | Height floor as fraction of γ_max |
 | `PEAK_MIN_DIST_DECADES` | 0.3 | Minimum peak separation in log τ |
-| `PEAK_MIN_PROM_DECADES` | 0 | Log-prominence threshold (0 = off) |
+| `PEAK_MIN_PROM_DECADES` | 0.3 | Log-prominence threshold (0 = off) |
 | `N_PEAKS_CAP` | 4 | Keep at most N peaks (largest R first) |
 | `N_PEAKS_OVERRIDE` | `{}` | Force N peaks for specific (condition, T) |
 | `ZARC_INCLUDE_R0` | False | Include series R₀ in the circuit |
@@ -385,16 +386,17 @@ recognised from the first `Ar`/`O2`/`N2`/`H2` token). The file prefix before
 `_{T}C` is free. CSV format, separator comma/semicolon/tab:
 
 ```
-freq,Z_re,Z_im,temperature
-100000,5.3,0.2,400
+freq,Z_re,Z_im,temperature,pO2
+100000,5.3,0.2,400,0.21
 ```
 
 `Z_im` must be **positive** in the capacitive region (BioLogic EC-Lab
 exports −Im(Z): multiply by −1 before saving). Temperature in the filename
 (`_{T}C`) and a `temperature` column are required for Arrhenius analysis
 (≥ 3 temperatures); Nyquist, Bode, DRT and the Zarc fit work without them.
-The Brouwer p(O₂) analysis always requires lambda-probe data from
-stages 0-1.
+An optional `pO2` column [bar] enables the Brouwer p(O₂), transference and
+Stage 5 analyses without an oven log; without it (or stage 0-1 lambda-probe
+data) those p(O₂) steps are skipped.
 
 ---
 

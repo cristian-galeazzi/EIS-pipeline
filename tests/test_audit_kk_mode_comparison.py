@@ -21,7 +21,7 @@ if str(_ROOT) not in sys.path:
 
 from audit import kk_mode_comparison as kkc
 
-N_SPECTRA = 10   # 2 conditions x 5 temperatures
+N_SPECTRA = 20   # 4 conditions x 5 temperatures
 PCTS = {"pct76": 0.76, "pct50": 0.50}
 
 
@@ -36,12 +36,18 @@ def test_table_shape_and_window_retention():
     rows = _rows()
     assert len(rows) == N_SPECTRA * 3
     assert all(set(r) == set(kkc.CSV_FIELDS) for r in rows)
+    full = np.log10(1.0e6) - np.log10(0.5)      # generator f range
     for r in rows:
-        # causal synthetic data: no mode may cut a large part of the window
-        full = np.log10(1.0e6) - np.log10(0.5)      # generator f range
         kept = np.log10(r["f_max_cut"]) - np.log10(r["f_min_cut"])
-        assert kept / full >= 0.80, (r["file"], r["mode"])
-        assert 0.75 <= r["kk_score"] <= 1.0
+        # Percentage modes fit enough RC elements to read the causal data as
+        # clean and keep the whole window; binary-M "auto" minimises M,
+        # underfits the widest low-T spectra and trims more (the audit exists
+        # to expose this, justifying the percentage default).
+        # auto (binary M) underfits the widest spectra: looser floors than the
+        # percentage modes, which read the causal data as clean.
+        ret_floor, score_floor = (0.60, 0.70) if r["mode"] == "auto" else (0.95, 0.75)
+        assert kept / full >= ret_floor, (r["file"], r["mode"])
+        assert score_floor <= r["kk_score"] <= 1.0, (r["file"], r["mode"])
 
 
 def test_percentage_mode_M_contract():

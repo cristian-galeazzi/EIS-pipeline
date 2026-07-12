@@ -1,10 +1,31 @@
 """
 Generate the bundled synthetic sample (EXAMPLE_SAMPLE/).
 
-Two gas conditions x five temperatures of two-Zarc impedance spectra
-(bulk + grain boundary, Arrhenius-consistent R(T), 0.3% noise), written as
-CSVs in the non-Zahner input format so anyone can run stages 2-4 without
-real measurements. Deterministic: same seed, same files.
+Four oxygen partial pressures x five temperatures of two-Zarc impedance
+spectra, written as CSVs in the non-Zahner input format so anyone can run
+stages 2-5 without real measurements. Deterministic: same seed, same files.
+
+The spectra are built from a physically consistent MIEC conductivity model so
+that every downstream figure is meaningful, not just well-formed:
+
+  * each Zarc process has a conductivity sigma(pO2, T) that is the sum of
+    channels of the exact form Stage 5 fits,
+        sigma_channel(pO2, T) = (sigma0 / T) * exp(-Ea / kT) * pO2**expo
+    with expo = 0 (ionic), +x (p-type holes) or -x (n-type electrons);
+  * the resistance handed to the Zarc is R = (L / A) / sigma, the inverse of
+    the pipeline's sigma = L / (R * A), so Stage 3 recovers exactly sigma;
+  * C_eff = tau / R is held constant per process (a T-independent geometric
+    capacitance), so tau tracks R and the peak walks in frequency with T.
+
+Process 1 (bulk) is a mixed conductor (ionic + p-type): its Brouwer diagram
+has a real positive slope and its transference numbers are non-trivial.
+Process 2 (grain boundary) is a pure ionic conductor: its Brouwer diagram is
+flat. Together they exercise the ion+p channels of the Stage 5 fit while the
+measured pO2 window (1e-2 to 1 bar) is never reducing enough to justify an
+n-type channel, matching the defect-chemistry channel-selection rule.
+
+The pO2 value of each condition is written into a `pO2` column of every CSV;
+`ingest.load_csv_spectrum` reads it, which is what makes Stage 4/5 testable.
 
 Usage (from repo root):
   python tools/generate_example_sample.py
@@ -20,22 +41,61 @@ REPO = Path(__file__).resolve().parents[1]
 SAMPLE = REPO / "EXAMPLE_SAMPLE" / "input_spectra"
 
 K_B = 8.617333e-5          # eV/K
+T600_K = 873.15            # reference temperature (600 C) in K
 TEMPS_C = [600, 550, 500, 450, 400]
 N_POINTS = 40
 F_MAX, F_MIN = 1.0e6, 0.5
 
-# (condition name, scale factor on both resistances)
+# Sample geometry (must match the L_m / D_m entered in the notebooks): the
+# generator converts sigma -> R through the same L / A the pipeline inverts.
+L_M, D_M = 0.0014, 0.01
+GEOM = L_M / (math.pi * (D_M / 2.0) ** 2)   # L / A [1/m]
+
+BROUWER_X = 0.25           # p(O2) exponent (dilute regime)
+R0 = 120.0                 # series resistance [ohm]
+
+# (condition folder name, pO2 [bar]) - a two-decade oxidizing pO2 sweep.
+# Four points per isotherm so the Stage 4 transference decomposition (NNLS on
+# sigma_ion + sigma_p*pO2^+x + sigma_n*pO2^-x) has enough pO2 leverage.
 CONDITIONS = [
-    ("Ar-80_O2-20_600_400_50", 1.0),
-    ("O2-100_600_400_50",      0.8),
+    ("O2-100_600_400_50",      1.00),
+    ("Ar-80_O2-20_600_400_50", 0.20),
+    ("Ar-95_O2-5_600_400_50",  0.05),
+    ("Ar-99_O2-1_600_400_50",  0.01),
 ]
 
-# (R at 600 C [ohm], Ea [eV], tau at 600 C [s], alpha) per process
+# Each process: constant C_eff [F], Zarc depression alpha, and a list of
+# conductivity channels (sigma600 [S/m] at 600 C and pO2=1, Ea [eV], pO2 expo).
 PROCESSES = [
-    (8.0e3, 0.90, 2.0e-6, 0.92),   # bulk
-    (2.5e4, 1.10, 3.0e-4, 0.88),   # grain boundary
+    {   # bulk: mixed ionic + p-type conductor
+        # C_eff set so tau(600 C) ~ 2e-6 s at the Ar-80/O2-20 reference
+        "C_eff": 3.2e-10, "alpha": 0.90,
+        "channels": [
+            (1.5e-3, 0.90, 0.0),          # ionic
+            (2.0e-3, 1.05, +BROUWER_X),   # p-type
+        ],
+    },
+    {   # grain boundary: pure ionic conductor; tau(600 C) ~ 3e-4 s
+        "C_eff": 1.0e-8, "alpha": 0.86,
+        "channels": [
+            (6.0e-4, 1.10, 0.0),          # ionic
+        ],
+    },
 ]
-R0 = 120.0
+
+
+def channel_sigma(sigma600: float, ea_ev: float, expo: float,
+                  pO2: float, t_c: float) -> float:
+    """Conductivity of one channel [S/m]; sigma*T is Arrhenius in T."""
+    t_k = t_c + 273.15
+    arr = (T600_K / t_k) * math.exp(-(ea_ev / K_B) * (1.0 / t_k - 1.0 / T600_K))
+    return sigma600 * arr * pO2 ** expo
+
+
+def process_sigma(proc: dict, pO2: float, t_c: float) -> float:
+    """Total conductivity of a process [S/m]: sum over its channels."""
+    return sum(channel_sigma(s600, ea, expo, pO2, t_c)
+               for s600, ea, expo in proc["channels"])
 
 
 def zarc(R: float, tau: float, alpha: float, f: float) -> complex:
@@ -44,14 +104,9 @@ def zarc(R: float, tau: float, alpha: float, f: float) -> complex:
                        x * math.sin(alpha * math.pi / 2))
 
 
-def arrhenius(value_600: float, ea_ev: float, t_c: float) -> float:
-    t_k, t600_k = t_c + 273.15, 873.15
-    return value_600 * math.exp(ea_ev / K_B * (1 / t_k - 1 / t600_k))
-
-
 def main() -> None:
     random.seed(20260612)
-    for cond, scale in CONDITIONS:
+    for cond, pO2 in CONDITIONS:
         out_dir = SAMPLE / cond
         out_dir.mkdir(parents=True, exist_ok=True)
         for t_c in TEMPS_C:
@@ -60,20 +115,20 @@ def main() -> None:
                 logf = math.log10(F_MAX) - k * (math.log10(F_MAX) - math.log10(F_MIN)) / (N_POINTS - 1)
                 f = 10 ** logf
                 Z = complex(R0, 0)
-                for R600, ea, tau600, alpha in PROCESSES:
-                    R = arrhenius(R600, ea, t_c) * scale
-                    # tau follows R so C_eff = tau/R stays T-independent-ish
-                    tau = arrhenius(tau600, ea, t_c)
-                    Z += zarc(R, tau, alpha, f)
+                for proc in PROCESSES:
+                    sigma = process_sigma(proc, pO2, t_c)
+                    R = GEOM / sigma
+                    tau = proc["C_eff"] * R   # C_eff = tau / R held constant
+                    Z += zarc(R, tau, proc["alpha"], f)
                 noise = 1 + random.uniform(-0.003, 0.003)
                 rows.append((f, Z.real * noise, -Z.imag * noise))  # Z_im positive
             path = out_dir / f"demo_{t_c}C.csv"
             with path.open("w", newline="") as fh:
-                w = csv.writer(fh)
-                w.writerow(["freq", "Z_re", "Z_im", "temperature"])
+                w = csv.writer(fh, lineterminator="\n")   # LF, not the csv default CRLF
+                w.writerow(["freq", "Z_re", "Z_im", "temperature", "pO2"])
                 for f, zr, zi in rows:
-                    w.writerow([f"{f:.6g}", f"{zr:.6g}", f"{zi:.6g}", t_c])
-        print(f"{cond}: {len(TEMPS_C)} spectra written")
+                    w.writerow([f"{f:.6g}", f"{zr:.6g}", f"{zi:.6g}", t_c, f"{pO2:.6g}"])
+        print(f"{cond}: {len(TEMPS_C)} spectra written (pO2={pO2:g} bar)")
     print(f"done -> {SAMPLE}")
 
 
