@@ -269,8 +269,9 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     Load a single EIS spectrum from a CSV or TXT file.
 
     The file must have a header line with these exact column names:
-        freq, Z_re, Z_im               (minimum)
-        freq, Z_re, Z_im, temperature  (with temperature)
+        freq, Z_re, Z_im                    (minimum)
+        freq, Z_re, Z_im, temperature       (with temperature)
+        freq, Z_re, Z_im, temperature, pO2  (with pO2, enables Brouwer/stage 5)
 
     Separator can be comma, semicolon, or tab.
     Z_im must be positive in the capacitive region (standard EIS convention).
@@ -284,6 +285,7 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     IsmRecord with freq, Z_re, Z_im populated.
     T_nominal is set from the filename if the _NNNc pattern is present.
     T_mean is set to the mean of the temperature column if present.
+    pO2_mean is set to the mean of the pO2 column if present (bar), else None.
     """
     path = Path(path)
     raw  = path.read_text(encoding="utf-8", errors="replace")
@@ -321,12 +323,18 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     T_mean = float(df["temperature"].mean()) if "temperature" in df.columns else None
     if T_mean is not None and math.isnan(T_mean):
         T_mean = None
+    # same NaN guard as temperature: a NaN pO2 must read as "absent", not as a
+    # value that survives the downstream "notna" checks and skips the Brouwer gate
+    pO2_mean = float(df["pO2"].mean()) if "pO2" in df.columns else None
+    if pO2_mean is not None and math.isnan(pO2_mean):
+        pO2_mean = None
     T_nom  = _extract_T_csv_only(path.name)
 
     rec           = IsmRecord(path=path, freq=freq, Z_re=Z_re, Z_im=Z_im,
                                n_points=len(freq))
     rec.T_nominal = float(T_nom) if T_nom is not None else None
     rec.T_mean    = T_mean
+    rec.pO2_mean  = pO2_mean
     rec.replica   = _extract_replica_csv(path.name)
     return rec
 
@@ -409,7 +417,7 @@ def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
                 "condition": condition,
                 "T_nominal": float(T_nom),
                 "T_mean":    rec.T_mean,
-                "pO2_mean":  None,
+                "pO2_mean":  rec.pO2_mean,
                 "replica":   rec.replica,
             })
 
@@ -429,7 +437,9 @@ def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
     has_T = df["T_mean"].notna().any()
     print(f"  temperature column present: {has_T} "
           f"({'Arrhenius available' if has_T else 'Arrhenius will be skipped'})")
-    print("  pO2: not available (Brouwer diagram will be skipped)")
+    has_pO2 = df["pO2_mean"].notna().any()
+    print(f"  pO2 column present: {has_pO2} "
+          f"({'Brouwer available' if has_pO2 else 'Brouwer will be skipped'})")
 
     return df
 
