@@ -205,18 +205,21 @@ geometry, σᵢ = L/(Rᵢ·A) with A = π(D/2)². The relative permittivity is
 | `ZARC_N_RESTARTS` | 4 | Random restarts until `ZARC_RMSE_TOL` (0.02) |
 | `ZARC_N_JOBS` | 0 | Parallel fit processes (0 = one per core) |
 
-Per-condition overrides tuned in the live panel (`condition_params`,
-`zarc_peak_bounds`) persist in `session.json` and are re-applied by the
-batch fit, so a fresh kernel reproduces the exported sheets exactly. The
-panel can also size the R/τ search windows **per Zarc element**: enable
-"Per-peak windows" and one slider pair per detected peak appears, adapting
-automatically to however many peaks the DRT found. Each window stays
-centred on its own DRT seed; use per-peak sizes when the bound check flags
-one process systematically pinned (a window states how much you trust that
-peak's seed, so it is legitimately peak-dependent), and keep the same
-per-peak set across the whole temperature series of a condition. The
-per-peak entry is saved only while enabled: what the panel shows is exactly
-what the batch applies.
+The live panel sizes the R/τ search windows **per Zarc element**: one
+slider pair per detected DRT peak, built automatically for any peak count
+and keyed by `peak_id`, so a window follows its process when the number of
+peaks changes along the temperature series. A window states how much you
+trust that peak's DRT seed, so it is legitimately peak-dependent: size only
+the window of the process the bound check flags as pinned. **Re-fit** is a
+pure preview (it replicates the batch warm-start chain, saves nothing);
+**Apply: this condition** persists the windows plus α/HF for every
+temperature of the condition; **Apply: all conditions** persists them as
+the sample-wide default. Windows are deliberately never varied
+temperature-by-temperature: that would sculpt the very Arrhenius trends the
+fit measures. Everything persists in `session.json` (`zarc_peak_windows`,
+`condition_params`; legacy `zarc_peak_bounds` entries from older versions
+are honoured until an Apply replaces them) and is re-applied by the batch
+fit, so a fresh kernel reproduces the exported sheets exactly.
 
 **Process identification** is never automatic. Use the C_eff magnitude plot
 and the Arrhenius behaviour; starting-point thresholds from Vendrell & West

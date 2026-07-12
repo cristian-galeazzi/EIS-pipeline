@@ -642,6 +642,66 @@ def resolve_condition_entry(condition_params: dict, condition: str) -> dict:
     return {}
 
 
+def resolve_peak_windows(
+    peaks:           list[dict],
+    condition:       str,
+    T_nominal:       int,
+    *,
+    windows:         dict | None = None,
+    legacy:          dict | None = None,
+    r_dec_default:   float = 0.7,
+    tau_dec_default: float = 0.7,
+) -> tuple[float | list[float], float | list[float]]:
+    """
+    Resolve the R/tau constraint-window half-widths (in decades) per Zarc.
+
+    Windows are keyed by ``peak_id``, so any peak count works and a window
+    follows its process when the number of detected peaks changes with T.
+    Priority: a legacy per-(condition, T) entry (position-based lists saved
+    by older panel versions) wins wholesale when its length matches the
+    spectrum; otherwise each peak looks up ``windows["conditions"][condition]``
+    first, ``windows["sample"]`` next, and falls back to the scalar defaults.
+    When no per-peak information exists at all, the scalar defaults are
+    returned unchanged (identical tasks to a pipeline without this feature).
+
+    >>> pk = [{"peak_id": 1}, {"peak_id": 2}]
+    >>> w = {"sample": {"2": {"R_dec": 1.0, "tau_dec": 1.2}}}
+    >>> resolve_peak_windows(pk, "c1", 500, windows=w)
+    ([0.7, 1.0], [0.7, 1.2])
+    >>> resolve_peak_windows(pk, "c1", 500)
+    (0.7, 0.7)
+    """
+    n = len(peaks)
+    t_map = (legacy or {}).get(condition, {}) or {}
+    lp = t_map.get(str(T_nominal), t_map.get(T_nominal))
+    if (isinstance(lp, dict)
+            and isinstance(lp.get("R_dec"), (list, tuple)) and len(lp["R_dec"]) == n
+            and isinstance(lp.get("tau_dec"), (list, tuple)) and len(lp["tau_dec"]) == n):
+        try:
+            return [float(v) for v in lp["R_dec"]], [float(v) for v in lp["tau_dec"]]
+        except (TypeError, ValueError):
+            pass   # corrupted legacy entry: fall through to the per-peak maps
+
+    cond_map = ((windows or {}).get("conditions") or {}).get(condition) or {}
+    samp_map = (windows or {}).get("sample") or {}
+    if not cond_map and not samp_map:
+        return float(r_dec_default), float(tau_dec_default)
+
+    def _one(pid, key: str, default: float) -> float:
+        for m in (cond_map, samp_map):
+            e = m.get(str(pid), m.get(pid))
+            if isinstance(e, dict) and e.get(key) is not None:
+                try:
+                    return float(e[key])
+                except (TypeError, ValueError):
+                    continue
+        return float(default)
+
+    pids = [p.get("peak_id", i + 1) for i, p in enumerate(peaks)]
+    return ([_one(pid, "R_dec", r_dec_default) for pid in pids],
+            [_one(pid, "tau_dec", tau_dec_default) for pid in pids])
+
+
 def fit_condition_batch(
     condition:  str,
     tasks:      list[dict],
