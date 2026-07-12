@@ -207,7 +207,16 @@ geometry, σᵢ = L/(Rᵢ·A) with A = π(D/2)². The relative permittivity is
 
 Per-condition overrides tuned in the live panel (`condition_params`,
 `zarc_peak_bounds`) persist in `session.json` and are re-applied by the
-batch fit, so a fresh kernel reproduces the exported sheets exactly.
+batch fit, so a fresh kernel reproduces the exported sheets exactly. The
+panel can also size the R/τ search windows **per Zarc element**: enable
+"Per-peak windows" and one slider pair per detected peak appears, adapting
+automatically to however many peaks the DRT found. Each window stays
+centred on its own DRT seed; use per-peak sizes when the bound check flags
+one process systematically pinned (a window states how much you trust that
+peak's seed, so it is legitimately peak-dependent), and keep the same
+per-peak set across the whole temperature series of a condition. The
+per-peak entry is saved only while enabled: what the panel shows is exactly
+what the batch applies.
 
 **Process identification** is never automatic. Use the C_eff magnitude plot
 and the Arrhenius behaviour; starting-point thresholds from Vendrell & West
