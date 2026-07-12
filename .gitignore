@@ -65,6 +65,8 @@ analysis_audit/
 
 # Bundled synthetic example sample (no real measurements; committable)
 !EXAMPLE_SAMPLE/**/*.csv
+# public, synthetic-only validation record of the engine migration
+!audit/fitting_v2/results/*.csv
 
 # Backup files (both spellings: gitignore matching is case-sensitive on Linux)
 backup/

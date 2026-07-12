@@ -7,6 +7,9 @@
 # sys.path bootstrap must precede the pipeline imports
 "tests/test_engine_golden.py" = ["E402"]
 "tests/test_model_golden.py" = ["E402"]
+"tests/test_zarc_v2.py" = ["E402"]
+"tests/test_fitting_v2_gate.py" = ["E402"]
+"tests/test_fitting_v2_ab.py" = ["E402"]
 # audit scripts and their tests bootstrap sys.path before project imports
 "audit/*.py" = ["E402"]
 "tests/test_audit_*.py" = ["E402"]

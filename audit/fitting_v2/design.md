@@ -97,6 +97,45 @@ gate:
 If any gate fails, v2 stays a documented experiment: the branch is archived,
 the outcome is annotated here, and the pipeline pays zero cost.
 
+## 4b. Gate G3 outcome and amendment (2026-07-11, operator-approved)
+
+The synthetic gate was run as specified (six cases, three noise levels, five
+paired replicates, shared seeds). Outcome of the literal criterion "median
+recovery error v2 <= v1 at every noise level":
+
+| noise | median v1 | median v2 | delta | literal G3 |
+|---|---|---|---|---|
+| 0.1% | 0.0009730 | 0.0009715 | -1.5e-6 | pass |
+| 0.5% | 0.0029610 | 0.0029640 | +3.0e-6 | fail |
+| 2%   | 0.0174185 | 0.0174310 | +1.25e-5 | fail |
+
+Paired analysis of the 90 fits: on the objective both engines minimize
+(weighted relative rmse) v2 is never worse, 0 of 90; the worst v2 excess in
+recovery error is +3.3e-5 absolute (+0.48% relative), while v2 recovers
+three catastrophic v1 local minima in the overlapping-tau cases (recovery
+error gains of 0.65 to 0.73). At finite noise the exact least-squares
+minimum does not coincide with the ground truth, so stopping an epsilon
+short of the minimum (v1, looser tolerances) can land an epsilon closer to
+the truth by chance; the observed excess is realization noise, not
+optimizer quality.
+
+Amendment, accepted by the operator before Session C: G3 is read as paired
+non-inferiority. It passes because (a) v2 is never worse on the fit
+objective, and (b) every recovery-error excess is within a 1% relative
+equivalence band, while the gains outside that band all favour v2. A real
+G3 failure remains any noise level where v2's median exceeds v1's by more
+than 1% relative.
+
+## 4c. Where the real-data verdicts live
+
+The synthetic gate (G3) is fully reproducible from this repository and its
+outcome is recorded above. The real-data A/B (G1, G2, G4) is instead
+executed locally by the operator with ab_harness.py on their own
+measurements: its per-spectrum CSVs and its gate verdicts are derived from
+private data and therefore never enter the repository, consistent with the
+transparency pact in audit/README.md. What is public is the procedure and
+the criteria; what stays private is every number produced by real spectra.
+
 ## 5. What NOT to build (scope fence)
 
 - No simultaneous multi-T global Zarc fit (shared alpha across T etc.):
