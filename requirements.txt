@@ -1,9 +1,9 @@
-# EIS Pipeline — Python dependencies
+# EIS Pipeline - Python dependencies
 # Install with: pip install -r requirements.txt
 #
 # Versions are PINNED to the environment that produced the validated results.
 # Numeric output (DRT, Zarc fit) is only byte-reproducible against these exact
-# versions — every export also records them in its Metadata sheet.
+# versions - every export also records them in its Metadata sheet.
 # (Wilson et al., "Good enough practices in scientific computing", 2017.)
 
 # Core numerics
@@ -24,7 +24,7 @@ impedance==1.7.1          # Zarc fitting (CustomCircuit)
 # Export
 openpyxl==3.1.5           # .xlsx read/write
 
-# Optional (UX only — pipeline runs without it)
+# Optional (UX only - pipeline runs without it)
 ipykernel>=6.0            # required by VS Code / Jupyter to run notebooks
 ipywidgets>=8.0           # live control panels in NB02 / NB03 / NB04
 tqdm>=4.0                 # progress bars in NB02 batch KK loop

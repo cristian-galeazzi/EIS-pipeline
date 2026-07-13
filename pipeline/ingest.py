@@ -182,7 +182,7 @@ def scan_condition_dir(condition_dir: Path | str) -> list[IsmRecord]:
         print(f"  [WARNING] {failed}/{len(ism_files)} file(s) failed to load in {condition_dir.name}")
     if not records:
         print(f"  [WARNING] No records loaded from {condition_dir.name} "
-              f"(all {len(ism_files)} file(s) failed — check file integrity or format)")
+              f"(all {len(ism_files)} file(s) failed - check file integrity or format)")
 
     # Sort chronologically by measurement start time
     records.sort(key=lambda r: r.t_start or datetime.min)

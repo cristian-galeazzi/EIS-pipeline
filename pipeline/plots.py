@@ -9,18 +9,18 @@ Visual style is adapted exactly from the existing reference notebooks:
   - Brouwer_pO2_Dependence_SAMPLE_ID.ipynb           → Brouwer diagram
 
 All functions:
-  apply_pub_style()               — set rcParams once per session
-  plot_drt_stacked()              — stacked DRT γ(τ) with vertical offset
-  plot_nyquist_multipanel()       — data circles + fit dashes, all temperatures
-  plot_bode()                     — |Z| and phase Bode, all temperatures
-  plot_arrhenius_panel()          — 2×2 panel: ln(σT), ln(τ), ln(C), log₁₀(εᵣ)
-  plot_brouwer()                  — Brouwer p(O₂) diagram (multi-condition)
-  plot_tau_arrhenius_consistency()— ln(τ) vs 1000/T per peak to check physicality
+  apply_pub_style()               - set rcParams once per session
+  plot_drt_stacked()              - stacked DRT γ(τ) with vertical offset
+  plot_nyquist_multipanel()       - data circles + fit dashes, all temperatures
+  plot_bode()                     - |Z| and phase Bode, all temperatures
+  plot_arrhenius_panel()          - 2×2 panel: ln(σT), ln(τ), ln(C), log₁₀(εᵣ)
+  plot_brouwer()                  - Brouwer p(O₂) diagram (multi-condition)
+  plot_tau_arrhenius_consistency()- ln(τ) vs 1000/T per peak to check physicality
 
 Supporting helpers (public API):
-  build_arrhenius_results()       — compute Ea, R², pre-exponentials from df_peaks
-  COLOR_MAP                       — T [°C] → hex colour dict
-  PEAK_COLORS, PEAK_MARKERS       — per-peak visual style
+  build_arrhenius_results()       - compute Ea, R², pre-exponentials from df_peaks
+  COLOR_MAP                       - T [°C] → hex colour dict
+  PEAK_COLORS, PEAK_MARKERS       - per-peak visual style
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ KB    = 8.617e-5   # Boltzmann constant [eV/K]
 EPS_0 = 8.854e-12  # vacuum permittivity [F/m]
 
 # ---------------------------------------------------------------------------
-# Visual constants — must match existing notebooks exactly
+# Visual constants - must match existing notebooks exactly
 # ---------------------------------------------------------------------------
 
 #: Temperature [°C] → hex colour (9 steps, 400–600 °C)
@@ -82,7 +82,7 @@ def apply_pub_style() -> None:
     Apply publication-quality matplotlib rcParams.
     Call once at the top of each notebook or script.
 
-    Serif (Times New Roman / DejaVu Serif) with Computer Modern math —
+    Serif (Times New Roman / DejaVu Serif) with Computer Modern math -
     matches the reference notebooks (DRT_Analysis, Brouwer) exactly.
     Inward ticks, top+right tick marks, dpi=150 display / 300 export.
     """
@@ -203,7 +203,7 @@ def plot_drt_stacked(
     save:          bool        = True,
 ) -> plt.Figure:
     """
-    Stacked DRT plot — normalised γ(τ) with vertical offset per temperature.
+    Stacked DRT plot - normalised γ(τ) with vertical offset per temperature.
 
     Each trace is normalised to its own maximum, then offset vertically so
     temperatures stack from bottom (low T) to top (high T) with no overlap.
@@ -307,7 +307,7 @@ def plot_nyquist_multipanel(
     condition  : condition label (title + filename)
     save_dir   : output directory
     xlim, ylim : optional (min, max) in kOhm to crop the display window.
-                 The fit overlay still spans the full data range — only the
+                 The fit overlay still spans the full data range - only the
                  axes are limited. None = auto-scale from data (default).
     hf_inset   : when True (default) draw an upper-right inset zoomed on the
                  high-frequency arcs. The zoom range auto-adapts from the
@@ -374,7 +374,7 @@ def plot_nyquist_multipanel(
                 hf_per_T.append(max(float((Z_re[sel] / 1e3).max()),
                                     float((Z_im[sel] / 1e3).max())))
         # Favor the smaller (warm) first arcs so they read clearly; the larger
-        # cold arcs run off the inset edge (acceptable — the full panel shows them).
+        # cold arcs run off the inset edge (acceptable - the full panel shows them).
         hf_max = float(np.percentile(hf_per_T, 50)) if hf_per_T else vmax * 0.1
         if hf_max <= 0:
             hf_max = vmax * 0.1
@@ -682,7 +682,7 @@ def plot_arrhenius_panel(
     [0,0]  ln(σT)  vs 1000/T  →  Eₐᶜᵒⁿᵈ  (long-range transport)
     [0,1]  ln(τ)   vs 1000/T  →  Eₐᵖᵒˡ   (polarisation / local hop)
     [1,0]  ln(C)   vs 1000/T  →  Eₐᶜ      (net: Eₐᵖᵒˡ − Eₐᶜᵒⁿᵈ)
-    [1,1]  log₁₀(εᵣ) vs 1000/T (no Arrhenius line — diagnostic only)
+    [1,1]  log₁₀(εᵣ) vs 1000/T (no Arrhenius line - diagnostic only)
 
     Parameters
     ----------
@@ -722,7 +722,7 @@ def plot_arrhenius_panel(
         axes[1, 0], results, "ln_C", "slope_C", "int_C", "Ea_C",
         r"E_a^{C}", r"ln($C$ / F)")
 
-    # Panel [1,1]: log₁₀(εᵣ) — diagnostic, no fit line
+    # Panel [1,1]: log₁₀(εᵣ) - diagnostic, no fit line
     ax4 = axes[1, 1]
     for r in results:
         eps_r     = (r["C"] * L_m) / (EPS_0 * A_m2)
@@ -1382,7 +1382,7 @@ def plot_tau_tracks(
     peak_id appears/disappears, the Arrhenius / Brouwer grouping by peak_id is
     mixing peaks.
 
-    Diagnostic ONLY — it reads the same `tau_i` column and changes no result.
+    Diagnostic ONLY - it reads the same `tau_i` column and changes no result.
 
     Parameters
     ----------
@@ -1477,7 +1477,7 @@ def plot_ceff_magnitude(
 
 
 # ---------------------------------------------------------------------------
-# 8. Stage 5 — global MIEC model (2-D fit, 3-D surface, residual map)
+# 8. Stage 5 - global MIEC model (2-D fit, 3-D surface, residual map)
 # ---------------------------------------------------------------------------
 # These draw the result of pipeline.model.fit_global_conductivity. The forward
 # model itself lives in pipeline.model (no physics here): we only import it to

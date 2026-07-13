@@ -4,8 +4,8 @@ pipeline/quality.py
 Lin-KK (Kramers-Kronig) quality assessment and replica selection.
 
 Implements the linearized KK test as used in relaXIS (Zahner), based on:
-    Schönleber, M. et al. — "A Method for Improving the Robustness of
-    Linear Kramers-Kronig Validity Tests" — Electrochimica Acta 131 (2014) 20-27.
+    Schönleber, M. et al. - "A Method for Improving the Robustness of
+    Linear Kramers-Kronig Validity Tests" - Electrochimica Acta 131 (2014) 20-27.
 
 Validation criterion (matching relaXIS workflow):
     Both magnitude-normalized real AND imaginary residuals must pass the
@@ -18,8 +18,8 @@ Magnitude-normalized residual definition:
     |Z[i]|  = sqrt(Z_re[i]² + Z_im[i]²)
 
 Two-pass approach (mirrors RelaxIS interactive trimming):
-    Pass 1 — fit full spectrum → identify edge frequencies where |r| > threshold
-    Pass 2 — re-fit on trimmed spectrum → compute kk_score from trimmed residuals
+    Pass 1 - fit full spectrum → identify edge frequencies where |r| > threshold
+    Pass 2 - re-fit on trimmed spectrum → compute kk_score from trimmed residuals
     Frequency cutoffs from Pass 1 are propagated to Stage 3.
 
 M selection, automatic mode (use_binary_M=True):
@@ -33,8 +33,8 @@ M selection, automatic mode (use_binary_M=True):
     Fixed mode (use_binary_M=False): M = round(c × N_freq), c default 0.85.
 
 Adaptive frequency cutoffs (IQR-based, mirrors RelaxIS KK Filter §7.1.6):
-    iqr_fence_factor — fence = Q3_interior + factor × IQR_interior.  Default 2.0.
-    iqr_window       — consecutive clean points required to confirm the cut edge.
+    iqr_fence_factor - fence = Q3_interior + factor × IQR_interior.  Default 2.0.
+    iqr_window       - consecutive clean points required to confirm the cut edge.
     No manual threshold needed; the fence adapts to each spectrum's noise floor.
 
 Replaces the original Bayesian Hilbert Transform (BHT) approach which required
@@ -241,9 +241,9 @@ def _edge_cutoffs_adaptive(
     4. Mark points as "bad" where mag > fence.
     5. Continuous-range finder (edge inward):
          HF: scan from highest freq downward; cut until the first run of
-             `window` consecutive clean points — f_max = top of that run.
+             `window` consecutive clean points - f_max = top of that run.
          LF: scan from lowest freq upward; cut until the first run of
-             `window` consecutive clean points — f_min = bottom of that run.
+             `window` consecutive clean points - f_min = bottom of that run.
        This matches RelaxIS "Apply as continuous range / window size" option.
 
     Parameters
@@ -371,9 +371,9 @@ def run_linkk(
     -------
     dict with keys
         W_re, W_im        : Shapiro-Wilk W on trimmed spectrum (0–1)
-        pass_re           : bool — W_re ≥ 0.95
-        pass_im           : bool — W_im ≥ 0.95
-        kk_score          : (W_re + W_im) / 2 — primary ranking metric
+        pass_re           : bool - W_re ≥ 0.95
+        pass_im           : bool - W_im ≥ 0.95
+        kk_score          : (W_re + W_im) / 2 - primary ranking metric
         mu                : sign-change fraction on the final (Pass 2) fit
         M                 : number of RC elements (Pass 2)
         res_re            : magnitude-normalized real residuals (full spectrum, Pass 1)
@@ -405,7 +405,7 @@ def run_linkk(
                     c=c, M_override=M1,
                     add_inductance=add_inductance)
 
-    # IQR cutoffs — computed on the physically meaningful interior only.
+    # IQR cutoffs - computed on the physically meaningful interior only.
     # f_min_hard and f_max_hard pre-clip the residuals before IQR estimation so
     # that noisy LF/HF boundary regions don't inflate the fence and cause
     # under-cutting in the valid interior. Full-spectrum Pass 1 residuals are
@@ -460,7 +460,7 @@ def run_linkk(
         R_inf = p2["R_inf"]
         R_w = p2["R_weights"]
     else:
-        # Not enough points after trimming — fall back to Pass 1
+        # Not enough points after trimming - fall back to Pass 1
         W_re  = p1["W_re"]
         W_im  = p1["W_im"]
         M_out = p1["M"]
@@ -526,7 +526,7 @@ def select_best_replica(kk_results: list[dict]) -> int:
 
 def compute_frequency_cutoffs(
     kk_result:     dict,
-    res_threshold: float = 0.05,   # kept for API compatibility — not used
+    res_threshold: float = 0.05,   # kept for API compatibility - not used
 ) -> tuple[Optional[float], Optional[float]]:
     """
     Return the frequency cutoffs stored in the Lin-KK result.

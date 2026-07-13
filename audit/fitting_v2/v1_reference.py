@@ -121,7 +121,7 @@ def fit_zarc_v1(
     freq      : frequency [Hz] (after Stage 2 frequency clipping)
     Z_re      : real impedance [Ohm]
     Z_im      : imaginary impedance [Ohm], positive in capacitive region (−Z″)
-    peaks     : DRT peak list from find_drt_peaks() — sets N and initial bounds
+    peaks     : DRT peak list from find_drt_peaks() - sets N and initial bounds
     R0_guess  : estimate of R∞ (Z_re at highest frequency); auto if None
     R_dec     : R bounds in log-decades (default 1.5 = ±1.5 decades, factor ~32)
     tau_dec   : τ bounds in log-decades (default 1.5 = ±1.5 decades)
@@ -169,7 +169,7 @@ def fit_zarc_v1(
     """
     n_peaks = len(peaks)
     if n_peaks == 0:
-        raise ValueError("No peaks provided — cannot build circuit.")
+        raise ValueError("No peaks provided - cannot build circuit.")
 
     # Convention: impedance.py uses Z = Z_re + j*Z_im_physical
     # where Z_im_physical < 0 in capacitive region
@@ -281,7 +281,7 @@ def fit_zarc_v1(
     if np.any((alpha_arr <= 0) | (alpha_arr > 1)):
         warnings.warn(
             "fit_zarc_v1: one or more alpha values are outside (0, 1] after fitting. "
-            "Check fix_params or bounds — C_eff values may be physically meaningless.",
+            "Check fix_params or bounds - C_eff values may be physically meaningless.",
             UserWarning, stacklevel=2,
         )
 

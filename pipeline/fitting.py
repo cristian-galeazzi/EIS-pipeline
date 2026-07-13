@@ -71,7 +71,7 @@ def _broadcast(val, n: int, name: str) -> list[float]:
     """
     Coerce a fitting control into a per-peak list of length n.
 
-    Accepts a scalar (repeated for every peak — the original global behavior)
+    Accepts a scalar (repeated for every peak - the original global behavior)
     or a per-peak sequence (one value per Zarc element). This is what lets the
     caller set R_dec / tau_dec / alpha bounds individually per peak instead of
     globally.
@@ -156,12 +156,12 @@ def build_bounds(
     alpha_max : upper bound for ⍺
 
     R_dec, tau_dec, alpha_min and alpha_max each accept a scalar (applied to
-    every peak — the original global behavior) or a per-peak list of length N,
+    every peak - the original global behavior) or a per-peak list of length N,
     which lets each Zarc element have its own resistance / tau / alpha range.
 
     Returns
     -------
-    (lower_bounds, upper_bounds) — lists of floats, length 1 + 3*N
+    (lower_bounds, upper_bounds) - lists of floats, length 1 + 3*N
     """
     if include_r0:
         if r0_max is not None:
@@ -483,7 +483,7 @@ def fit_zarc(
         raise ValueError(f"loss must be one of {_LOSSES}, got {loss!r}")
     n_peaks = len(peaks)
     if n_peaks == 0:
-        raise ValueError("No peaks provided — cannot build circuit.")
+        raise ValueError("No peaks provided - cannot build circuit.")
 
     freq = np.asarray(freq, dtype=float)
     Z_re = np.asarray(Z_re, dtype=float)
@@ -625,7 +625,7 @@ def fit_zarc(
     if np.any((alpha_arr <= 0) | (alpha_arr > 1)):
         warnings.warn(
             "fit_zarc: one or more alpha values are outside (0, 1] after "
-            "fitting. Check fix_params or bounds — C_eff values may be "
+            "fitting. Check fix_params or bounds - C_eff values may be "
             "physically meaningless.", UserWarning, stacklevel=2)
 
     param_names = []
@@ -714,7 +714,7 @@ def fit_to_rows(
         C_eff_i = float(fit["C_eff"][i])
         sigma_i = conductivity(R_i, L_m, D_m)
 
-        # Confidence intervals (1σ) — params order depends on include_r0
+        # Confidence intervals (1σ) - params order depends on include_r0
         _has_r0 = fit["circuit_str"].startswith("R0")
         base = (1 + i * 3) if _has_r0 else (i * 3)
         conf_R   = float(fit["conf"][base])     if len(fit["conf"]) > base   else np.nan

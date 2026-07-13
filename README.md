@@ -517,7 +517,7 @@ written to `{sample_id}/Results/`. No network calls are made.
 **Software used by the engine**
 
 - M. D. Murbach, B. Gerwe, N. Dawson-Elli, L.-k. Tsui, *impedance.py: A Python package for electrochemical impedance analysis*, J. Open Source Softw. 5(52) (2020) 2349.
-- pyDRTtools (Ciucci group), https://github.com/ciuccislab/pyDRTtools — implementation of the DRT method of Wan et al. (2015).
+- pyDRTtools (Ciucci group), https://github.com/ciuccislab/pyDRTtools - implementation of the DRT method of Wan et al. (2015).
 
 **Scientific computing**
 

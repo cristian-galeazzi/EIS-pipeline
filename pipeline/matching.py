@@ -248,7 +248,7 @@ def match_ism_to_furnace(
       - If extended window fails T_std     -> status = NEAR_TRANSITION
       - Otherwise                          -> status = VALID
 
-    Asymmetric margins — pre vs post:
+    Asymmetric margins - pre vs post:
       pre_margin_min  : minutes checked BEFORE t_start.
                         Guards against files taken right as a new plateau starts
                         (furnace not yet stabilized). Keep large (15-25 min).
@@ -301,7 +301,7 @@ def match_ism_to_furnace(
             continue
 
         if len(window) < 2:
-            # Single furnace log point: std is undefined — treat as insufficient data.
+            # Single furnace log point: std is undefined - treat as insufficient data.
             rec.T_mean = round(float(window["Tsample"].mean()), 2)
             rec.T_std  = None
             rec.status = "OUTSIDE_RANGE"
@@ -391,7 +391,7 @@ def validate_against_filename_labels(records: list[IsmRecord]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 _LABELED_RE  = re.compile(r"_\d{2,4}[Cc](?:_\d+)?\.ism$",  re.IGNORECASE)
-# Strip only the trailing run counter (e.g. _01.ism) — NOT the T-range prefix (_600_400_25).
+# Strip only the trailing run counter (e.g. _01.ism) - NOT the T-range prefix (_600_400_25).
 # The old 4-group pattern ate the T-range for pure-gas conditions (Ar, O2) where
 # the condition name has no hyphens and the T-range tokens look numeric.
 _SEQ_TAIL_RE = re.compile(r"_\d{1,3}\.ism$", re.IGNORECASE)
@@ -479,7 +479,7 @@ def build_auto_labels(records: list[IsmRecord],
 
     Two separate rules:
       1. Already-labeled files (filename matches _LABELED_RE):
-         auto_label = original filename  — no rename, user has already named them.
+         auto_label = original filename  - no rename, user has already named them.
       2. Sequential files (no T label in the filename):
          auto_label = {prefix}_{T}C[_k].ism, continuing from the highest
          replica number the user already assigned at that T.
@@ -574,7 +574,7 @@ def validate_auto_labels(records: list[IsmRecord]) -> pd.DataFrame:
         if rec.status == "VALID" and _lab_re.search(rec.path.name):
             labeled_by_T[rec.T_nominal].append(rec)
 
-    # Sort each group by timestamp — check if replica_file is monotonically increasing
+    # Sort each group by timestamp - check if replica_file is monotonically increasing
     order_ok_map: dict[str, Optional[bool]] = {}
     for T_nom, grp in labeled_by_T.items():
         grp_sorted = sorted(grp, key=lambda r: r.t_start or datetime.min)
@@ -710,7 +710,7 @@ def plot_ism_selection(
     Plot furnace temperature vs time with ISM measurement windows overlaid.
 
     The x-axis is trimmed to show only the last `lead_hours_at_600` hours of the
-    600 °C plateau plus the full descent — the long stable period at max temperature
+    600 °C plateau plus the full descent - the long stable period at max temperature
     before the first ramp is not informative and would squash the detail.
 
     Color + hatch coding:

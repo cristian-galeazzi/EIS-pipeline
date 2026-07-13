@@ -17,7 +17,7 @@ from typing import Any, Mapping
 import pandas as pd
 
 
-# Libraries whose version can affect numeric results — recorded in every
+# Libraries whose version can affect numeric results - recorded in every
 # Metadata sheet so a run is reproducible against the exact environment that
 # produced it (Wilson et al., "Good enough practices in scientific computing").
 _TRACKED_LIBS = (
@@ -109,7 +109,7 @@ def merge_sheet_by_T(
     except Exception as exc:
         warnings.warn(
             f"merge_sheet_by_T: could not read existing sheet '{sheet_name}' in "
-            f"{xlsx_path} ({exc}); falling back to overwrite — rows for other "
+            f"{xlsx_path} ({exc}); falling back to overwrite - rows for other "
             f"temperatures may be lost. Verify the file before trusting the merge.",
             stacklevel=2,
         )

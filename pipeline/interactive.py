@@ -3,7 +3,7 @@ pipeline/interactive.py
 =======================
 UI-only helpers for the EIS notebooks (ipywidgets panels).
 
-This module contains **no calculation logic** — it only builds reusable widget
+This module contains **no calculation logic** - it only builds reusable widget
 layouts so the same controls (condition selector, FOCUS selector) can be dropped
 into the stage notebooks without duplicating boilerplate. Every helper degrades
 gracefully when ipywidgets is not installed.

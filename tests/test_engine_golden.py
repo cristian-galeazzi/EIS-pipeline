@@ -18,7 +18,7 @@ Run with either::
     pytest tests/test_engine_golden.py
     python tests/test_engine_golden.py     # no pytest needed
 
-References: Wilson et al., "Best Practices for Scientific Computing" (2014) —
+References: Wilson et al., "Best Practices for Scientific Computing" (2014) -
 "turn bugs into test cases"; Scopatz & Huff, "Effective Computation in Physics".
 """
 
@@ -223,7 +223,7 @@ def test_csv_loose_file_warns():
 
 # ---------------------------------------------------------------------------
 # Engine coverage: quality.py, drt.py, fitting.fix_params, session.py,
-# matching.py (pure additions — the engine itself stays untouched)
+# matching.py (pure additions - the engine itself stays untouched)
 # ---------------------------------------------------------------------------
 
 
@@ -245,7 +245,7 @@ def test_linkk_synthetic_consistency():
 
 
 def test_drt_total_area_equals_R():
-    """The DRT of one Zarc integrates to R over d(ln tau) — the documented
+    """The DRT of one Zarc integrates to R over d(ln tau) - the documented
     identity behind peak areas. Peak COUNT is not asserted: the sharp
     production lambda is allowed to ring on broad peaks (handled by
     N_PEAKS_CAP in the pipeline), but the total polarization is conserved."""

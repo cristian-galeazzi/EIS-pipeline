@@ -15,7 +15,7 @@ peak_id     : 1-based index sorted by ascending τ (= descending frequency)
               peak_id=1 → highest-frequency process (e.g., bulk)
 tau         : characteristic timescale [s]  (= 1 / (2π f_peak))
 gamma_peak  : DRT value at peak maximum [Ohm]
-R_approx    : area under the peak [Ohm]  — used as initial guess for Zarc R
+R_approx    : area under the peak [Ohm]  - used as initial guess for Zarc R
 tau_left    : left integration boundary [s]
 tau_right   : right integration boundary [s]
 """
@@ -59,7 +59,7 @@ def clip_spectrum(
 
     Returns
     -------
-    (freq_clip, Z_re_clip, Z_im_clip) — same dtype as inputs
+    (freq_clip, Z_re_clip, Z_im_clip) - same dtype as inputs
     """
     mask = np.ones(len(freq), dtype=bool)
     if f_min is not None:
@@ -93,17 +93,17 @@ def compute_drt(
     Z_re        : real impedance [Ohm]
     Z_im        : imaginary impedance [Ohm], positive in capacitive region (−Z″)
     cv_type     : regularization parameter selection method
-                  'mGCV' (default) — modified Generalized Cross-Validation
-                  'GCV'            — Generalized Cross-Validation
-                  'LC'             — L-curve
-                  'custom'         — use reg_param directly (reg_param must be set)
+                  'mGCV' (default) - modified Generalized Cross-Validation
+                  'GCV'            - Generalized Cross-Validation
+                  'LC'             - L-curve
+                  'custom'         - use reg_param directly (reg_param must be set)
     rbf_der     : derivative order for regularization penalty
                   '2nd order' (default) gives smoother, better-shaped peaks
                   '1st order' gives sharper peaks
     induct_used : inductance handling
-                  0 = no inductance (default — appropriate for ceramics at 400-600 °C)
+                  0 = no inductance (default - appropriate for ceramics at 400-600 °C)
                   1 = include inductance term
-    shape_s     : FWHM coefficient for Gaussian RBF — RelaxIS "Shape factor S" (default 0.5)
+    shape_s     : FWHM coefficient for Gaussian RBF - RelaxIS "Shape factor S" (default 0.5)
     lambda_val  : fixed regularization λ used when cv_type='custom'.
                   Ignored for all other cv_type values.
                   Typical range: 1e-4 (sharp peaks) to 1e-2 (very smooth).
@@ -178,7 +178,7 @@ def find_drt_peaks(
     ----------
     entry             : EIS_object after compute_drt()
     min_height_frac   : peaks below this fraction of γ_max are ignored
-                        (default 0.05 = 5 % of max — filters noise floor and
+                        (default 0.05 = 5 % of max - filters noise floor and
                         HF/LF boundary artifacts that appear at the grid edges)
     min_distance      : minimum number of grid points between peaks
                         (default 5 on the fine log-τ grid). Used only when
@@ -246,7 +246,7 @@ def find_drt_peaks(
     if len(peak_indices) == 0:
         return []
 
-    ln_tau = np.log(tau)   # natural log — matches pyDRTtools' d(ln τ) convention
+    ln_tau = np.log(tau)   # natural log - matches pyDRTtools' d(ln τ) convention
     n = len(tau)
 
     def valley_idx(i_left: int, i_right: int) -> int:
@@ -268,7 +268,7 @@ def find_drt_peaks(
         else:
             right_idx = valley_idx(idx, peak_indices[k + 1])
 
-        # Integrate γ over d(ln τ) — correct for pyDRTtools' normalization
+        # Integrate γ over d(ln τ) - correct for pyDRTtools' normalization
         R_i = float(trapezoid(
             gamma[left_idx : right_idx + 1],
             ln_tau[left_idx : right_idx + 1],
