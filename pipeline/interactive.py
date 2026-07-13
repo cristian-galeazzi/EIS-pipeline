@@ -58,6 +58,51 @@ def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
     return found[int(sel) - 1] if sel.isdigit() and 1 <= int(sel) <= len(found) else sel
 
 
+def _param_source_message(from_saved: bool, stage: str) -> str:
+    """Plain-text summary announcing where a config cell reads its parameters,
+    plus how to switch mode (edit USE_SAVED_PARAMS and re-run the cell).
+
+    >>> _param_source_message(True, "Stage 3")
+    'Stage 3: resuming SAVED parameters, session.json untouched. To save new edits: set USE_SAVED_PARAMS = False and re-run.'
+    >>> "OVERWRITE" in _param_source_message(False, "Stage 3")
+    True
+    """
+    if from_saved:
+        return (f"{stage}: resuming SAVED parameters, session.json untouched. "
+                f"To save new edits: set USE_SAVED_PARAMS = False and re-run.")
+    return (f"{stage}: writing NOTEBOOK values, will OVERWRITE session.json. "
+            f"To keep the saved params: set USE_SAVED_PARAMS = True and re-run.")
+
+
+def param_source_banner(from_saved: bool, stage: str) -> str:
+    """Show a green/amber banner stating whether *stage* is resuming the saved
+    parameters or overwriting session.json with the notebook values, and return
+    the plain-text summary.
+
+    ``from_saved=True`` (USE_SAVED_PARAMS on) renders green: the run reproduces
+    the stored calibration and cannot alter session.json. ``from_saved=False``
+    renders amber: the notebook values will be written. Falls back to a plain
+    print when IPython/HTML rendering is unavailable, so it never breaks a
+    headless run.
+
+    >>> param_source_banner(True, "Stage 3")  # doctest: +SKIP
+    """
+    msg = _param_source_message(from_saved, stage)
+    fg, bg = ("#1a7f37", "#dafbe1") if from_saved else ("#9a6700", "#fff8c5")
+    icon = "●" if from_saved else "⚠"
+    html = (
+        f"<div style='padding:7px 12px;border-radius:6px;margin:2px 0;"
+        f"background:{bg};color:{fg};font-weight:600;"
+        f"font-family:sans-serif;display:inline-block'>{icon}&nbsp; {msg}</div>"
+    )
+    try:
+        from IPython.display import HTML, display
+        display(HTML(html))
+    except Exception:
+        print(msg)
+    return msg
+
+
 def discover_conditions(sample_dir: Path | str,
                         require: str | None = None) -> list[str]:
     """
