@@ -312,6 +312,16 @@ def test_session_merge_keys():
         assert entry["condition_params"] == {"O2": {"R_dec": 1.0}}, \
             "replace=True did not overwrite wholesale"
 
+        # zarc_peak_windows merges per scope key: saving the "conditions"
+        # branch must not wipe the "sample" default
+        update_sample("S1", path=p, zarc_peak_windows={"sample": {"1": {"R_dec": 0.7}}})
+        update_sample("S1", path=p, zarc_peak_windows={"conditions": {"Ar": {"1": {"R_dec": 0.9}}}})
+        entry = load_sample("S1", path=p)
+        assert entry["zarc_peak_windows"] == {
+            "sample": {"1": {"R_dec": 0.7}},
+            "conditions": {"Ar": {"1": {"R_dec": 0.9}}}}, \
+            "conditions save wiped the sample-wide windows"
+
         # stage5_params merges per peak_id: refitting peak 1 must not wipe peak 2
         update_sample("S1", path=p, stage5_params={"1": {"Ea_ion": 0.9}})
         update_sample("S1", path=p, stage5_params={"2": {"Ea_ion": 1.1}})
