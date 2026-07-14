@@ -321,6 +321,33 @@ def test_session_merge_keys():
             "second stage5 refit wiped the first peak"
 
 
+def test_session_canonical_key_order():
+    """Saved entries keep all data but serialize keys in canonical order."""
+    import json as _json
+    from pipeline.session import CANONICAL_KEY_ORDER, load_sample, update_sample
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "session.json"
+        # Write keys in a scrambled chronological order, as real runs do.
+        update_sample("S1", path=p, stage5_params={"1": {"Ea_ion": 0.9}})
+        update_sample("S1", path=p, stage2_params={"KK_C": 0.76})
+        update_sample("S1", path=p, L_m=1.4e-3, custom_key="kept")
+        update_sample("S1", path=p, stage1_params={"T_STEP": 50})
+
+        entry = load_sample("S1", path=p)
+        assert entry == {"sample_id": "S1", "L_m": 1.4e-3,
+                         "stage1_params": {"T_STEP": 50},
+                         "stage2_params": {"KK_C": 0.76},
+                         "stage5_params": {"1": {"Ea_ion": 0.9}},
+                         "custom_key": "kept"}, "reordering altered the data"
+
+        on_disk = list(_json.loads(p.read_text())[0])
+        rank = {k: i for i, k in enumerate(CANONICAL_KEY_ORDER)}
+        known = [k for k in on_disk if k in rank]
+        assert known == sorted(known, key=rank.get), \
+            f"keys not in canonical order: {on_disk}"
+        assert on_disk[-1] == "custom_key", "unknown keys must trail"
+
+
 def test_matching_classifies_windows():
     """match_ism_to_furnace: stable plateau VALID, ramp UNSTABLE, gap OUTSIDE."""
     import pandas as pd

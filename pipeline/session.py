@@ -30,6 +30,31 @@ SESSION_FILE = Path("session.json")
 MERGE_KEYS = frozenset({"condition_params", "kk_overrides", "overrides",
                         "zarc_peak_bounds", "stage5_params"})
 
+# Human-readable key order for sample entries: identity and geometry first,
+# then per-stage params, then the per-(condition, T) override stores. Keys
+# not listed keep their original relative order after these.
+CANONICAL_KEY_ORDER = (
+    "sample_id", "L_m", "D_m", "conditions", "TABLE_INTERVAL_S",
+    "stage1_params", "stage2_params", "stage3_params", "stage4_params",
+    "stage5_params", "stage5_config",
+    "kk_overrides", "overrides", "condition_params",
+    "zarc_peak_bounds", "zarc_peak_windows",
+)
+
+
+def _canonical_entry(entry: dict) -> dict:
+    """
+    Return ``entry`` with keys reordered per CANONICAL_KEY_ORDER.
+
+    Values are untouched; unknown keys follow in their original order.
+
+    >>> _canonical_entry({"stage5_params": {}, "sample_id": "S1"})
+    {'sample_id': 'S1', 'stage5_params': {}}
+    """
+    ordered = {k: entry[k] for k in CANONICAL_KEY_ORDER if k in entry}
+    ordered.update((k, v) for k, v in entry.items() if k not in ordered)
+    return ordered
+
 
 def _to_jsonable(obj: Any) -> Any:
     """Convert numpy scalars/arrays (and nested containers) to plain Python."""
@@ -86,7 +111,8 @@ def _atomic_write(path: Path, data: list[dict]) -> None:
                                     prefix=path.name, suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as fh:
-            json.dump(data, fh, indent=2)
+            json.dump([_canonical_entry(e) if isinstance(e, dict) else e
+                       for e in data], fh, indent=2)
         os.replace(tmp_name, path)
     except OSError:
         try:
