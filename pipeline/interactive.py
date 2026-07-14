@@ -4,14 +4,14 @@ pipeline/interactive.py
 UI-only helpers for the EIS notebooks (ipywidgets panels).
 
 This module contains **no calculation logic** - it only builds reusable widget
-layouts so the same controls (condition selector, FOCUS selector) can be dropped
-into the stage notebooks without duplicating boilerplate. Every helper degrades
-gracefully when ipywidgets is not installed.
+layouts so the same controls (condition selector with focus temperature,
+banners) can be dropped into the stage notebooks without duplicating
+boilerplate. Every helper degrades gracefully when ipywidgets is not installed.
 
 Button style convention (all notebook panels follow it):
   ``primary``  recompute/replot in place (Retest KK, Re-fit, Replot ...)
   ``success``  export/persist to disk (Export PLOT_WINDOWS)
-  ``warning``  apply overrides / affects the batch (Apply preset, FOCUS active)
+  ``warning``  apply overrides / affects the batch (Apply preset)
   neutral      pure selection (condition selector button)
 """
 
@@ -149,13 +149,22 @@ def discover_conditions_from_session(cfg: dict) -> list[str]:
 
 
 def make_condition_selector(
-    conditions: Sequence[str],
-    title:      str = "Select gas conditions:",
+    conditions:  Sequence[str],
+    title:       str = "Select gas conditions:",
+    temps:       Sequence[int] | None = None,
+    set_focus_t: Callable[[int | None], None] | None = None,
 ) -> Callable[[], list[str]]:
     """
     Checkbox-per-condition panel with a select/deselect-all button,
     displayed immediately. One implementation for stages 0, 2 and 3
     (stage 1 inherits the stage 0 selection via session.json).
+
+    When ``temps`` and ``set_focus_t`` are given, a focus-temperature
+    dropdown is added: "(all T)" processes everything, a value invokes
+    ``set_focus_t(T)`` so the notebook can set its ``FOCUS_T`` global
+    (merge-aware exports then touch only that temperature).
+
+    >>> get_selected = make_condition_selector(["Ar_1", "O2_1"])  # doctest: +SKIP
 
     Returns
     -------
@@ -186,83 +195,29 @@ def make_condition_selector(
         b.description = "Select all" if all_checked else "Deselect all"
 
     btn.on_click(_toggle)
-    display(W.VBox([W.Label(title)] + checkboxes + [btn]))
+
+    rows: list = [W.Label(title)] + checkboxes + [btn]
+    if temps is not None and set_focus_t is not None:
+        ALL_T = "(all T)"
+        tdd = W.Dropdown(options=[ALL_T] + list(temps), value=ALL_T,
+                         description="Focus T [°C]:",
+                         layout=W.Layout(width="220px"),
+                         style={"description_width": "90px"},
+                         tooltip="Process only this temperature; exports merge "
+                                 "into the existing xlsx rows")
+        t_lbl = W.HTML()
+
+        def _on_t(change):
+            T = None if change["new"] == ALL_T else int(change["new"])
+            set_focus_t(T)
+            t_lbl.value = ("" if T is None else
+                           f"<span style='color:#b36b00;font-size:12px'>FOCUS_T = {T} °C: "
+                           "re-run the batch cell to apply.</span>")
+
+        tdd.observe(_on_t, names="value")
+        rows.append(W.HBox([tdd, t_lbl]))
+
+    display(W.VBox(rows))
     return lambda: [cb.description for cb in checkboxes if cb.value]
 
 
-def make_focus_panel(
-    conditions: Sequence[str],
-    temps:      Sequence[int],
-    set_focus:  Callable[[str | None, int | None], None],
-    init_cond:  str | None = None,
-    init_T:     int | None = None,
-) -> None:
-    """
-    Build a FOCUS selector: ON/OFF toggle + condition dropdown + temperature
-    dropdown, both auto-populated. Lets the user restrict processing to one
-    condition and/or one temperature by clicking, instead of editing the
-    config cell or typing a folder name.
-
-    ``set_focus(condition_or_None, T_or_None)`` is invoked on every change so
-    the calling notebook can write its own ``FOCUS_CONDITION`` / ``FOCUS_T``
-    module globals. The panel is displayed immediately.
-
-    Parameters
-    ----------
-    conditions : auto-discovered condition folder names (dropdown options).
-    temps      : temperature options [°C].
-    set_focus  : callback receiving (condition|None, T|None).
-    init_cond  : pre-selected condition (None = all).
-    init_T     : pre-selected temperature (None = all).
-    """
-    try:
-        import ipywidgets as W
-        from IPython.display import display
-    except Exception as exc:  # pragma: no cover - depends on environment
-        print(f"[INFO] FOCUS panel needs ipywidgets ({exc}).")
-        # Still apply the requested initial focus so behaviour is unchanged.
-        set_focus(init_cond, init_T)
-        return None
-
-    ALL_C, ALL_T = "(all conditions)", "(all T)"
-    conditions = list(conditions)
-    temps      = list(temps)
-
-    on = W.ToggleButton(
-        value=(init_cond is not None or init_T is not None),
-        description="FOCUS", icon="filter",
-        layout=W.Layout(width="120px"),
-        tooltip="Restrict processing to one condition and/or one temperature")
-    cdd = W.Dropdown(
-        options=[ALL_C] + conditions,
-        value=(init_cond if init_cond in conditions else ALL_C),
-        description="Condition:", layout=W.Layout(width="470px"),
-        tooltip="FOCUS_CONDITION: process only this condition folder")
-    tdd = W.Dropdown(
-        options=[ALL_T] + temps,
-        value=(init_T if init_T in temps else ALL_T),
-        description="T [°C]:", layout=W.Layout(width="200px"),
-        tooltip="FOCUS_T: process only this temperature")
-    lbl = W.HTML()
-
-    def _sync(*_):
-        if on.value:
-            cond = None if cdd.value == ALL_C else cdd.value
-            T    = None if tdd.value == ALL_T else int(tdd.value)
-            on.button_style = "warning"
-            set_focus(cond, T)
-            lbl.value = (
-                "<b style='color:#b36b00'>FOCUS active</b> &nbsp;"
-                f"condition: {cond or 'all'}, T: {T if T is not None else 'all'}. "
-                "Re-run the batch cell to apply.")
-        else:
-            on.button_style = ""
-            set_focus(None, None)
-            lbl.value = ("<span style='color:#555'>FOCUS off. "
-                         "All conditions and temperatures will be processed.</span>")
-
-    for w in (on, cdd, tdd):
-        w.observe(_sync, names="value")
-    _sync()
-    display(W.VBox([W.HBox([on, cdd, tdd]), lbl]))
-    return None
