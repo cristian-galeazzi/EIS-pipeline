@@ -1074,6 +1074,8 @@ def plot_brouwer_transference(
     exponent:      float     = 0.25,
     temps_to_plot: list[int] | None = None,
     df_t:          pd.DataFrame | None = None,
+    params         = None,
+    perr:          dict | None = None,
 ) -> plt.Figure:
     """
     Two-panel ionic/electronic decomposition of the Brouwer diagram.
@@ -1090,6 +1092,12 @@ def plot_brouwer_transference(
     per-isotherm NNLS, so Stage 5 can redraw this figure from the refined
     global model (``model.global_transference_table``). Default behaviour
     (Stage 4) is unchanged.
+
+    ``params`` / ``perr``: optional ``ModelParams`` and error dict from
+    ``model.fit_global_conductivity``. When given, the sigma panel gets a
+    summary box with the pO2 exponent x and the activation energy of each
+    active channel (inactive channels are flagged), placed in whichever top
+    corner is free of data.
     """
     if df_t is None:
         df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
@@ -1193,6 +1201,34 @@ def plot_brouwer_transference(
         ax.tick_params(direction="in", which="minor", width=1.2, length=2.5)
         for _sp in ax.spines.values():
             _sp.set_linewidth(1.2)
+
+    if params is not None:
+        from fractions import Fraction
+        _fx = Fraction(params.x).limit_denominator(12)
+        lines = [rf"$x = {_fx.numerator}/{_fx.denominator}$"
+                 if _fx.denominator > 1 else rf"$x = {_fx.numerator}$"]
+        for _ch, _sym in (("ion", r"\mathrm{ion}"), ("p", "p"), ("n", "n")):
+            _s0 = getattr(params, f"sigma0_{_ch}")
+            _ea = getattr(params, f"Ea_{_ch}")
+            if _s0 == 0.0 or not np.isfinite(_ea):
+                lines.append(rf"$\sigma_{{{_sym}}}$: not active ($\sigma_0 = 0$)")
+            else:
+                _err = (perr or {}).get(f"Ea_{_ch}")
+                _pm = (rf" \pm {_err:.2f}"
+                       if _err is not None and np.isfinite(_err) else "")
+                lines.append(rf"$E_{{a,{_sym}}} = {_ea:.2f}{_pm}$ eV")
+        # Free top corner: the data climb toward the side with the higher
+        # log sigma maximum, so anchor the box on the opposite side.
+        _lp = np.log10(df_t["pO2"].astype(float))
+        _ls = np.log10(df_t["sigma_Scm"].astype(float))
+        _mid = _lp.median()
+        _lmax = _ls[_lp <= _mid].max() if (_lp <= _mid).any() else -np.inf
+        _rmax = _ls[_lp > _mid].max() if (_lp > _mid).any() else -np.inf
+        _x0, _ha = (0.02, "left") if _rmax >= _lmax else (0.98, "right")
+        ax_s.text(_x0, 0.98, "\n".join(lines), transform=ax_s.transAxes,
+                  ha=_ha, va="top", fontsize=8.5, zorder=6,
+                  bbox=dict(fc="white", ec="#888888", lw=0.6, alpha=0.85,
+                            boxstyle="round,pad=0.4"))
 
     stem = (f"Brouwer_transference_Peak{peak_id}_{sample_name}"
             if sample_name else f"Brouwer_transference_Peak{peak_id}")
