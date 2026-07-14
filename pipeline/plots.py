@@ -1096,8 +1096,11 @@ def plot_brouwer_transference(
     ``params`` / ``perr``: optional ``ModelParams`` and error dict from
     ``model.fit_global_conductivity``. When given, the sigma panel gets a
     summary box with the pO2 exponent x and the activation energy of each
-    active channel (inactive channels are flagged), placed in whichever top
-    corner is free of data.
+    active channel. A channel excluded from the model (Ea = NaN) is omitted;
+    a selected channel whose fitted contribution to sigma is negligible over
+    the measured window is kept and flagged as sigma ~ 0. The box is docked in
+    a headroom band added above the data, so it never overlaps the curves even
+    when the model is flat and fills the panel.
     """
     if df_t is None:
         df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
@@ -1168,7 +1171,7 @@ def plot_brouwer_transference(
         _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
         _labels.append(r"$\sigma_{ion}$ (fit)")
     fig.legend(_handles, _labels, loc="outside upper center", frameon=True,
-               fontsize=8, ncol=min(len(_labels), 7), handlelength=1.3,
+               fontsize=9, ncol=min(len(_labels), 7), handlelength=1.3,
                columnspacing=0.8)
 
     ax_t.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
@@ -1205,28 +1208,45 @@ def plot_brouwer_transference(
     if params is not None:
         from fractions import Fraction
         _fx = Fraction(params.x).limit_denominator(12)
-        lines = [rf"$x = {_fx.numerator}/{_fx.denominator}$"
+        cells = [rf"$x = {_fx.numerator}/{_fx.denominator}$"
                  if _fx.denominator > 1 else rf"$x = {_fx.numerator}$"]
+        # Per-channel peak contribution to sigma across the measured window.
+        # sigma0 from the polish is never exactly 0 (a zeroed channel comes back
+        # as an epsilon or a runaway pinned at an Ea bound), so classify a
+        # channel by whether it actually carries current, not by sigma0 == 0.
+        _po = df_t["pO2"].astype(float).to_numpy()
+        _contrib = {
+            "ion": df_t["sigma_ion"].astype(float).to_numpy(),
+            "p":   df_t["sigma_p"].astype(float).to_numpy() * _po ** exponent,
+            "n":   df_t["sigma_n"].astype(float).to_numpy() * _po ** (-exponent),
+        }
+        _totmax = float(np.nanmax(df_t["sigma_Scm"].astype(float).to_numpy()))
         for _ch, _sym in (("ion", r"\mathrm{ion}"), ("p", "p"), ("n", "n")):
-            _s0 = getattr(params, f"sigma0_{_ch}")
             _ea = getattr(params, f"Ea_{_ch}")
-            if _s0 == 0.0 or not np.isfinite(_ea):
-                lines.append(rf"$\sigma_{{{_sym}}}$: not active ($\sigma_0 = 0$)")
-            else:
-                _err = (perr or {}).get(f"Ea_{_ch}")
-                _pm = (rf" \pm {_err:.2f}"
-                       if _err is not None and np.isfinite(_err) else "")
-                lines.append(rf"$E_{{a,{_sym}}} = {_ea:.2f}{_pm}$ eV")
-        # Free top corner: the data climb toward the side with the higher
-        # log sigma maximum, so anchor the box on the opposite side.
-        _lp = np.log10(df_t["pO2"].astype(float))
-        _ls = np.log10(df_t["sigma_Scm"].astype(float))
-        _mid = _lp.median()
-        _lmax = _ls[_lp <= _mid].max() if (_lp <= _mid).any() else -np.inf
-        _rmax = _ls[_lp > _mid].max() if (_lp > _mid).any() else -np.inf
-        _x0, _ha = (0.02, "left") if _rmax >= _lmax else (0.98, "right")
-        ax_s.text(_x0, 0.98, "\n".join(lines), transform=ax_s.transAxes,
-                  ha=_ha, va="top", fontsize=8.5, zorder=6,
+            if not np.isfinite(_ea):
+                continue  # excluded from the model: omit entirely
+            _cmax = float(np.nanmax(_contrib[_ch])) if _contrib[_ch].size else 0.0
+            if _totmax <= 0 or _cmax / _totmax < 1e-3:
+                # selected but the fit zeroed it: a real result (no such
+                # carriers in the measured pO2 window), not an absence.
+                cells.append(rf"$\sigma_{{{_sym}}} \approx 0$ ($p$O$_2$ window)")
+                continue
+            _err = (perr or {}).get(f"Ea_{_ch}")
+            _pm = (rf" \pm {_err:.2f}"
+                   if _err is not None and np.isfinite(_err) else "")
+            cells.append(rf"$E_{{a,{_sym}}} = {_ea:.2f}{_pm}$ eV")
+        # Two-column grid, filled row by row so an omitted channel leaves no
+        # hole. Columns are space-separated (mathtext, not pixel-aligned).
+        _rows = [cells[i:i + 2] for i in range(0, len(cells), 2)]
+        _txt = "\n".join("   ".join(r) for r in _rows)
+        # Reserve an empty band above all data and dock the box there. Corner
+        # placement is not robust: a flat model fills the panel and leaves no
+        # free corner. Extending ylim past the data max guarantees the strip
+        # under the top edge is clear whatever the curve shape.
+        _y0, _y1 = ax_s.get_ylim()
+        ax_s.set_ylim(_y0, _y1 + (0.04 + 0.09 * len(_rows)) * (_y1 - _y0))
+        ax_s.text(0.02, 0.98, _txt, transform=ax_s.transAxes,
+                  ha="left", va="top", fontsize=9.5, zorder=6,
                   bbox=dict(fc="white", ec="#888888", lw=0.6, alpha=0.85,
                             boxstyle="round,pad=0.4"))
 
