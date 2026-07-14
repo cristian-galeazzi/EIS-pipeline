@@ -148,11 +148,41 @@ def discover_conditions_from_session(cfg: dict) -> list[str]:
     return sorted(cfg.get("conditions", []))
 
 
+def format_pO2(x: float | None) -> str:
+    """Scientific-notation p(O2) label, 2 significant figures, or "" when absent.
+
+    >>> format_pO2(3.42e-18)
+    '3.4e-18 bar'
+    >>> format_pO2(None)
+    ''
+    """
+    if x is None or x != x or x <= 0:  # None, NaN, or nonpositive
+        return ""
+    return f"{x:.1e} bar"
+
+
+def order_conditions_by_pO2(
+    conditions: Sequence[str],
+    pO2_map: dict[str, float | None],
+) -> list[str]:
+    """Conditions ordered by representative p(O2) high to low; conditions with
+    no p(O2) trail in alphabetical order.
+
+    >>> order_conditions_by_pO2(["b", "a", "c"], {"a": 1e-2, "b": 1.0, "c": None})
+    ['b', 'a', 'c']
+    """
+    with_p = [c for c in conditions if pO2_map.get(c) is not None]
+    without = sorted(c for c in conditions if pO2_map.get(c) is None)
+    with_p.sort(key=lambda c: pO2_map[c], reverse=True)
+    return with_p + without
+
+
 def make_condition_selector(
     conditions:  Sequence[str],
     title:       str = "Select gas conditions:",
     temps:       Sequence[int] | None = None,
     set_focus_t: Callable[[int | None], None] | None = None,
+    pO2_map:     dict[str, float | None] | None = None,
 ) -> Callable[[], list[str]]:
     """
     Checkbox-per-condition panel with a select/deselect-all button,
@@ -164,6 +194,12 @@ def make_condition_selector(
     ``set_focus_t(T)`` so the notebook can set its ``FOCUS_T`` global.
     The selector only selects; the batch cell does the processing.
 
+    When ``pO2_map`` is given (condition -> representative p(O2) in bar, or
+    None), conditions are ordered high-to-low pressure (no-p(O2) ones trail
+    alphabetically) and each checkbox shows ``name (pO2 = ... bar)``. The
+    folder name stays the identity: the callable still returns folder names.
+    Without ``pO2_map`` the behaviour is unchanged.
+
     >>> get_selected = make_condition_selector(["Ar_1", "O2_1"])  # doctest: +SKIP
 
     Returns
@@ -172,6 +208,8 @@ def make_condition_selector(
     Degrades to "all selected" when ipywidgets is not installed.
     """
     conditions = list(conditions)
+    if pO2_map is not None:
+        conditions = order_conditions_by_pO2(conditions, pO2_map)
     try:
         import ipywidgets as W
         from IPython.display import display
@@ -180,8 +218,12 @@ def make_condition_selector(
               "all conditions selected.")
         return lambda: list(conditions)
 
+    def _label(c: str) -> str:
+        p = format_pO2(pO2_map.get(c)) if pO2_map is not None else ""
+        return f"{c}  (pO2 = {p})" if p else c
+
     checkboxes = [
-        W.Checkbox(value=True, description=c,
+        W.Checkbox(value=True, description=_label(c),
                    layout=W.Layout(width="480px"),
                    style={"description_width": "0px"})
         for c in conditions
@@ -218,6 +260,6 @@ def make_condition_selector(
         rows.append(W.HBox([tdd, t_lbl]))
 
     display(W.VBox(rows))
-    return lambda: [cb.description for cb in checkboxes if cb.value]
+    return lambda: [conditions[i] for i, cb in enumerate(checkboxes) if cb.value]
 
 

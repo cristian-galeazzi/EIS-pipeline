@@ -340,6 +340,53 @@ def test_session_merge_keys():
             "stage3_valid merge lost or failed to replace a condition"
 
 
+def test_session_ordering():
+    """Write-time ordering: per-condition stores follow the conditions list, T
+    and peak keys ascend, parameter-name dicts keep their order, values stay."""
+    import json
+
+    from pipeline.session import update_sample
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "session.json"
+        update_sample("S1", path=p, conditions=["Bcond", "Acond"])
+        update_sample("S1", path=p, kk_overrides={
+            "Acond": {"600": {"f_min_hard": 1.0}, "400": {"f_min_hard": 2.0}},
+            "Bcond": {"500": {"f_min_hard": 3.0}}})
+        update_sample("S1", path=p, condition_params={
+            "Acond": {"alpha_init": 0.7, "hf_weight": 0.0}})
+        update_sample("S1", path=p, zarc_peak_windows={
+            "sample": {"2": {"R_dec": 0.7}, "1": {"R_dec": 0.9}}})
+        raw = json.loads(p.read_text())[0]
+        assert list(raw["kk_overrides"]) == ["Bcond", "Acond"], \
+            "condition store did not follow the conditions list order"
+        assert list(raw["kk_overrides"]["Acond"]) == ["400", "600"], \
+            "temperature keys not sorted ascending"
+        assert list(raw["zarc_peak_windows"]["sample"]) == ["1", "2"], \
+            "peak keys not sorted ascending"
+        assert list(raw["condition_params"]["Acond"]) == ["alpha_init", "hf_weight"], \
+            "parameter-name dict was reordered"
+        assert raw["kk_overrides"]["Acond"]["400"]["f_min_hard"] == 2.0, \
+            "reordering altered a value"
+
+
+def test_condition_pO2_map():
+    """Median pO2_mean per condition, None when no p(O2) source is present."""
+    import pandas as pd
+
+    from pipeline.utils import condition_pO2_map
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        cdir = root / "Results" / "Ar-1"
+        cdir.mkdir(parents=True)
+        pd.DataFrame({"T_nominal": [600, 500, 400],
+                      "pO2_mean": [1.0e-4, 1.1e-4, 1.2e-4]}).to_excel(
+            cdir / "stage2_kk.xlsx", sheet_name="Selected", index=False)
+        (root / "Results" / "NoP").mkdir(parents=True)
+        m = condition_pO2_map(root, ["Ar-1", "NoP"])
+        assert abs(m["Ar-1"] - 1.1e-4) < 1e-12, "median pO2 wrong"
+        assert m["NoP"] is None, "missing p(O2) should be None"
+
+
 def test_session_remove_override_entries():
     """remove_override_entries deletes per-T or per-condition, prunes empties."""
     from pipeline.session import (load_sample, remove_override_entries,

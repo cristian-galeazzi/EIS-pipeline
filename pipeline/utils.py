@@ -82,6 +82,56 @@ def check_replica_overrides(
     return msgs
 
 
+# Where the per-spectrum pO2_mean column can be read, most processed first.
+# Same column everywhere (born at matching, stage 1), so any source gives the
+# same value; the list just makes the helper work from stage 2 onward.
+_PO2_SOURCES: tuple[tuple[str, str], ...] = (
+    ("stage3_fit.xlsx", "Peaks"),
+    ("stage2_kk.xlsx", "Selected"),
+    ("stage1_labeling.xlsx", "VALID"),
+)
+
+
+def condition_pO2_map(
+    sample_dir: Path | str,
+    conditions: list[str],
+) -> dict[str, float | None]:
+    """Representative oxygen partial pressure [bar] per condition.
+
+    The value is ``median(pO2_mean)`` over the condition's spectra, read from
+    the most processed stage xlsx available (the same ``pO2_mean`` column the
+    Brouwer figures use). Median because p(O2) is constant per condition to a
+    few percent, so the median is robust to a stray furnace-startup reading and
+    needs no acquisition timestamp. Returns ``None`` for a condition with no
+    p(O2) (the non-Zahner CSV path), so callers can fall back to the folder
+    name unchanged.
+
+    >>> condition_pO2_map("does_not_exist", ["Ar"])
+    {'Ar': None}
+    """
+    base = Path(sample_dir)
+    out: dict[str, float | None] = {}
+    for cond in conditions:
+        value: float | None = None
+        for fname, sheet in _PO2_SOURCES:
+            xlsx = base / "Results" / cond / fname
+            if not xlsx.exists():
+                continue
+            try:
+                df = pd.read_excel(xlsx, sheet_name=sheet)
+            except Exception:
+                continue
+            if "pO2_mean" not in df.columns:
+                continue
+            s = pd.to_numeric(df["pO2_mean"], errors="coerce").dropna()
+            s = s[s > 0]
+            if not s.empty:
+                value = float(s.median())
+                break
+        out[cond] = value
+    return out
+
+
 def merge_sheet_by_T(
     xlsx_path: Path,
     sheet_name: str,

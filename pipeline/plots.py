@@ -665,6 +665,20 @@ def _draw_arrhenius_panel(
 # 5. Arrhenius 2×2 panel
 # ---------------------------------------------------------------------------
 
+def _condition_pO2_suptitle(df_peaks: pd.DataFrame) -> str:
+    """Median p(O2) [bar] over a condition's Peaks rows as a functional title,
+    or "" when the column is absent (non-Zahner path). Same median the
+    condition selector shows, so the figure and the selector never disagree.
+    """
+    if "pO2_mean" not in df_peaks.columns:
+        return ""
+    s = pd.to_numeric(df_peaks["pO2_mean"], errors="coerce").dropna()
+    s = s[s > 0]
+    if s.empty:
+        return ""
+    return f"$p$(O$_2$) = {s.median():.1e} bar"
+
+
 def plot_arrhenius_panel(
     df_peaks:     pd.DataFrame,
     L_m:          float,
@@ -703,6 +717,10 @@ def plot_arrhenius_panel(
     A_m2 = np.pi * (D_m / 2) ** 2
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150, layout="constrained")
+
+    _pO2_title = _condition_pO2_suptitle(df_peaks)
+    if _pO2_title:
+        fig.suptitle(_pO2_title, fontsize=11)
 
     # The figure must declare its own fit range when low-T points are excluded
     if t_min is not None:
@@ -784,6 +802,10 @@ def plot_arrhenius_sigma(
         return None
 
     fig, ax = plt.subplots(figsize=(6.5, 5), dpi=150, layout="constrained")
+
+    _pO2_title = _condition_pO2_suptitle(df_peaks)
+    if _pO2_title:
+        fig.suptitle(_pO2_title, fontsize=11)
 
     # branches: validated range only
     branch_results = build_arrhenius_results(sub, L_m, D_m, t_min=t_min)

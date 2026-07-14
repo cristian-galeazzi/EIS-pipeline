@@ -45,17 +45,69 @@ CANONICAL_KEY_ORDER = (
 )
 
 
+def _is_numeric_key(k: Any) -> bool:
+    """True when ``k`` parses as a number (a temperature or a peak index).
+
+    >>> _is_numeric_key("600"), _is_numeric_key("alpha_init")
+    (True, False)
+    """
+    try:
+        float(k)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _sort_numeric_keys(obj: Any) -> Any:
+    """Recursively reorder a dict's keys ascending only when they are all
+    numeric, so temperature and peak levels come out sorted while
+    parameter-name dicts (alpha_init, R_dec, ...) keep their order.
+
+    >>> _sort_numeric_keys({"600": 1, "400": 2})
+    {'400': 2, '600': 1}
+    >>> _sort_numeric_keys({"b": 1, "a": 2})
+    {'b': 1, 'a': 2}
+    """
+    if not isinstance(obj, dict):
+        return obj
+    items = [(k, _sort_numeric_keys(v)) for k, v in obj.items()]
+    if items and all(_is_numeric_key(k) for k, _ in items):
+        items.sort(key=lambda kv: float(kv[0]))
+    return dict(items)
+
+
+def _order_conditions(store: Any, cond_order: list) -> Any:
+    """Reorder a per-condition store's top-level keys to follow ``cond_order``.
+
+    Keys that are not condition names (e.g. the ``sample`` / ``conditions``
+    scope keys of ``zarc_peak_windows``) trail in their original order.
+
+    >>> _order_conditions({"B": 1, "A": 2, "sample": 3}, ["A", "B"])
+    {'A': 2, 'B': 1, 'sample': 3}
+    """
+    if not isinstance(store, dict):
+        return store
+    known = [c for c in cond_order if c in store]
+    rest = [c for c in store if c not in known]
+    return {c: store[c] for c in known + rest}
+
+
 def _canonical_entry(entry: dict) -> dict:
     """
-    Return ``entry`` with keys reordered per CANONICAL_KEY_ORDER.
-
-    Values are untouched; unknown keys follow in their original order.
+    Return ``entry`` with keys reordered per CANONICAL_KEY_ORDER, each
+    per-condition store ordered to follow the ``conditions`` list, and its
+    temperature/peak sub-keys sorted ascending. Values are untouched; unknown
+    top-level keys follow in their original order.
 
     >>> _canonical_entry({"stage5_params": {}, "sample_id": "S1"})
     {'sample_id': 'S1', 'stage5_params': {}}
     """
     ordered = {k: entry[k] for k in CANONICAL_KEY_ORDER if k in entry}
     ordered.update((k, v) for k, v in entry.items() if k not in ordered)
+    cond_order = ordered.get("conditions") or []
+    for k in MERGE_KEYS:
+        if isinstance(ordered.get(k), dict):
+            ordered[k] = _order_conditions(_sort_numeric_keys(ordered[k]), cond_order)
     return ordered
 
 
