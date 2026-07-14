@@ -62,28 +62,31 @@ def _param_source_message(from_saved: bool, stage: str) -> str:
     """Plain-text summary announcing where a config cell reads its parameters,
     plus how to switch mode (edit USE_SAVED_PARAMS and re-run the cell).
 
-    >>> _param_source_message(True, "Stage 3")
-    'Stage 3: resuming SAVED parameters, session.json untouched. To save new edits: set USE_SAVED_PARAMS = False and re-run.'
-    >>> "OVERWRITE" in _param_source_message(False, "Stage 3")
+    >>> "LOCKED" in _param_source_message(True, "Stage 3")
+    True
+    >>> "BUILD MODE" in _param_source_message(False, "Stage 3")
     True
     """
     if from_saved:
-        return (f"{stage}: resuming SAVED parameters, session.json untouched. "
-                f"To save new edits: set USE_SAVED_PARAMS = False and re-run.")
-    return (f"{stage}: writing NOTEBOOK values, will OVERWRITE session.json. "
-            f"To keep the saved params: set USE_SAVED_PARAMS = True and re-run.")
+        return (f"{stage}: LOCKED, reproducing the calibration saved in "
+                f"session.json (config cell, widgets and Apply buttons do not "
+                f"save). To edit: set USE_SAVED_PARAMS = False and re-run.")
+    return (f"{stage}: BUILD MODE, starting from the notebook values; widget "
+            f"and Apply edits are saved to session.json (merge, only what you "
+            f"touch). To reproduce the saved calibration: set "
+            f"USE_SAVED_PARAMS = True and re-run.")
 
 
 def param_source_banner(from_saved: bool, stage: str) -> str:
-    """Show a green/amber banner stating whether *stage* is resuming the saved
-    parameters or overwriting session.json with the notebook values, and return
-    the plain-text summary.
+    """Show a green/amber banner for the USE_SAVED_PARAMS write-protect switch
+    and return the plain-text summary.
 
-    ``from_saved=True`` (USE_SAVED_PARAMS on) renders green: the run reproduces
-    the stored calibration and cannot alter session.json. ``from_saved=False``
-    renders amber: the notebook values will be written. Falls back to a plain
-    print when IPython/HTML rendering is unavailable, so it never breaks a
-    headless run.
+    ``from_saved=True`` renders green: reproduction mode, everything (scalars
+    and per-condition overrides) loads from session.json and no widget or
+    Apply button writes back. ``from_saved=False`` renders amber: build mode,
+    the config cell is the base and every edit is merge-saved. Falls back to a
+    plain print when IPython/HTML rendering is unavailable, so it never breaks
+    a headless run.
 
     >>> param_source_banner(True, "Stage 3")  # doctest: +SKIP
     """
