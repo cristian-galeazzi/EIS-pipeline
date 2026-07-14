@@ -153,7 +153,6 @@ def make_condition_selector(
     title:       str = "Select gas conditions:",
     temps:       Sequence[int] | None = None,
     set_focus_t: Callable[[int | None], None] | None = None,
-    recompute:   Callable[[], tuple[str, str]] | None = None,
 ) -> Callable[[], list[str]]:
     """
     Checkbox-per-condition panel with a select/deselect-all button,
@@ -162,14 +161,8 @@ def make_condition_selector(
 
     When ``temps`` and ``set_focus_t`` are given, a focus-temperature
     dropdown is added: "(all T)" processes everything, a value invokes
-    ``set_focus_t(T)`` so the notebook can set its ``FOCUS_T`` global
-    (merge-aware exports then touch only that temperature).
-
-    When ``recompute`` is also given (a callable returning
-    ``(table_html, status_text)``), a "Recompute table" button reruns the
-    batch in place, and picking a single temperature recomputes right away
-    (one T is cheap); "(all T)" only recomputes via the button, since the
-    full batch is a deliberate, heavier run.
+    ``set_focus_t(T)`` so the notebook can set its ``FOCUS_T`` global.
+    The selector only selects; the batch cell does the processing.
 
     >>> get_selected = make_condition_selector(["Ar_1", "O2_1"])  # doctest: +SKIP
 
@@ -213,44 +206,16 @@ def make_condition_selector(
                          tooltip="Process only this temperature; exports merge "
                                  "into the existing xlsx rows")
         t_lbl = W.HTML()
-        out_html = W.HTML()
-
-        def _run_recompute():
-            t_lbl.value = "<i style='font-size:12px'>recomputing…</i>"
-            try:
-                html, status = recompute()
-            except Exception as exc:
-                t_lbl.value = (f"<span style='color:#b00020;font-size:12px'>"
-                               f"recompute failed: {exc}</span>")
-                return
-            out_html.value = html
-            t_lbl.value = f"<span style='font-size:12px'>{status}</span>"
 
         def _on_t(change):
             T = None if change["new"] == ALL_T else int(change["new"])
             set_focus_t(T)
-            if T is not None and recompute is not None:
-                _run_recompute()
-            elif T is None and recompute is not None:
-                t_lbl.value = ("<span style='font-size:12px'>(all T): press "
-                               "Recompute table to reprocess everything.</span>")
-            else:
-                t_lbl.value = ("" if T is None else
-                               f"<span style='color:#b36b00;font-size:12px'>FOCUS_T = {T} °C: "
-                               "re-run the batch cell to apply.</span>")
+            t_lbl.value = ("" if T is None else
+                           f"<span style='color:#b36b00;font-size:12px'>FOCUS_T = {T} °C: "
+                           "re-run the batch cell to apply.</span>")
 
         tdd.observe(_on_t, names="value")
-        t_row = [tdd]
-        if recompute is not None:
-            btn2 = W.Button(description="↻ Recompute table", button_style="primary",
-                            layout=W.Layout(width="180px"),
-                            tooltip="Run Step 1 now with the current selection and "
-                                    "refresh the classification table below")
-            btn2.on_click(lambda _b: _run_recompute())
-            t_row.append(btn2)
-        rows.append(W.HBox(t_row + [t_lbl]))
-        if recompute is not None:
-            rows.append(out_html)
+        rows.append(W.HBox([tdd, t_lbl]))
 
     display(W.VBox(rows))
     return lambda: [cb.description for cb in checkboxes if cb.value]
