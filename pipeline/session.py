@@ -29,7 +29,7 @@ SESSION_FILE = Path("session.json")
 # of the conditions that were calibrated in earlier sessions.
 MERGE_KEYS = frozenset({"condition_params", "kk_overrides", "overrides",
                         "zarc_peak_bounds", "zarc_peak_windows",
-                        "stage5_params"})
+                        "stage3_valid", "stage5_params"})
 
 # Human-readable key order for sample entries: identity and geometry first,
 # then each stage's params immediately followed by its own override stores.
@@ -39,7 +39,7 @@ CANONICAL_KEY_ORDER = (
     "stage1_params",
     "stage2_params", "kk_overrides", "overrides",
     "stage3_params", "condition_params", "zarc_peak_bounds",
-    "zarc_peak_windows",
+    "zarc_peak_windows", "stage3_valid",
     "stage4_params",
     "stage5_config", "stage5_params",
 )

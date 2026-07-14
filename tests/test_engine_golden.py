@@ -330,6 +330,15 @@ def test_session_merge_keys():
                                           "2": {"Ea_ion": 1.1}}, \
             "second stage5 refit wiped the first peak"
 
+        # stage3_valid merges per condition: a session that only shows Ar
+        # must not wipe the O2 selection; re-saving Ar replaces its list
+        update_sample("S1", path=p, stage3_valid={"Ar": [600, 550]})
+        update_sample("S1", path=p, stage3_valid={"O2": [600]})
+        update_sample("S1", path=p, stage3_valid={"Ar": [600]})
+        entry = load_sample("S1", path=p)
+        assert entry["stage3_valid"] == {"Ar": [600], "O2": [600]}, \
+            "stage3_valid merge lost or failed to replace a condition"
+
 
 def test_session_remove_override_entries():
     """remove_override_entries deletes per-T or per-condition, prunes empties."""
