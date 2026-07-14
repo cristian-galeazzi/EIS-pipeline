@@ -123,6 +123,62 @@ def _atomic_write(path: Path, data: list[dict]) -> None:
         raise
 
 
+def remove_override_entries(
+    sample_id: str,
+    key: str,
+    condition: str,
+    T: int | str | None = None,
+    path: Path | str = SESSION_FILE,
+) -> bool:
+    """
+    Delete a saved per-condition override from a MERGE_KEYS store.
+
+    Removes ``entry[key][condition][T]`` (or the whole
+    ``entry[key][condition]`` when ``T`` is None) for ``sample_id`` and
+    rewrites session.json atomically. Merge saves can only add or update
+    values, so this is the only way to make a (condition, T) fall back to
+    the config-cell globals. A condition left empty by the removal is
+    pruned. Returns True when something was removed.
+
+    Temperature keys are matched both as given and stringified, since the
+    JSON round-trip stores them as strings. For ``zarc_peak_windows`` pass
+    ``condition="conditions", T=<condition name>`` (or
+    ``condition="sample"``) to address its two scope branches.
+
+    >>> import tempfile
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     p = Path(d) / "session.json"
+    ...     update_sample("S1", path=p, kk_overrides={"Ar": {600: {"f_min_hard": 1e3}}})
+    ...     remove_override_entries("S1", "kk_overrides", "Ar", 600, path=p)
+    ...     load_sample("S1", path=p)["kk_overrides"]
+    True
+    {}
+    """
+    path = Path(path)
+    data = load_session(path)
+    entry = next((c for c in data if c.get("sample_id") == sample_id), None)
+    store = (entry or {}).get(key)
+    if not isinstance(store, dict) or condition not in store:
+        return False
+    removed = False
+    if T is None:
+        del store[condition]
+        removed = True
+    else:
+        sub = store[condition]
+        if isinstance(sub, dict):
+            for k in (T, str(T)):
+                if k in sub:
+                    del sub[k]
+                    removed = True
+                    break
+            if not sub:
+                del store[condition]
+    if removed:
+        _atomic_write(path, data)
+    return removed
+
+
 def update_sample(
     sample_id: str,
     /,

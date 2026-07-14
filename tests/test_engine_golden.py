@@ -331,6 +331,37 @@ def test_session_merge_keys():
             "second stage5 refit wiped the first peak"
 
 
+def test_session_remove_override_entries():
+    """remove_override_entries deletes per-T or per-condition, prunes empties."""
+    from pipeline.session import (load_sample, remove_override_entries,
+                                  update_sample)
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "session.json"
+        update_sample("S1", path=p,
+                      kk_overrides={"Ar": {600: {"f_min_hard": 1e3},
+                                           550: {"f_min_hard": 2e3}},
+                                    "O2": {600: {"f_max_hard": 1e6}}})
+
+        # per-T removal (keys survive the JSON round-trip as strings)
+        assert remove_override_entries("S1", "kk_overrides", "Ar", 600, path=p)
+        kk = load_sample("S1", path=p)["kk_overrides"]
+        assert kk == {"Ar": {"550": {"f_min_hard": 2e3}},
+                      "O2": {"600": {"f_max_hard": 1e6}}}
+
+        # removing the last T prunes the condition
+        assert remove_override_entries("S1", "kk_overrides", "Ar", 550, path=p)
+        assert "Ar" not in load_sample("S1", path=p)["kk_overrides"]
+
+        # whole-condition removal
+        assert remove_override_entries("S1", "kk_overrides", "O2", path=p)
+        assert load_sample("S1", path=p)["kk_overrides"] == {}
+
+        # no-ops return False and leave the file valid
+        assert not remove_override_entries("S1", "kk_overrides", "O2", path=p)
+        assert not remove_override_entries("S1", "condition_params", "Ar", path=p)
+        assert not remove_override_entries("S2", "kk_overrides", "Ar", path=p)
+
+
 def test_session_canonical_key_order():
     """Saved entries keep all data but serialize keys in canonical order."""
     import json as _json
