@@ -32,14 +32,16 @@ MERGE_KEYS = frozenset({"condition_params", "kk_overrides", "overrides",
                         "stage5_params"})
 
 # Human-readable key order for sample entries: identity and geometry first,
-# then per-stage params, then the per-(condition, T) override stores. Keys
-# not listed keep their original relative order after these.
+# then each stage's params immediately followed by its own override stores.
+# Keys not listed keep their original relative order after these.
 CANONICAL_KEY_ORDER = (
     "sample_id", "L_m", "D_m", "conditions", "TABLE_INTERVAL_S",
-    "stage1_params", "stage2_params", "stage3_params", "stage4_params",
-    "stage5_params", "stage5_config",
-    "kk_overrides", "overrides", "condition_params",
-    "zarc_peak_bounds", "zarc_peak_windows",
+    "stage1_params",
+    "stage2_params", "kk_overrides", "overrides",
+    "stage3_params", "condition_params", "zarc_peak_bounds",
+    "zarc_peak_windows",
+    "stage4_params",
+    "stage5_config", "stage5_params",
 )
 
 
