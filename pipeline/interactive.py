@@ -20,6 +20,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Sequence
 
+from pipeline.utils import format_pO2_value
+
 
 def discover_samples(base_dir: Path | str) -> list[str]:
     """Return sorted list of sample folder names under base_dir.
@@ -149,16 +151,19 @@ def discover_conditions_from_session(cfg: dict) -> list[str]:
 
 
 def format_pO2(x: float | None) -> str:
-    """Scientific-notation p(O2) label, 2 significant figures, or "" when absent.
+    """p(O2) label with unit, e.g. "0.21 bar" or "1.0e-03 bar", "" when absent.
+    Delegates the number to ``format_pO2_value`` (decimal down to 0.01, scientific
+    below), so labels and figure titles share one formatting rule.
 
+    >>> format_pO2(0.21)
+    '0.21 bar'
     >>> format_pO2(3.42e-18)
     '3.4e-18 bar'
     >>> format_pO2(None)
     ''
     """
-    if x is None or x != x or x <= 0:  # None, NaN, or nonpositive
-        return ""
-    return f"{x:.1e} bar"
+    v = format_pO2_value(x)
+    return f"{v} bar" if v else ""
 
 
 def order_conditions_by_pO2(
@@ -196,7 +201,7 @@ def make_condition_selector(
 
     When ``pO2_map`` is given (condition -> representative p(O2) in bar, or
     None), conditions are ordered high-to-low pressure (no-p(O2) ones trail
-    alphabetically) and each checkbox shows ``name (pO2 = ... bar)``. The
+    alphabetically) and each checkbox shows ``(<p(O2)> bar)  name``. The
     folder name stays the identity: the callable still returns folder names.
     Without ``pO2_map`` the behaviour is unchanged.
 
@@ -220,7 +225,7 @@ def make_condition_selector(
 
     def _label(c: str) -> str:
         p = format_pO2(pO2_map.get(c)) if pO2_map is not None else ""
-        return f"{c}  (pO2 = {p})" if p else c
+        return f"({p})  {c}" if p else c
 
     checkboxes = [
         W.Checkbox(value=True, description=_label(c),

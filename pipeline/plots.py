@@ -35,6 +35,8 @@ from matplotlib.ticker import LogLocator, LogFormatterMathtext, MultipleLocator
 from scipy import stats, optimize
 from pathlib import Path
 
+from pipeline.utils import format_pO2_value
+
 # ---------------------------------------------------------------------------
 # Physical constants
 # ---------------------------------------------------------------------------
@@ -676,7 +678,7 @@ def _condition_pO2_suptitle(df_peaks: pd.DataFrame) -> str:
     s = s[s > 0]
     if s.empty:
         return ""
-    return f"$p$(O$_2$) = {s.median():.1e} bar"
+    return f"$p$(O$_2$) = {format_pO2_value(s.median())} bar"
 
 
 def plot_arrhenius_panel(

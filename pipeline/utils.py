@@ -85,6 +85,24 @@ def check_replica_overrides(
 # Where the per-spectrum pO2_mean column can be read, most processed first.
 # Same column everywhere (born at matching, stage 1), so any source gives the
 # same value; the list just makes the helper work from stage 2 onward.
+def format_pO2_value(x: float | None) -> str:
+    """Number-only p(O2) string [bar implied]: two significant figures, decimal
+    down to 0.01 and scientific below 1e-2 (so 0.21, 0.01, then 1.0e-03). "" when
+    the value is absent, NaN or nonpositive. Single source of the p(O2) number so
+    the selector labels and the figure titles never disagree.
+
+    >>> format_pO2_value(0.21)
+    '0.21'
+    >>> format_pO2_value(1e-3)
+    '1.0e-03'
+    >>> format_pO2_value(None)
+    ''
+    """
+    if x is None or x != x or x <= 0:  # None, NaN, or nonpositive
+        return ""
+    return f"{x:.2g}" if x >= 1e-2 else f"{x:.1e}"
+
+
 _PO2_SOURCES: tuple[tuple[str, str], ...] = (
     ("stage3_fit.xlsx", "Peaks"),
     ("stage2_kk.xlsx", "Selected"),
