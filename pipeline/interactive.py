@@ -61,22 +61,16 @@ def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
 
 
 def _param_source_message(from_saved: bool, stage: str) -> str:
-    """Plain-text summary announcing where a config cell reads its parameters,
-    plus how to switch mode (edit USE_SAVED_PARAMS and re-run the cell).
+    """One-line mode banner for the config cell. The full explanation of each
+    mode lives in the Configuration markdown above the cell, so the banner is
+    kept to a glanceable status line.
 
-    >>> "LOCKED" in _param_source_message(True, "Stage 3")
+    >>> "LOCK MODE" in _param_source_message(True, "Stage 3")
     True
     >>> "BUILD MODE" in _param_source_message(False, "Stage 3")
     True
     """
-    if from_saved:
-        return (f"{stage}: LOCKED, reproducing the calibration saved in "
-                f"session.json (config cell, widgets and Apply buttons do not "
-                f"save). To edit: set USE_SAVED_PARAMS = False and re-run.")
-    return (f"{stage}: BUILD MODE, starting from the notebook values; widget "
-            f"and Apply edits are saved to session.json (merge, only what you "
-            f"touch). To reproduce the saved calibration: set "
-            f"USE_SAVED_PARAMS = True and re-run.")
+    return f"{stage}: {'LOCK MODE' if from_saved else 'BUILD MODE'}"
 
 
 def param_source_banner(from_saved: bool, stage: str) -> str:
