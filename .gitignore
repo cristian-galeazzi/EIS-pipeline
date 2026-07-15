@@ -75,3 +75,7 @@ Backup/
 # Local results of the public audit scripts; the scripts are tracked, their
 # outputs run on private data and never enter the repository
 audit/output/
+
+# Collaboration scaffolding (specs, plans, handoffs written while working with the
+# assistant): working files, not project content, never committed
+docs/superpowers/
