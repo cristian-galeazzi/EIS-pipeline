@@ -60,35 +60,64 @@ def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
     return found[int(sel) - 1] if sel.isdigit() and 1 <= int(sel) <= len(found) else sel
 
 
-def _param_source_message(from_saved: bool, stage: str) -> str:
+def _normalize_param_mode(mode: str | bool) -> str:
+    """Map the legacy ``USE_SAVED_PARAMS`` bool onto the 3-state string.
+
+    ``True`` -> ``"lock"``, ``False`` -> ``"continue"`` (its ``"reset"`` state
+    has no bool equivalent, notebooks not yet migrated to the 3-state switch
+    never had it). Strings pass through unchanged.
+
+    >>> _normalize_param_mode(True)
+    'lock'
+    >>> _normalize_param_mode("reset")
+    'reset'
+    """
+    if isinstance(mode, bool):
+        return "lock" if mode else "continue"
+    return mode
+
+
+def _param_source_message(mode: str | bool, stage: str) -> str:
     """One-line mode banner for the config cell. The full explanation of each
     mode lives in the Configuration markdown above the cell, so the banner is
     kept to a glanceable status line.
 
-    >>> "LOCK MODE" in _param_source_message(True, "Stage 3")
+    >>> "LOCK MODE" in _param_source_message("lock", "Stage 3")
     True
-    >>> "BUILD MODE" in _param_source_message(False, "Stage 3")
+    >>> "CONTINUE MODE" in _param_source_message("continue", "Stage 3")
+    True
+    >>> "RESET MODE" in _param_source_message("reset", "Stage 3")
     True
     """
-    return f"{stage}: {'LOCK MODE' if from_saved else 'BUILD MODE'}"
+    label = {"lock": "LOCK MODE", "continue": "CONTINUE MODE",
+             "reset": "RESET MODE"}[_normalize_param_mode(mode)]
+    return f"{stage}: {label}"
 
 
-def param_source_banner(from_saved: bool, stage: str) -> str:
-    """Show a green/amber banner for the USE_SAVED_PARAMS write-protect switch
-    and return the plain-text summary.
+def param_source_banner(mode: str | bool, stage: str) -> str:
+    """Show a colored banner for the PARAM_MODE switch and return the
+    plain-text summary.
 
-    ``from_saved=True`` renders green: reproduction mode, everything (scalars
-    and per-condition overrides) loads from session.json and no widget or
-    Apply button writes back. ``from_saved=False`` renders amber: build mode,
-    the config cell is the base and every edit is merge-saved. Falls back to a
-    plain print when IPython/HTML rendering is unavailable, so it never breaks
-    a headless run.
+    ``mode`` is one of ``"lock"`` (green: everything, scalars and
+    per-condition overrides, loads from session.json and nothing writes
+    back), ``"continue"`` (amber: starting values load from session.json
+    when present, every widget/Apply edit is merge-saved) or ``"reset"``
+    (red: session.json is ignored, starting values are the notebook's own
+    literals, and the next save overwrites the saved history on purpose). A
+    bool is accepted for notebooks not yet migrated to the 3-state switch
+    (see ``_normalize_param_mode``); those can only reach lock/continue.
+    Falls back to a plain print when IPython/HTML rendering is unavailable,
+    so it never breaks a headless run.
 
-    >>> param_source_banner(True, "Stage 3")  # doctest: +SKIP
+    >>> param_source_banner("reset", "Stage 3")  # doctest: +SKIP
     """
-    msg = _param_source_message(from_saved, stage)
-    fg, bg = ("#1a7f37", "#dafbe1") if from_saved else ("#9a6700", "#fff8c5")
-    icon = "●" if from_saved else "⚠"
+    norm = _normalize_param_mode(mode)
+    msg = _param_source_message(norm, stage)
+    fg, bg, icon = {
+        "lock":     ("#1a7f37", "#dafbe1", "●"),
+        "continue": ("#9a6700", "#fff8c5", "⚠"),
+        "reset":    ("#cf222e", "#ffebe9", "⟲"),
+    }[norm]
     html = (
         f"<div style='padding:7px 12px;border-radius:6px;margin:2px 0;"
         f"background:{bg};color:{fg};font-weight:600;"
@@ -195,8 +224,8 @@ def make_condition_selector(
 
     When ``pO2_map`` is given (condition -> representative p(O2) in bar, or
     None), conditions are ordered high-to-low pressure (no-p(O2) ones trail
-    alphabetically) and each checkbox shows ``(<p(O2)> bar)  name``. The
-    folder name stays the identity: the callable still returns folder names.
+    alphabetically) and each checkbox shows ``p(O₂) = <value> bar - name``.
+    The folder name stays the identity: the callable still returns folder names.
     Without ``pO2_map`` the behaviour is unchanged.
 
     >>> get_selected = make_condition_selector(["Ar_1", "O2_1"])  # doctest: +SKIP
@@ -219,7 +248,7 @@ def make_condition_selector(
 
     def _label(c: str) -> str:
         p = format_pO2(pO2_map.get(c)) if pO2_map is not None else ""
-        return f"({p})  {c}" if p else c
+        return f"p(O₂) = {p} - {c}" if p else c
 
     checkboxes = [
         W.Checkbox(value=True, description=_label(c),
