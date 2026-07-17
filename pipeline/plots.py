@@ -202,6 +202,7 @@ def plot_drt_stacked(
     label_tau:     float | None = None,
     exclude_temps: list[int] | None = None,
     save:          bool        = True,
+    df_peaks:      pd.DataFrame | None = None,
 ) -> plt.Figure:
     """
     Stacked DRT plot - normalised γ(τ) with vertical offset per temperature.
@@ -220,6 +221,10 @@ def plot_drt_stacked(
     label_tau     : τ position for the T-label text (auto-set to 5e-8 if None)
     exclude_temps : list of T_nominal [°C] to skip
     save          : when False, do not write PNG/PDF (diagnostic preview only).
+    df_peaks      : optional stage3_fit.xlsx "Peaks" DataFrame; when given and
+                    it carries pO2_mean, the median p(O2) is shown as a
+                    suptitle, same value the condition selector and the
+                    Arrhenius figures use.
 
     Returns
     -------
@@ -273,6 +278,11 @@ def plot_drt_stacked(
     ax.spines["left"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
+    if df_peaks is not None:
+        _pO2_title = _condition_pO2_suptitle(df_peaks)
+        if _pO2_title:
+            fig.suptitle(_pO2_title, fontsize=11)
+
     if save:
         _save(fig, save_dir, f"DRT_{condition}_Stacked")
     return fig
@@ -291,6 +301,7 @@ def plot_nyquist_multipanel(
     ylim:       tuple[float, float] | None = None,
     hf_inset:   bool = True,
     save:       bool = True,
+    df_peaks:   pd.DataFrame | None = None,
 ) -> plt.Figure:
     """
     Nyquist plot with all temperatures overlaid on a single panel.
@@ -314,6 +325,9 @@ def plot_nyquist_multipanel(
                  high-frequency arcs. The zoom range auto-adapts from the
                  highest-frequency 40 % of points across all temperatures.
     save       : when False, do not write PNG/PDF (interactive preview only).
+    df_peaks   : optional stage3_fit.xlsx "Peaks" DataFrame; when given and it
+                 carries pO2_mean, the median p(O2) is shown as a suptitle,
+                 same value the condition selector and the Arrhenius figures use.
 
     Returns
     -------
@@ -391,6 +405,12 @@ def plot_nyquist_multipanel(
         axin.set_ylim(0, hf_max * 1.15)
         axin.set_aspect("equal", "box")
         axin.tick_params(labelsize=7)
+
+    if df_peaks is not None:
+        _pO2_title = _condition_pO2_suptitle(df_peaks)
+        if _pO2_title:
+            fig.suptitle(_pO2_title, fontsize=11)
+
     if save:
         _save(fig, save_dir, f"Nyquist_{condition}")
     return fig
@@ -410,6 +430,7 @@ def plot_bode(
     phase_lim:  tuple[float, float] | None = None,
     save:       bool = True,
     model_label: str | None = None,
+    df_peaks:   pd.DataFrame | None = None,
 ) -> plt.Figure:
     """
     Bode plot: |Z| [kΩ] (loglog) and phase [°] (semilog) for all temperatures.
@@ -425,6 +446,9 @@ def plot_bode(
     model_label: equivalent-circuit annotation drawn in a wheat box on the
                  magnitude panel. None = auto-build from fit_params (number of
                  Zarc elements). Pass "" to disable the box.
+    df_peaks   : optional stage3_fit.xlsx "Peaks" DataFrame; when given and it
+                 carries pO2_mean, the median p(O2) is shown as a suptitle,
+                 same value the condition selector and the Arrhenius figures use.
 
     Returns
     -------
@@ -496,6 +520,11 @@ def plot_bode(
         ax_mag.set_ylim(bottom=mag_lim[0], top=mag_lim[1])
     if phase_lim is not None:
         ax_ph.set_ylim(bottom=phase_lim[0], top=phase_lim[1])
+
+    if df_peaks is not None:
+        _pO2_title = _condition_pO2_suptitle(df_peaks)
+        if _pO2_title:
+            fig.suptitle(_pO2_title, fontsize=11)
 
     if save:
         _save(fig, save_dir, f"Bode_{condition}")
