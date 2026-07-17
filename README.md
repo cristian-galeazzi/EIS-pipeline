@@ -51,24 +51,32 @@ plausible pellet geometry works (e.g. thickness 1.4 mm, diameter 10 mm). The
 CSVs carry a p(O₂) column, so the Brouwer, transference and Stage 5 analyses
 run end to end without an oven log.
 
-**Changing parameters (`USE_SAVED_PARAMS`):** every configuration cell has a
-`USE_SAVED_PARAMS` switch that acts as write protection for the whole
-notebook, covering both the scalar parameters and the per-spectrum decisions
-(frequency cuts in `kk_overrides`, manual replica `overrides`, per-condition
-fit tweaks in `condition_params` and the Zarc peak stores).
+**Changing parameters (`PARAM_MODE`):** every configuration cell has a
+`PARAM_MODE` switch that acts as write protection for the whole notebook,
+covering both the scalar parameters and the per-spectrum decisions (frequency
+cuts in `kk_overrides`, manual replica `overrides`, per-condition fit tweaks
+in `condition_params` and the Zarc peak stores). Hand-edit the string at the
+top of the configuration cell and re-run it to switch.
 
-- `USE_SAVED_PARAMS = True` is reproduction mode. Everything loads from
+- `PARAM_MODE = "lock"` is reproduction mode. Everything loads from
   `session.json` and nothing in the notebook writes back: widgets and Apply
   buttons are view-only, so re-running the notebook always reproduces the
   saved analysis. Use it once a sample is calibrated, or to hand the analysis
   to someone else.
-- `USE_SAVED_PARAMS = False` is build mode. The configuration cell is the
-  single source of defaults (saved per-spectrum overrides are not loaded),
-  and every edit, whether in the cell, a widget or an Apply button, is saved
-  to `session.json` as a merge that touches only the values you changed.
+- `PARAM_MODE = "continue"` is build mode. The configuration cell is the
+  base: starting values load from `session.json` when present, and every
+  edit, whether in the cell, a widget or an Apply button, is saved to
+  `session.json` as a merge that touches only the values you changed. Use
+  this to keep tuning a calibration across sessions.
+- `PARAM_MODE = "reset"` deliberately ignores `session.json`: starting values
+  come from the notebook's own literals, and the next save overwrites the
+  saved history on purpose. Use only when you want to start that stage's
+  scalar tuning over; per-condition/per-spectrum overrides are untouched by
+  reset (see each notebook's Configuration cell for the exact scope).
 
-A colored banner under each configuration cell states which mode is active.
-The parameter priority in build mode is: configuration cell first, then any
+A colored banner under each configuration cell states which mode is active
+(green for lock, amber for continue, red for reset). The parameter priority
+in continue/reset mode is: configuration cell first, then any
 per-(condition, temperature) override you apply from a tuning panel.
 
 All notebooks support temperature-by-temperature processing via `FOCUS_T`;
