@@ -481,6 +481,18 @@ def test_matching_classifies_windows():
     assert out[2].status == "OUTSIDE_RANGE", out[2].status
 
 
+def test_select_best_replica_ignores_nan_scores():
+    """A NaN kk_score (degenerate Shapiro-Wilk) must never win argmax."""
+    import pytest
+    from pipeline.quality import select_best_replica
+
+    assert select_best_replica([{"kk_score": 0.91},
+                                {"kk_score": float("nan")},
+                                {"kk_score": 0.97}]) == 2
+    with pytest.raises(ValueError, match="NaN"):
+        select_best_replica([{"kk_score": float("nan")}])
+
+
 def test_csv_ingestion_rejects_physical_sign_convention(tmp_path):
     """A CSV with mostly negative Z_im (Gamry/EC-Lab physical convention)
     must fail loudly instead of being silently stripped downstream."""

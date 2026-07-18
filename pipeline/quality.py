@@ -530,8 +530,15 @@ def select_best_replica(kk_results: list[dict]) -> int:
             "select_best_replica: kk_results is empty; no replicas to score. "
             "All spectra for this (condition, T) were likely rejected upstream."
         )
-    scores = [r["kk_score"] for r in kk_results]
-    return int(np.argmax(scores))
+    scores = np.asarray([r["kk_score"] for r in kk_results], dtype=float)
+    if np.isnan(scores).all():
+        raise ValueError(
+            "select_best_replica: every kk_score is NaN; Shapiro-Wilk "
+            "degenerated on all replicas for this (condition, T)."
+        )
+    # NaN wins a plain argmax in numpy; a degenerate replica must never
+    # outrank a finite-scored one.
+    return int(np.argmax(np.where(np.isnan(scores), -np.inf, scores)))
 
 
 # ---------------------------------------------------------------------------
