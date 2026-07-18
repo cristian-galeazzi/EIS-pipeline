@@ -481,6 +481,21 @@ def test_matching_classifies_windows():
     assert out[2].status == "OUTSIDE_RANGE", out[2].status
 
 
+def test_edge_cutoffs_warn_when_no_clean_run_exists():
+    """Alternating good/bad residuals shorter than the window must warn
+    instead of silently keeping the full range."""
+    import pytest
+    from pipeline.quality import _edge_cutoffs_adaptive
+
+    n = 30
+    freq = np.logspace(0, 4, n)
+    # A spike every 5th point: clean runs are 4 long, never the 5 required
+    res = np.where(np.arange(n) % 5 == 0, 10.0, 0.001)
+    with pytest.warns(UserWarning, match="no run of 5"):
+        f_min, f_max, _ = _edge_cutoffs_adaptive(freq, res, res, window=5)
+    assert f_min == freq[0] and f_max == freq[-1]
+
+
 def test_linkk_rejects_degenerate_spectrum():
     """N <= 3 points must raise instead of running M > N-1 silently."""
     import pytest

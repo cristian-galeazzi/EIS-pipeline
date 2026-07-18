@@ -50,6 +50,7 @@ kk_summary_table(records, results, idx) -> summary DataFrame
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -284,11 +285,13 @@ def _edge_cutoffs_adaptive(
     # HF cutoff: scan downward from highest frequency
     f_max      = float(freq[-1])
     good_count = 0
+    hf_found   = False
     for i in range(N - 1, -1, -1):
         if not bad[i]:
             good_count += 1
             if good_count >= window:
                 f_max = float(freq[i + (window - 1)])
+                hf_found = True
                 break
         else:
             good_count = 0
@@ -296,14 +299,24 @@ def _edge_cutoffs_adaptive(
     # LF cutoff: scan upward from lowest frequency
     f_min      = float(freq[0])
     good_count = 0
+    lf_found   = False
     for i in range(N):
         if not bad[i]:
             good_count += 1
             if good_count >= window:
                 f_min = float(freq[i - (window - 1)])
+                lf_found = True
                 break
         else:
             good_count = 0
+
+    if not (hf_found and lf_found):
+        warnings.warn(
+            f"adaptive edge cutoff found no run of {window} consecutive "
+            f"clean points; full frequency range kept and Pass 2 will refit "
+            f"the untrimmed spectrum",
+            stacklevel=2,
+        )
 
     return f_min, f_max, fence
 
