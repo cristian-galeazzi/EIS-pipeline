@@ -134,6 +134,9 @@ def load_session(path: Path | str = SESSION_FILE) -> list[dict]:
 
     Raises ValueError on corrupted JSON instead of silently starting from
     scratch, since overwriting a corrupted file would destroy recoverable data.
+
+    >>> load_session("does_not_exist.json")
+    []
     """
     path = Path(path)
     if not path.exists():
@@ -151,7 +154,11 @@ def load_session(path: Path | str = SESSION_FILE) -> list[dict]:
 
 
 def load_sample(sample_id: str, path: Path | str = SESSION_FILE) -> dict:
-    """Return the entry for ``sample_id`` ({} if absent)."""
+    """Return the entry for ``sample_id`` ({} if absent).
+
+    >>> load_sample("S1", path="does_not_exist.json")
+    {}
+    """
     data = load_session(path)
     return next((c for c in data if c.get("sample_id") == sample_id), {})
 
@@ -247,6 +254,9 @@ def update_sample(
     nested dicts) so partial sessions cannot erase earlier calibrations.
     Pass ``replace=True`` to overwrite those keys wholesale, e.g. to
     intentionally delete a condition's stored parameters.
+
+    >>> update_sample("S1", L_m=1.2e-3,
+    ...     kk_overrides={"Ar_100": {600: {"f_min_hard": 1e3}}})  # doctest: +SKIP
     """
     path = Path(path)
     data = load_session(path)
@@ -270,3 +280,27 @@ def update_sample(
             entry[key] = value
 
     _atomic_write(path, data)
+
+
+LOCKED_MSG = ("locked (PARAM_MODE='lock'): not saved. "
+              "Set PARAM_MODE to 'continue' or 'reset' in Configuration to edit.")
+
+
+def update_sample_guarded(
+    sample_id: str,
+    param_mode: str,
+    /,
+    path: Path | str = SESSION_FILE,
+    **fields: Any,
+) -> bool:
+    """
+    PARAM_MODE-aware wrapper around :func:`update_sample` shared by every
+    stage notebook: a no-op returning False when ``param_mode == "lock"``.
+
+    >>> update_sample_guarded("S1", "lock", TABLE_INTERVAL_S=5)
+    False
+    """
+    if param_mode == "lock":
+        return False
+    update_sample(sample_id, path=path, **fields)
+    return True

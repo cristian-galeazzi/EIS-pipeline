@@ -17,10 +17,22 @@ Button style convention (all notebook panels follow it):
 
 from __future__ import annotations
 
+import html as _html
 from pathlib import Path
 from typing import Callable, Sequence
 
 from pipeline.utils import format_pO2_value
+
+
+def pre_html(text: str) -> str:
+    """Escaped monospace block for a widgets.HTML value (replaced on each
+    update, so it never doubles).
+
+    >>> pre_html("a < b")
+    "<pre style='margin:0;font:12px/1.4 monospace;white-space:pre-wrap'>a &lt; b</pre>"
+    """
+    return (f"<pre style='margin:0;font:12px/1.4 monospace;white-space:pre-wrap'>"
+            f"{_html.escape(text)}</pre>")
 
 
 def discover_samples(base_dir: Path | str) -> list[str]:
@@ -28,6 +40,9 @@ def discover_samples(base_dir: Path | str) -> list[str]:
 
     A folder qualifies if it contains a ``Raw data/`` or ``Raw oven*/``
     subdirectory. ``sample_template/`` is always excluded.
+
+    >>> discover_samples("EIS program")  # doctest: +SKIP
+    ['SAMPLE_A', 'SAMPLE_B']
     """
     base = Path(base_dir)
     return sorted(
@@ -45,6 +60,8 @@ def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
     Accepts either the number shown in the discovered-samples list or a
     folder name typed directly. Falls back to a free-text prompt when no
     sample folders are found. One implementation for all five notebooks.
+
+    >>> SAMPLE_ID = select_sample(".", show_list=True)  # doctest: +SKIP
     """
     import sys
 
@@ -151,6 +168,10 @@ def discover_conditions(sample_dir: Path | str,
     Returns
     -------
     list[str] : condition folder names (empty if no source folder exists).
+
+    >>> discover_conditions("EIS program/SAMPLE_A",
+    ...                     require="stage2_kk.xlsx")  # doctest: +SKIP
+    ['Ar_100', 'O2_100']
     """
     base = Path(sample_dir)
 
@@ -170,6 +191,13 @@ def discover_conditions(sample_dir: Path | str,
 
 
 def discover_conditions_from_session(cfg: dict) -> list[str]:
+    """Sorted condition names stored in a session.json sample entry.
+
+    >>> discover_conditions_from_session({"conditions": ["O2_100", "Ar_100"]})
+    ['Ar_100', 'O2_100']
+    >>> discover_conditions_from_session({})
+    []
+    """
     return sorted(cfg.get("conditions", []))
 
 
