@@ -318,9 +318,14 @@ def match_ism_to_furnace(
             rec.status = "OUTSIDE_RANGE"
             continue
 
-        # Make t_start/t_end timezone-naive for comparison
-        t0 = rec.t_start.replace(tzinfo=None)
-        t1 = rec.t_end.replace(tzinfo=None)
+        # Furnace timestamps are naive local wall-clock: convert tz-aware ISM
+        # timestamps to local time BEFORE dropping tzinfo, a bare replace()
+        # would keep foreign wall-clock digits and shift the window.
+        t0, t1 = rec.t_start, rec.t_end
+        if t0.tzinfo is not None:
+            t0 = t0.astimezone().replace(tzinfo=None)
+        if t1.tzinfo is not None:
+            t1 = t1.astimezone().replace(tzinfo=None)
 
         mask = (furnace_df["abs_datetime"] >= t0) & (furnace_df["abs_datetime"] <= t1)
         window = furnace_df.loc[mask]

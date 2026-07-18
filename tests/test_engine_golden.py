@@ -481,6 +481,31 @@ def test_matching_classifies_windows():
     assert out[2].status == "OUTSIDE_RANGE", out[2].status
 
 
+def test_matching_converts_tz_aware_timestamps():
+    """A UTC-aware ISM timestamp must match the same furnace rows as its
+    local-naive equivalent instead of shifting by the UTC offset."""
+    import pandas as pd
+    from datetime import datetime, timedelta, timezone
+    from pipeline.ingest import IsmRecord
+    from pipeline.matching import match_ism_to_furnace
+
+    t0 = datetime(2026, 1, 1, 8, 0, 0)
+    furnace_df = pd.DataFrame({
+        "abs_datetime": [t0 + timedelta(minutes=int(m)) for m in range(60)],
+        "Tsample": np.full(60, 600.0),
+        "pO2": np.full(60, 0.21),
+    })
+    local_offset = datetime(2026, 1, 1, 8, 10).astimezone().utcoffset()
+    aware_start = (datetime(2026, 1, 1, 8, 10) - local_offset).replace(tzinfo=timezone.utc)
+    rec = IsmRecord(path=Path("fake.ism"), freq=np.array([1.0]),
+                    Z_re=np.array([1.0]), Z_im=np.array([1.0]),
+                    t_start=aware_start,
+                    t_end=aware_start + timedelta(minutes=20))
+    out = match_ism_to_furnace([rec], furnace_df,
+                               pre_margin_min=0, post_margin_min=0)
+    assert out[0].status == "VALID" and out[0].T_nominal == 600.0, out[0].status
+
+
 def test_find_furnace_log_strips_gas_like_sample_prefix(tmp_path):
     """Sample IDs starting with a gas name (e.g. 'CoP03' vs CO) must not
     corrupt the condition key extracted from the folder name."""
