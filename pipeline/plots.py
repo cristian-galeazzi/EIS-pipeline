@@ -367,7 +367,11 @@ def plot_nyquist_multipanel(
                     np.asarray(fp["alpha"]),
                 )
                 fits[T] = Z_fit
-                ax.plot(Z_fit.real / 1e3, -Z_fit.imag / 1e3, "-", color=color, lw=1.0)
+                # Draw the fit line in frequency order: CSV-ingested spectra
+                # carry no order guarantee and an unsorted connected line
+                # self-intersects. Data markers and fits[T] keep native order.
+                o = np.argsort(freq)
+                ax.plot(Z_fit.real[o] / 1e3, -Z_fit.imag[o] / 1e3, "-", color=color, lw=1.0)
             except Exception as exc:
                 warnings.warn(f"Nyquist fit overlay skipped for T={T}: "
                               f"{type(exc).__name__}: {exc}", stacklevel=2)
@@ -493,8 +497,10 @@ def plot_bode(
                 Z_mag_f = np.abs(Z_fit) / 1e3
                 # Z_fit.imag < 0 in capacitive region (physical convention) → φ < 0 directly
                 phase_f = np.degrees(np.arctan2(Z_fit.imag, Z_fit.real))
-                ax_mag.loglog(freq, Z_mag_f, "--", color=color, lw=1)
-                ax_ph.semilogx(freq, phase_f, "--", color=color, lw=1)
+                # Sorted for the same reason as the Nyquist fit overlay.
+                o = np.argsort(freq)
+                ax_mag.loglog(freq[o], Z_mag_f[o], "--", color=color, lw=1)
+                ax_ph.semilogx(freq[o], phase_f[o], "--", color=color, lw=1)
             except Exception as exc:
                 warnings.warn(f"Bode fit overlay skipped for T={T}: "
                               f"{type(exc).__name__}: {exc}", stacklevel=2)
