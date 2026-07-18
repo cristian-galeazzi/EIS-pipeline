@@ -114,6 +114,10 @@ def _fit_linkk(
     Shapiro-Wilk statistics.
     """
     N = len(freq)
+    if N < 4:
+        # With N <= 3 the clamp below would force M = 3 > N - 1 and the fit
+        # would run over-parametrized on a near-empty spectrum.
+        raise ValueError(f"Lin-KK needs at least 4 frequency points, got {N}")
     omega = 2.0 * np.pi * freq
 
     M = M_override if M_override is not None else max(3, round(c * N))

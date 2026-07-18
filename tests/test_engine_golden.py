@@ -481,6 +481,16 @@ def test_matching_classifies_windows():
     assert out[2].status == "OUTSIDE_RANGE", out[2].status
 
 
+def test_linkk_rejects_degenerate_spectrum():
+    """N <= 3 points must raise instead of running M > N-1 silently."""
+    import pytest
+    from pipeline.quality import run_linkk
+
+    freq = np.array([1.0, 10.0, 100.0])
+    with pytest.raises(ValueError, match="at least 4"):
+        run_linkk(freq, np.ones(3), np.ones(3))
+
+
 def test_select_best_replica_ignores_nan_scores():
     """A NaN kk_score (degenerate Shapiro-Wilk) must never win argmax."""
     import pytest
