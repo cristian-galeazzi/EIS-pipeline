@@ -274,7 +274,7 @@ can produce them).
 | `ARRHENIUS_SUM_PEAKS` | None | Peaks summed into the HF-block σ Arrhenius |
 | `TRANSF_EXPONENT` | 0.25 | Brouwer exponent x for the σ_ion/σ_el split |
 | `TRANSF_PEAK_IDS` | None | Peaks shown in transference figures (None = all) |
-| `PLOT_WINDOWS` | `{}` | Per-(condition, T) axis crop, kept in `session.json` |
+| `PLOT_WINDOWS` | `{}` | Per-condition axis crop, kept in `session.json` |
 
 ### Arrhenius analysis
 
@@ -409,7 +409,8 @@ freq,Z_re,Z_im,temperature,pO2
 ```
 
 `Z_im` must be **positive** in the capacitive region (BioLogic EC-Lab
-exports −Im(Z): multiply by −1 before saving). Temperature in the filename
+exports −Im(Z): multiply by −1 before saving); the loader rejects a file
+whose `Z_im` column is mostly negative, naming the convention in the error. Temperature in the filename
 (`_{T}C`) and a `temperature` column are required for Arrhenius analysis
 (≥ 3 temperatures); Nyquist, Bode, DRT and the Zarc fit work without them.
 An optional `pO2` column [bar] enables the Brouwer p(O₂), transference and
@@ -479,7 +480,8 @@ seed, and parallelism does not change the numbers.
 
 The test suite (`pytest tests/`) covers three layers: the calculation engine
 (`test_engine_golden.py`: C_eff = τ/R identity, synthetic Zarc recovery,
-Lin-KK, DRT areas, CSV ingestion, session merge), the stage-5 global model
+Lin-KK, DRT areas, CSV ingestion and sign-convention guard, furnace
+matching and timezone handling, session merge), the stage-5 global model
 (`test_model_golden.py`: synthetic-surface recovery, degenerate and
 reduced-channel cases), and every calibration procedure in `audit/`
 (`test_audit_*.py`: known-answer tests on the bundled synthetic sample).
