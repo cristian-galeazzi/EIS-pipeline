@@ -37,7 +37,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import least_squares, nnls
 
 KB_EV: float = 8.617e-5  # Boltzmann constant (eV/K)
@@ -93,8 +93,17 @@ def _channel_sigma0T(s0: float, Ea: float, T_K: NDArray) -> NDArray[np.float64]:
     return s0 / T_K * np.exp(-Ea / (KB_EV * T_K))
 
 
-def total_conductivity(pO2, T_K, p: ModelParams) -> NDArray[np.float64]:
-    """Forward model sigma(pO2, T) in S/m. pO2 and T_K broadcast together (T in K)."""
+def total_conductivity(pO2: ArrayLike, T_K: ArrayLike, p: ModelParams) -> NDArray[np.float64]:
+    """Forward model sigma(pO2, T) in S/m. pO2 and T_K broadcast together (T in K).
+
+    >>> p = ModelParams(sigma0_ion=1e5, Ea_ion=1.0, sigma0_p=0.0, Ea_p=float("nan"),
+    ...                 sigma0_n=0.0, Ea_n=float("nan"))
+    >>> round(float(total_conductivity(0.21, 973.15, p)), 6)
+    0.00068
+    >>> bool(np.isclose(total_conductivity(0.21, 973.15, p),
+    ...                 total_conductivity(1e-4, 973.15, p)))  # ion-only: pO2-independent
+    True
+    """
     pO2 = np.asarray(pO2, dtype=float)
     T_K = np.asarray(T_K, dtype=float)
     ion = _channel_sigma0T(p.sigma0_ion, p.Ea_ion, T_K)
@@ -169,6 +178,15 @@ def stoichiometric_pO2(p: ModelParams, T_K) -> NDArray[np.float64]:
     Derived from d(sigma_el)/d(pO2) = 0:
         pO2_min = ( (sigma0_n/sigma0_p) * exp(-(Ea_n - Ea_p)/kT) )**(1/(2x)).
     Returns NaN where either electronic channel is absent.
+
+    >>> p = ModelParams(sigma0_ion=0.0, Ea_ion=float("nan"), sigma0_p=2.0, Ea_p=0.5,
+    ...                 sigma0_n=2.0, Ea_n=0.5)  # symmetric channels -> minimum at 1 bar
+    >>> float(stoichiometric_pO2(p, 973.15))
+    1.0
+    >>> p_ion_p = ModelParams(sigma0_ion=1.0, Ea_ion=1.0, sigma0_p=2.0, Ea_p=0.5,
+    ...                       sigma0_n=0.0, Ea_n=float("nan"))
+    >>> bool(np.isnan(stoichiometric_pO2(p_ion_p, 973.15)))
+    True
     """
     T_K = np.asarray(T_K, dtype=float)
     if p.sigma0_p <= 0.0 or p.sigma0_n <= 0.0:
@@ -178,7 +196,13 @@ def stoichiometric_pO2(p: ModelParams, T_K) -> NDArray[np.float64]:
 
 
 def predict_grid(p: ModelParams, pO2_grid, T_K_grid) -> NDArray[np.float64]:
-    """sigma on a (pO2, T) mesh, for the 3-D surface plot. Returns shape (nT, npO2)."""
+    """sigma on a (pO2, T) mesh, for the 3-D surface plot. Returns shape (nT, npO2).
+
+    >>> p = ModelParams(sigma0_ion=1e5, Ea_ion=1.0, sigma0_p=0.0, Ea_p=float("nan"),
+    ...                 sigma0_n=0.0, Ea_n=float("nan"))
+    >>> predict_grid(p, [1e-4, 0.21, 1.0], [873.15, 973.15]).shape
+    (2, 3)
+    """
     PO2, TT = np.meshgrid(np.asarray(pO2_grid, float), np.asarray(T_K_grid, float))
     return total_conductivity(PO2, TT, p)
 
@@ -323,6 +347,13 @@ def global_transference_table(
     pO2 dependence ``pO2**(+-x)`` is applied by the plot, exactly as for
     ``fit_transference``. Input columns: ``T_nominal`` [C], ``pO2_mean`` [bar],
     ``sigma_Sm_i`` [S/m].
+
+    >>> p = ModelParams(sigma0_ion=1e5, Ea_ion=1.0, sigma0_p=0.0, Ea_p=float("nan"),
+    ...                 sigma0_n=0.0, Ea_n=float("nan"))
+    >>> df = pd.DataFrame({"T_nominal": [700.0, 700.0], "pO2_mean": [0.21, 1e-3],
+    ...                    "sigma_Sm_i": [1.0, 1.0]})
+    >>> global_transference_table(df, p)["t_ion"].tolist()  # ion-only model
+    [1.0, 1.0]
     """
     Tc = pd.to_numeric(df_peak["T_nominal"], errors="coerce").to_numpy(float)
     pO2 = pd.to_numeric(df_peak["pO2_mean"], errors="coerce").to_numpy(float)

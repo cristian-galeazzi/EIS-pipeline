@@ -93,7 +93,16 @@ class IsmRecord:
 # ---------------------------------------------------------------------------
 
 def duration_str(start: Optional[datetime], end: Optional[datetime]) -> str:
-    """Return elapsed time as HH:MM:SS string."""
+    """
+    Return elapsed time as HH:MM:SS string.
+
+    Examples
+    --------
+    >>> duration_str(datetime(2026, 1, 1, 10, 0, 0), datetime(2026, 1, 1, 11, 30, 5))
+    '01:30:05'
+    >>> duration_str(None, None)
+    ''
+    """
     if start is None or end is None:
         return ""
     delta = end - start
@@ -122,6 +131,12 @@ def load_ism(path: Path | str) -> IsmRecord:
       Zahner returns Z_im with negative sign -> sign is flipped here.
     - The internal ISM temperature (T_ism_str) is corrupted (~-0.2 C)
       and must never be used for temperature assignment.
+
+    Examples
+    --------
+    >>> rec = load_ism("Raw data/cond/sample_400C.ism")  # doctest: +SKIP
+    >>> rec.n_points == len(rec.freq)  # doctest: +SKIP
+    True
     """
     path = Path(path)
     f = IsmImport(str(path))
@@ -160,6 +175,12 @@ def scan_condition_dir(condition_dir: Path | str) -> list[IsmRecord]:
     -------
     List of IsmRecord sorted by t_start (chronological order).
     Files that cannot be opened are skipped with a warning.
+
+    Examples
+    --------
+    >>> records = scan_condition_dir("Raw data/P00_XX_condition")  # doctest: +SKIP
+    >>> [r.path.name for r in records]  # doctest: +SKIP
+    ['sample_400C.ism', 'sample_425C.ism']
     """
     condition_dir = Path(condition_dir)
     ism_files = sorted(condition_dir.glob("*.ism"))
@@ -197,6 +218,15 @@ def records_to_dataframe(records: list[IsmRecord]) -> pd.DataFrame:
     -------
     file, t_start, t_end, duration, n_points,
     T_nominal, T_mean, T_std, pO2_mean, replica, status
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> r = IsmRecord(path=Path("s_400C.ism"), freq=np.array([1.0]),
+    ...               Z_re=np.array([1.0]), Z_im=np.array([1.0]), n_points=1)
+    >>> df = records_to_dataframe([r])
+    >>> df.loc[0, "file"], int(df.loc[0, "n_points"]), df.loc[0, "status"]
+    ('s_400C.ism', 1, 'UNPROCESSED')
     """
     rows = []
     for r in records:
@@ -220,11 +250,16 @@ def extract_T_from_filename(filename: str) -> Optional[int]:
     """
     Extract nominal temperature from an already-labeled filename.
 
+    Returns None if the pattern is not found (sequential / unlabeled file).
+
     Examples
     --------
-    'sample_400C.ism'   -> 400
-    'sample_400C_1.ism' -> 400
-    Returns None if the pattern is not found (sequential / unlabeled file).
+    >>> extract_T_from_filename('sample_400C.ism')
+    400
+    >>> extract_T_from_filename('sample_400C_1.ism')
+    400
+    >>> extract_T_from_filename('sample_seq_01.ism') is None
+    True
     """
     m = re.search(r"_(\d{2,4})[Cc](?:_\d+)?\.ism$", filename, re.IGNORECASE)
     if m:
@@ -242,12 +277,16 @@ def extract_replica_from_filename(filename: str) -> Optional[int]:
         _{T}C_2.ism     -> replica 3
         _{T}C_{k-1}.ism -> replica k
 
+    Returns None for sequential / unlabeled files.
+
     Examples
     --------
-    'sample_400C.ism'   -> 1
-    'sample_400C_1.ism' -> 2
-    'sample_400C_9.ism' -> 10
-    Returns None for sequential / unlabeled files.
+    >>> extract_replica_from_filename('sample_400C.ism')
+    1
+    >>> extract_replica_from_filename('sample_400C_9.ism')
+    10
+    >>> extract_replica_from_filename('sample_seq_01.ism') is None
+    True
     """
     # Has suffix: _NNNc_K.ism  -> replica = K + 1
     m = re.search(r"_\d{2,4}[Cc]_(\d+)\.ism$", filename, re.IGNORECASE)
@@ -286,6 +325,17 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     T_nominal is set from the filename if the _NNNc pattern is present.
     T_mean is set to the mean of the temperature column if present.
     pO2_mean is set to the mean of the pO2 column if present (bar), else None.
+
+    Examples
+    --------
+    >>> import tempfile, os
+    >>> tmp = tempfile.NamedTemporaryFile("w", suffix="_400C.csv", delete=False)
+    >>> _ = tmp.write("freq,Z_re,Z_im\\n1000,10.0,5.0\\n")
+    >>> tmp.close()
+    >>> rec = load_csv_spectrum(tmp.name)
+    >>> rec.n_points, rec.T_nominal, rec.replica
+    (1, 400.0, 1)
+    >>> os.unlink(tmp.name)
     """
     path = Path(path)
     raw  = path.read_text(encoding="utf-8", errors="replace")
@@ -361,6 +411,13 @@ def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
     Columns returned
     ----------------
     file, full_path, condition, T_nominal, T_mean, pO2_mean, replica
+
+    Examples
+    --------
+    >>> df = scan_input_spectra("EIS program/SampleID")  # doctest: +SKIP
+    >>> df[["file", "condition", "T_nominal"]].head(1)  # doctest: +SKIP
+                file      condition  T_nominal
+    0  sample_400C.csv  Ar_600_400_25      400.0
     """
     sample_dir   = Path(sample_dir)
     spectra_root = sample_dir / "input_spectra"

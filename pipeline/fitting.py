@@ -60,8 +60,10 @@ def build_circuit_string(n_peaks: int, include_r0: bool = True) -> str:
 
     Examples
     --------
-    include_r0=True,  n_peaks=2  ->  'R0-Zarc1-Zarc2'
-    include_r0=False, n_peaks=2  ->  'Zarc1-Zarc2'
+    >>> build_circuit_string(2)
+    'R0-Zarc1-Zarc2'
+    >>> build_circuit_string(2, include_r0=False)
+    'Zarc1-Zarc2'
     """
     zarcs = "-".join(f"Zarc{i+1}" for i in range(n_peaks))
     return f"R0-{zarcs}" if include_r0 else zarcs
@@ -102,6 +104,12 @@ def build_initial_guess(
     Returns
     -------
     List[float] of length (1 if include_r0 else 0) + 3*N
+
+    >>> build_initial_guess(10.0, [{"R_approx": 100.0, "tau": 1e-3}])
+    [10.0, 100.0, 0.001, 0.8]
+    >>> build_initial_guess(10.0, [{"R_approx": 100.0, "tau": 1e-3}],
+    ...                     include_r0=False)
+    [100.0, 0.001, 0.8]
     """
     guess = [float(R0_guess)] if include_r0 else []
     alpha_arr = _broadcast(alpha_init, len(peaks), "alpha_init")
@@ -162,6 +170,13 @@ def build_bounds(
     Returns
     -------
     (lower_bounds, upper_bounds) - lists of floats, length 1 + 3*N
+
+    >>> lo, hi = build_bounds(10.0, [{"R_approx": 100.0, "tau": 1e-3}],
+    ...                       R_dec=1.0, tau_dec=1.0)
+    >>> lo
+    [1.0, 10.0, 0.0001, 0.5]
+    >>> hi
+    [200.0, 1000.0, 0.01, 1.0]
     """
     if include_r0:
         if r0_max is not None:
@@ -669,6 +684,9 @@ def conductivity(R_ohm: float, L_m: float, D_m: float) -> float:
     Returns
     -------
     float : conductivity [S/m]
+
+    >>> round(conductivity(100.0, 1e-3, 1e-2), 4)   # 1 mm thick, 1 cm diameter
+    0.1273
     """
     A_m2 = np.pi * (D_m / 2.0) ** 2
     return L_m / (R_ohm * A_m2)
@@ -703,6 +721,15 @@ def fit_to_rows(
     summary_row : one dict per spectrum with:
         condition, file, T_nominal, T_K, pO2_mean,
         R0, N_peaks, circuit_str, rmse_rel, max_rel_err, converged
+
+    >>> fit = {"n_peaks": 1, "R": [100.0], "tau": [1e-3], "alpha": [0.9],
+    ...        "C_eff": [1e-5], "conf": [1.0, 0.5, 1e-5, 0.01], "R0": 5.0,
+    ...        "circuit_str": "R0-Zarc1", "rmse_rel": 0.01,
+    ...        "max_rel_err": 0.02, "converged": True}
+    >>> rows, summary = fit_to_rows(fit, "Ar", "a.ism", "/a.ism",
+    ...                             500.0, 0.21, 1e-3, 1e-2)
+    >>> rows[0]["peak_id"], rows[0]["conf_R"], summary["N_peaks"]
+    (1, 0.5, 1)
     """
     T_K = T_nominal + 273.15
 
@@ -762,10 +789,18 @@ def resolve_condition_entry(condition_params: dict, condition: str) -> dict:
     """
     Return the per-condition override entry matching ``condition``.
 
-    Keys may be the full condition folder name or a shorter label
-    contained in it (e.g. ``"Ar-100_O2-1"``); the first match wins.
+    Keys may be the full condition folder name or a shorter label made of
+    complete underscore-separated tokens (e.g. ``"Ar-100_O2-1"``); the first
+    match wins. Matching is token-aligned so a short key cannot match inside
+    an unrelated token (e.g. key ``"5"`` must not match ``"850"``).
     Single source of truth for this lookup: the batch cell and the live
     tuning panel must resolve parameters identically.
+
+    >>> cp = {"Ar-100_O2-1": {"R_dec": 1.0}}
+    >>> resolve_condition_entry(cp, "P1_B_Ar-100_O2-1_850_500_50")
+    {'R_dec': 1.0}
+    >>> resolve_condition_entry(cp, "P1_B_N2-100_850_500_50")
+    {}
     """
     short = condition.split("_B_")[-1] if "_B_" in condition else condition
     for key, val in condition_params.items():
@@ -862,6 +897,12 @@ def fit_condition_batch(
     dict with keys: condition, fit_peaks, fit_summary, nyq_fits, log
         nyq_fits : {T_nominal: {R0, R, tau, alpha, Z_fit, rmse_rel, converged}}
         log      : printable per-temperature report (the worker cannot print)
+
+    >>> out = fit_condition_batch(          # doctest: +SKIP
+    ...     "Ar-100", tasks, include_r0=False, r0_max=None,
+    ...     n_restarts=0, rmse_tol=0.02, L_m=1e-3, D_m=1e-2)
+    >>> sorted(out["nyq_fits"])             # doctest: +SKIP
+    [500, 550, 600]
     """
     log:         list[str] = []
     fit_peaks:   list[dict] = []

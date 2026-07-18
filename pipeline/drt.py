@@ -60,6 +60,13 @@ def clip_spectrum(
     Returns
     -------
     (freq_clip, Z_re_clip, Z_im_clip) - same dtype as inputs
+
+    >>> f = np.array([0.1, 10.0, 1e5])
+    >>> fc, rc, ic = clip_spectrum(f, np.array([1.0, 2.0, 3.0]),
+    ...                            np.array([4.0, 5.0, 6.0]),
+    ...                            f_min=1.0, f_max=1e4)
+    >>> fc.tolist(), rc.tolist(), ic.tolist()
+    ([10.0], [2.0], [5.0])
     """
     mask = np.ones(len(freq), dtype=bool)
     if f_min is not None:
@@ -117,6 +124,11 @@ def compute_drt(
         .lambda_value : regularization parameter λ chosen
         .res_re       : fit residuals, real part
         .res_im       : fit residuals, imaginary part
+
+    >>> entry = compute_drt(freq, Z_re, Z_im,
+    ...                     cv_type="custom", lambda_val=1e-3)  # doctest: +SKIP
+    >>> entry.out_tau_vec.shape == entry.gamma.shape            # doctest: +SKIP
+    True
     """
     if cv_type == "custom" and lambda_val is None:
         raise ValueError(
@@ -208,6 +220,17 @@ def find_drt_peaks(
         tau_left    : float [s], left integration boundary
         tau_right   : float [s], right integration boundary
     Returns [] if no peaks are found.
+
+    A synthetic Gaussian DRT peak (area 100 * sqrt(2*pi) * 0.5 ~ 125.3 Ohm):
+
+    >>> from types import SimpleNamespace
+    >>> tau = np.logspace(-6, 0, 121)
+    >>> gamma = 100.0 * np.exp(-0.5 * ((np.log(tau) - np.log(1e-3)) / 0.5) ** 2)
+    >>> peaks = find_drt_peaks(SimpleNamespace(out_tau_vec=tau, gamma=gamma))
+    >>> len(peaks), peaks[0]["peak_id"], round(peaks[0]["tau"], 6)
+    (1, 1, 0.001)
+    >>> round(peaks[0]["R_approx"], 1)
+    125.3
     """
     tau   = entry.out_tau_vec   # fine log-spaced τ grid [s]
     gamma = entry.gamma         # DRT values [Ohm]

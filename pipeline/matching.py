@@ -93,6 +93,12 @@ def find_furnace_log(sample_dir: Path, condition_folder: str) -> Path:
     Raises
     ------
     FileNotFoundError if no match is found.
+
+    Examples
+    --------
+    >>> find_furnace_log(Path("EIS program/SampleID"),
+    ...                  "SampleID_Ar-40_O2-10_600_400_25")  # doctest: +SKIP
+    PosixPath('EIS program/SampleID/Raw oven/Ar-40_O2-10_600_400_25.txt')
     """
     # Locate the "Raw oven" folder (may have trailing space)
     raw_oven_candidates = list(sample_dir.glob("Raw oven*"))
@@ -146,6 +152,12 @@ def parse_oven_file(filepath: Path) -> dict:
         filepath      : Path
         df            : DataFrame with columns:
                         abs_datetime, Time_s, Tsample, Toven, pO2
+
+    Examples
+    --------
+    >>> parsed = parse_oven_file(Path("Raw oven/Ar-40_600_400_25.txt"))  # doctest: +SKIP
+    >>> sorted(parsed["df"].columns)  # doctest: +SKIP
+    ['Time_s', 'Toven', 'Tsample', 'abs_datetime', 'pO2']
     """
     lines = filepath.read_text(encoding="utf-8", errors="replace").splitlines()
 
@@ -277,6 +289,20 @@ def match_ism_to_furnace(
     Returns
     -------
     Same list with T_nominal, T_mean, T_std, pO2_mean, replica, status filled in.
+
+    Examples
+    --------
+    >>> from datetime import datetime
+    >>> times = pd.date_range("2026-01-01 10:00", periods=60, freq="min")
+    >>> fdf = pd.DataFrame({"abs_datetime": times,
+    ...                     "Tsample": [400.0] * 60, "pO2": [0.2] * 60})
+    >>> rec = IsmRecord(path=Path("a.ism"), freq=np.array([1.0]),
+    ...                 Z_re=np.array([1.0]), Z_im=np.array([1.0]),
+    ...                 t_start=datetime(2026, 1, 1, 10, 25),
+    ...                 t_end=datetime(2026, 1, 1, 10, 35))
+    >>> out = match_ism_to_furnace([rec], fdf)
+    >>> out[0].status, out[0].T_nominal, out[0].replica
+    ('VALID', 400.0, 1)
     """
     if "abs_datetime" not in furnace_df.columns or furnace_df["abs_datetime"].isna().all():
         raise ValueError(
@@ -371,6 +397,15 @@ def validate_against_filename_labels(records: list[IsmRecord]) -> pd.DataFrame:
       True  -> furnace T_nominal agrees with filename label
       False -> mismatch (potential issue)
       None  -> filename has no temperature label (sequential / unlabeled file)
+
+    Examples
+    --------
+    >>> r = IsmRecord(path=Path("s_400C.ism"), freq=np.array([1.0]),
+    ...               Z_re=np.array([1.0]), Z_im=np.array([1.0]))
+    >>> r.T_nominal, r.status = 400.0, "VALID"
+    >>> df = validate_against_filename_labels([r])
+    >>> float(df.loc[0, "T_nominal"]), int(df.loc[0, "T_file_label"]), bool(df.loc[0, "label_match"])
+    (400.0, 400, True)
     """
     rows = []
     for r in records:
@@ -423,6 +458,15 @@ def get_label_prefix(records: list[IsmRecord],
     Returns
     -------
     str : prefix without trailing underscore
+
+    Examples
+    --------
+    >>> mk = lambda n: IsmRecord(path=Path(n), freq=np.array([1.0]),
+    ...                          Z_re=np.array([1.0]), Z_im=np.array([1.0]))
+    >>> get_label_prefix([mk("s_ar-40_400C.ism"), mk("s_ar-40_425C.ism")])
+    's_ar-40'
+    >>> get_label_prefix([], condition_folder="S_Ar-40_600_400_25")
+    's_ar-40'
     """
     from collections import Counter
 
@@ -469,6 +513,13 @@ def generate_auto_label(prefix: str, T_nominal: int, replica: int) -> str:
     Returns
     -------
     str : auto-generated filename  (e.g. 'SampleID_ar-SCCM_o2-SCCM_400C.ism')
+
+    Examples
+    --------
+    >>> generate_auto_label("s_ar-40", 400, 1)
+    's_ar-40_400C.ism'
+    >>> generate_auto_label("s_ar-40", 400, 3)
+    's_ar-40_400C_2.ism'
     """
     if replica == 1:
         return f"{prefix}_{T_nominal}C.ism"
@@ -503,6 +554,15 @@ def build_auto_labels(records: list[IsmRecord],
     Returns
     -------
     Same list with auto_label filled in.
+
+    Examples
+    --------
+    >>> r = IsmRecord(path=Path("seq_01.ism"), freq=np.array([1.0]),
+    ...               Z_re=np.array([1.0]), Z_im=np.array([1.0]),
+    ...               t_start=datetime(2026, 1, 1, 10, 0))
+    >>> r.status, r.T_nominal = "VALID", 400.0
+    >>> build_auto_labels([r], "s_ar-40")[0].auto_label
+    's_ar-40_400C.ism'
     """
     from collections import defaultdict
     from .ingest import extract_replica_from_filename
@@ -567,6 +627,16 @@ def validate_auto_labels(records: list[IsmRecord]) -> pd.DataFrame:
     pd.DataFrame with columns:
         file, is_labeled, T_nominal, replica_seq, auto_label,
         T_file, replica_file, T_match, order_ok
+
+    Examples
+    --------
+    >>> r = IsmRecord(path=Path("s_400C.ism"), freq=np.array([1.0]),
+    ...               Z_re=np.array([1.0]), Z_im=np.array([1.0]),
+    ...               t_start=datetime(2026, 1, 1, 10, 0))
+    >>> r.status, r.T_nominal, r.auto_label = "VALID", 400.0, "s_400C.ism"
+    >>> df = validate_auto_labels([r])
+    >>> bool(df.loc[0, "T_match"]), bool(df.loc[0, "order_ok"])
+    (True, True)
     """
     _lab_re = _LABELED_RE
 
@@ -636,6 +706,11 @@ def plot_oven(parsed: dict, save_path: Optional[Path] = None, show: bool = True)
 
     X axis : D:HH:MM:SS, hourly ticks, trimmed to Tsample in [350, 650] °C
     Y axis : T/°C, range 350-650, gridlines every 25 °C
+
+    Examples
+    --------
+    >>> parsed = parse_oven_file(Path("Raw oven/Ar-40_600_400_25.txt"))  # doctest: +SKIP
+    >>> plot_oven(parsed, save_path=Path("oven.pdf"), show=False)  # doctest: +SKIP
     """
     Y_MIN, Y_MAX, Y_STEP = 350, 650, 25
 
@@ -721,6 +796,11 @@ def plot_ism_selection(
       blue  hatch  : NEAR_TRANSITION (too close to a ramp edge)
       red   hatch  : UNSTABLE (T_std exceeds threshold during measurement)
       grey         : OUTSIDE_RANGE / OUT_OF_RANGE
+
+    Examples
+    --------
+    >>> plot_ism_selection(parsed, records,
+    ...                    "SampleID_Ar-40_600_400_25", show=False)  # doctest: +SKIP
     """
     from matplotlib.patches import Patch
 
@@ -877,6 +957,15 @@ def extract_plateau_table(parsed: dict, interval_s: int = 300) -> pd.DataFrame:
 
     Useful for the operator to visually inspect temperature plateaus
     before running Stage 1 ISM matching.
+
+    Examples
+    --------
+    >>> parsed = {"df": pd.DataFrame({"Time_s": [0.0, 300.0, 600.0],
+    ...                               "Tsample": [400.0, 401.0, 402.0],
+    ...                               "Toven": [405.0] * 3, "pO2": [0.2] * 3}),
+    ...           "start_seconds": 0.0}
+    >>> extract_plateau_table(parsed)[["Time", "Tsample (°C)"]].values.tolist()
+    [['0:00:00:00', 400.0], ['0:00:05:00', 401.0]]
     """
     df            = parsed["df"]
     start_seconds = parsed["start_seconds"]

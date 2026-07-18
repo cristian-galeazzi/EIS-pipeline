@@ -86,6 +86,10 @@ def apply_pub_style() -> None:
     Serif (Times New Roman / DejaVu Serif) with Computer Modern math -
     matches the reference notebooks (DRT_Analysis, Brouwer) exactly.
     Inward ticks, top+right tick marks, dpi=150 display / 300 export.
+
+    >>> apply_pub_style()
+    >>> mpl.rcParams["figure.dpi"]
+    150.0
     """
     mpl.rcParams.update({
         "font.family":        "serif",
@@ -226,6 +230,9 @@ def plot_drt_stacked(
                     suptitle, same value the condition selector and the
                     Arrhenius figures use.
 
+    >>> fig = plot_drt_stacked(df_spectra, "Ar_100", "Results/Ar_100/plots",
+    ...                        exclude_temps=[400])  # doctest: +SKIP
+
     Returns
     -------
     matplotlib Figure
@@ -328,6 +335,9 @@ def plot_nyquist_multipanel(
     df_peaks   : optional stage3_fit.xlsx "Peaks" DataFrame; when given and it
                  carries pO2_mean, the median p(O2) is shown as a suptitle,
                  same value the condition selector and the Arrhenius figures use.
+
+    >>> fig = plot_nyquist_multipanel(records, fit_params, "Ar_100",
+    ...                               "Results/Ar_100/plots")  # doctest: +SKIP
 
     Returns
     -------
@@ -449,6 +459,9 @@ def plot_bode(
     df_peaks   : optional stage3_fit.xlsx "Peaks" DataFrame; when given and it
                  carries pO2_mean, the median p(O2) is shown as a suptitle,
                  same value the condition selector and the Arrhenius figures use.
+
+    >>> fig = plot_bode(records, fit_params, "Ar_100",
+    ...                 "Results/Ar_100/plots")  # doctest: +SKIP
 
     Returns
     -------
@@ -574,6 +587,15 @@ def build_arrhenius_results(
     Each dict contains: T_C, T_K, inv_T, inv_T_fit, sigma, tau, R, C,
     ln_sigmaT, ln_tau, ln_C, Ea_cond, Ea_pol, Ea_C, R2_cond, R2_pol, R2_C,
     slope_*, int_*, color, marker.
+
+    >>> T_K = np.array([500.0, 550.0, 600.0]) + 273.15
+    >>> sigma = np.exp(-1.0 / (KB * T_K)) / T_K  # exact Ea_cond = 1 eV
+    >>> df = pd.DataFrame({"peak_id": 1, "T_nominal": [500, 550, 600],
+    ...     "R_i": 1e-3 / (sigma * np.pi * (1e-2 / 2) ** 2),
+    ...     "tau_i": [1e-4, 3e-5, 1e-5], "C_eff_i": [5e-8, 5e-8, 5e-8]})
+    >>> res = build_arrhenius_results(df, L_m=1e-3, D_m=1e-2)
+    >>> round(float(res[0]["Ea_cond"]), 6), round(float(res[0]["R2_cond"]), 6)
+    (1.0, 1.0)
     """
     A_m2    = np.pi * (D_m / 2) ** 2
     results = []
@@ -743,6 +765,9 @@ def plot_arrhenius_panel(
     (fig, results)
     results is the full list from build_arrhenius_results(); every peak
     is drawn regardless of its Arrhenius R².
+
+    >>> fig, results = plot_arrhenius_panel(df_peaks, L_m=1.2e-3, D_m=1.0e-2,
+    ...     condition="Ar_100", save_dir="Results/Ar_100/plots")  # doctest: +SKIP
     """
     results = build_arrhenius_results(df_peaks, L_m, D_m, t_min=t_min)
     A_m2 = np.pi * (D_m / 2) ** 2
@@ -821,6 +846,9 @@ def plot_arrhenius_sigma(
                    the figure (returns None)
     t_min        : threshold above which the split is validated [°C];
                    None = branches drawn over the full range
+
+    >>> fig = plot_arrhenius_sigma(df_peaks, 1.2e-3, 1.0e-2, "Ar_100",
+    ...     "Results/Ar_100/plots", t_min=500, sum_peak_ids=[1, 2])  # doctest: +SKIP
     """
     if not sum_peak_ids or len(sum_peak_ids) < 2:
         return None
@@ -933,6 +961,9 @@ def plot_brouwer(
     add_slopes    : draw the reference slope guides (default True)
     slopes        : which guides to draw, any of "-1/4", "-1/6", "0",
                     "+1/6", "+1/4" (default: all)
+
+    >>> fig = plot_brouwer(df_all, "Results/plots", sample_name="S1",
+    ...                    peak_id=1, temps_to_plot=[500, 550, 600])  # doctest: +SKIP
 
     Returns
     -------
@@ -1080,6 +1111,13 @@ def fit_transference(
     Tidy DataFrame, one row per (T, pO₂): peak_id, T_nominal, pO2,
     sigma_Scm, sigma_ion, sigma_p, sigma_n [S/cm], R2 (per-T fit),
     t_ion, t_el. Temperatures with fewer than 4 pO₂ points are skipped.
+
+    >>> p = [1e-4, 1e-2, 1.0, 1e2]
+    >>> df = pd.DataFrame({"peak_id": 1, "T_nominal": 600, "pO2_mean": p,
+    ...     "sigma_Sm_i": [(1.0 + 2.0 * x ** 0.25) * 100.0 for x in p]})
+    >>> out = fit_transference(df, peak_id=1)
+    >>> round(float(out["sigma_ion"].iloc[0]), 6), round(float(out["sigma_p"].iloc[0]), 6)
+    (1.0, 2.0)
     """
     sub = df_all[df_all["peak_id"] == peak_id].copy()
     sub["sigma_Scm"] = pd.to_numeric(sub["sigma_Sm_i"], errors="coerce") / 100.0
@@ -1154,6 +1192,9 @@ def plot_brouwer_transference(
     the measured window is kept and flagged as sigma ~ 0. The box is docked in
     a headroom band added above the data, so it never overlaps the curves even
     when the model is flat and fills the panel.
+
+    >>> fig = plot_brouwer_transference(df_all, "Results/plots",
+    ...     sample_name="S1", peak_id=1, exponent=0.25)  # doctest: +SKIP
     """
     if df_t is None:
         df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
@@ -1334,6 +1375,9 @@ def plot_transference_arrhenius(
     transf_df : tidy output of fit_transference(); per-T channel values
                 are repeated across pO₂ rows and collapsed internally.
     peak_id   : used for the title/filename (taken from the data if None).
+
+    >>> fig = plot_transference_arrhenius(transf_df, "Results/plots",
+    ...                                   sample_name="S1")  # doctest: +SKIP
     """
     if transf_df is None or transf_df.empty:
         warnings.warn("plot_transference_arrhenius: empty input", stacklevel=2)
@@ -1419,6 +1463,9 @@ def plot_conductivity_surface_3d(df_peak, params, save_dir, *, sample_name="",
     """3-D surface sigma(pO2, T) (fitted) with the measured points scattered on it.
 
     sigma is on the vertical axis (log10, S/cm); pO2 (log10) and T on the base.
+
+    >>> fig = plot_conductivity_surface_3d(df_peak, params, "Results/plots",
+    ...     sample_name="S1", peak_id=1)  # doctest: +SKIP
     """
     from pipeline.model import predict_grid
 
@@ -1459,6 +1506,9 @@ def plot_fit_residuals(df_peak, params, save_dir, *, sample_name="", peak_id=Non
 
     A structureless cloud means the model fits; systematic zones flag physics
     outside the 3-channel model (e.g. departure from the dilute regime).
+
+    >>> fig = plot_fit_residuals(df_peak, params, "Results/plots",
+    ...     sample_name="S1", peak_id=1)  # doctest: +SKIP
     """
     from pipeline.model import total_conductivity
 

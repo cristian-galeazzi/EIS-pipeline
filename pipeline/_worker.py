@@ -15,6 +15,10 @@ def limit_blas_threads() -> None:
     The Zarc fits factor tiny matrices, so per-call multithreading gains
     nothing; with several worker processes it only oversubscribes the CPU
     (n_workers x n_blas_threads runnable threads) and slows everyone down.
+
+    >>> limit_blas_threads()
+    >>> os.environ["OMP_NUM_THREADS"]
+    '1'
     """
     for var in ("VECLIB_MAXIMUM_THREADS", "OMP_NUM_THREADS",
                 "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):

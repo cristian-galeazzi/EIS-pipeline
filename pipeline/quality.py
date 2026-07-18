@@ -79,6 +79,13 @@ def strip_inductive(
 
     Returns (freq, Z_re, Z_im, n_stripped) where n_stripped counts all points
     removed for either reason.
+
+    >>> f  = np.array([1e5, 1e3, 10.0])
+    >>> zr = np.array([-2.0, 50.0, 80.0])
+    >>> zi = np.array([-1.0, 30.0, 5.0])
+    >>> f2, zr2, zi2, n = strip_inductive(f, zr, zi)
+    >>> n, f2.tolist()
+    (1, [1000.0, 10.0])
     """
     mask = (Z_im >= 0) & (Z_re >= 0)
     n_stripped = int((~mask).sum())
@@ -386,6 +393,10 @@ def run_linkk(
         Z_fit_im          : Lin-KK fitted imag part (full spectrum, Pass 1)
         R_inf             : fitted series resistance [Ω] (Pass 2)
         R_weights         : fitted RC weights [Ω] (Pass 2, M-element array)
+
+    >>> res = run_linkk(freq, Z_re, Z_im, use_binary_M=True)     # doctest: +SKIP
+    >>> res["pass_re"], res["pass_im"], round(res["kk_score"], 3)  # doctest: +SKIP
+    (True, True, 0.985)
     """
     # Sort by ascending frequency
     idx  = np.argsort(freq)
@@ -510,6 +521,9 @@ def select_best_replica(kk_results: list[dict]) -> int:
     Raises
     ------
     ValueError : if kk_results is empty (all replicas rejected upstream).
+
+    >>> select_best_replica([{"kk_score": 0.91}, {"kk_score": 0.97}])
+    1
     """
     if not kk_results:
         raise ValueError(
@@ -543,6 +557,9 @@ def compute_frequency_cutoffs(
     Returns
     -------
     (f_min, f_max) : frequency range to KEEP [Hz]
+
+    >>> compute_frequency_cutoffs({"f_min_cut": 10.0, "f_max_cut": 1e5})
+    (10.0, 100000.0)
     """
     return kk_result.get("f_min_cut"), kk_result.get("f_max_cut")
 
@@ -570,6 +587,17 @@ def kk_summary_table(
     pd.DataFrame with columns:
         file, replica, kk_score, W_re, W_im, pass_re, pass_im,
         mu, M, max_res_re, max_res_im, f_min_cut, f_max_cut, selected
+
+    >>> from types import SimpleNamespace
+    >>> from pathlib import Path
+    >>> rec = SimpleNamespace(path=Path("r1.ism"), replica=1)
+    >>> res = {"kk_score": 0.96, "W_re": 0.97, "W_im": 0.95,
+    ...        "pass_re": True, "pass_im": True,
+    ...        "res_re": np.array([0.01]), "res_im": np.array([0.02]),
+    ...        "f_min_cut": 1.0, "f_max_cut": 1e5}
+    >>> df = kk_summary_table([rec], [res], best_idx=0)
+    >>> df.loc[0, "file"], float(df.loc[0, "kk_score"]), bool(df.loc[0, "selected"])
+    ('r1.ism', 0.96, True)
     """
     rows = []
     for i, (rec, res) in enumerate(zip(records, kk_results)):

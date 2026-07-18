@@ -51,6 +51,10 @@ def check_replica_overrides(
     downstream stages would silently analyse a different replica than the one
     forced in session.json. Returns one human-readable message per mismatch;
     an empty list means the state is consistent.
+
+    >>> check_replica_overrides("missing_dir", {"Ar_100": {"600": "a.ism"}},
+    ...                         ["Ar_100"])
+    []
     """
     msgs: list[str] = []
     for cond in conditions:
@@ -168,6 +172,12 @@ def merge_sheet_by_T(
     Failures while reading the existing sheet are swallowed (treated as
     "no existing data") so that adding the helper to a notebook that has
     a partial file never causes a hard crash.
+
+    >>> df = pd.DataFrame({"T_nominal": [600], "R": [1.0]})
+    >>> merge_sheet_by_T(Path("missing.xlsx"), "Fit", df, focus_t=None) is df
+    True
+    >>> merge_sheet_by_T(Path("missing.xlsx"), "Fit", df, focus_t=600) is df
+    True
     """
     if focus_t is None or not Path(xlsx_path).exists():
         return new_df
@@ -202,6 +212,12 @@ def build_metadata_sheet(
     written by reading any ``Metadata`` sheet in the pipeline outputs.
 
     A ``processed_at`` timestamp and the stage name are prepended automatically.
+
+    >>> df = build_metadata_sheet("S1", "stage2_kk", {"KK_C": 0.76})
+    >>> list(df.columns)
+    ['parameter', 'value']
+    >>> df.iloc[3].tolist()
+    ['KK_C', 0.76]
     """
     rows: list[tuple[str, Any]] = [
         ("sample_id", sample_id),
