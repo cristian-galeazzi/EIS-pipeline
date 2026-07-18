@@ -110,7 +110,10 @@ def find_furnace_log(sample_dir: Path, condition_folder: str) -> Path:
         if not collecting:
             # Start collecting from the first recognised gas token (Ar, O2, N2, H2, H2O, CO2, CO, He)
             if p and p[0].isalpha() and not p.isdigit():
-                if p.upper() in ("AR", "O2", "N2", "H2", "CO2", "CO", "HE", "H2O") or re.match(r"^(Ar|O2|N2|H2O|H2|CO2|CO|He)", p, re.I):
+                # Gas name must be the whole token or followed by a separator
+                # (e.g. 'Ar', 'O2-10'), otherwise sample prefixes like 'CoP03'
+                # would match the 'CO' branch and corrupt the condition key.
+                if p.upper() in ("AR", "O2", "N2", "H2", "CO2", "CO", "HE", "H2O") or re.match(r"^(Ar|O2|N2|H2O|H2|CO2|CO|He)(?![A-Za-z0-9])", p, re.I):
                     collecting = True
                     gas_tokens.append(p)
         else:
@@ -504,7 +507,7 @@ def build_auto_labels(records: list[IsmRecord],
     from collections import defaultdict
     from .ingest import extract_replica_from_filename
 
-    _lab_re = re.compile(r"_\d{2,4}[Cc](?:_\d+)?\.ism$", re.IGNORECASE)
+    _lab_re = _LABELED_RE
 
     # Step 1: labeled VALID files keep their original filename as auto_label.
     for rec in records:
@@ -565,7 +568,7 @@ def validate_auto_labels(records: list[IsmRecord]) -> pd.DataFrame:
         file, is_labeled, T_nominal, replica_seq, auto_label,
         T_file, replica_file, T_match, order_ok
     """
-    _lab_re = re.compile(r"_\d{2,4}[Cc](?:_\d+)?\.ism$", re.IGNORECASE)
+    _lab_re = _LABELED_RE
 
     # Group VALID labeled records by T_nominal for order check
     from collections import defaultdict

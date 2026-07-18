@@ -481,6 +481,20 @@ def test_matching_classifies_windows():
     assert out[2].status == "OUTSIDE_RANGE", out[2].status
 
 
+def test_find_furnace_log_strips_gas_like_sample_prefix(tmp_path):
+    """Sample IDs starting with a gas name (e.g. 'CoP03' vs CO) must not
+    corrupt the condition key extracted from the folder name."""
+    from pipeline.matching import find_furnace_log
+
+    oven = tmp_path / "Raw oven"
+    oven.mkdir()
+    log = oven / "Ar-100_O2-10_600_400_25.txt"
+    log.write_text("dummy")
+
+    found = find_furnace_log(tmp_path, "CoP03_Ar-100_O2-10_600_400_25")
+    assert found == log
+
+
 if __name__ == "__main__":
     import traceback
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

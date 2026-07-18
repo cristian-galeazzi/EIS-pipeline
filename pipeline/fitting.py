@@ -769,7 +769,7 @@ def resolve_condition_entry(condition_params: dict, condition: str) -> dict:
     """
     short = condition.split("_B_")[-1] if "_B_" in condition else condition
     for key, val in condition_params.items():
-        if key == condition or key in condition or key in short:
+        if f"_{key}_" in f"_{condition}_" or f"_{key}_" in f"_{short}_":
             return val
     return {}
 
