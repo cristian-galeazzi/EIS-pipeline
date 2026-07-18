@@ -481,6 +481,22 @@ def test_matching_classifies_windows():
     assert out[2].status == "OUTSIDE_RANGE", out[2].status
 
 
+def test_csv_ingestion_rejects_physical_sign_convention(tmp_path):
+    """A CSV with mostly negative Z_im (Gamry/EC-Lab physical convention)
+    must fail loudly instead of being silently stripped downstream."""
+    import pytest
+    from pipeline.ingest import load_csv_spectrum
+
+    f = tmp_path / "bad_400C.csv"
+    f.write_text("freq,Z_re,Z_im\n1000,10.0,-5.0\n100,20.0,-8.0\n10,30.0,-2.0\n")
+    with pytest.raises(ValueError, match="sign convention"):
+        load_csv_spectrum(f)
+
+    ok = tmp_path / "good_400C.csv"
+    ok.write_text("freq,Z_re,Z_im\n1000,10.0,5.0\n100,20.0,8.0\n10,30.0,-2.0\n")
+    assert load_csv_spectrum(ok).n_points == 3
+
+
 def test_matching_converts_tz_aware_timestamps():
     """A UTC-aware ISM timestamp must match the same furnace rows as its
     local-naive equivalent instead of shifting by the UTC offset."""

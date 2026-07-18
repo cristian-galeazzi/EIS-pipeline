@@ -368,6 +368,20 @@ def load_csv_spectrum(path: Path | str) -> IsmRecord:
     Z_re = df["Z_re"].to_numpy(dtype=float)
     Z_im = df["Z_im"].to_numpy(dtype=float)
 
+    # Sign-convention guard: the pipeline stores Z_im positive in the
+    # capacitive region, while most third-party exports (Gamry, EC-Lab,
+    # ZView) write the physical negative sign. Without this check such a
+    # file loads fine and then strip_inductive() silently discards nearly
+    # every point as "inductive".
+    finite = Z_im[np.isfinite(Z_im)]
+    if finite.size and (finite < 0).mean() > 0.5:
+        raise ValueError(
+            f"{path.name}: {int((finite < 0).sum())}/{finite.size} points have "
+            f"Z_im < 0. This pipeline expects Z_im positive in the capacitive "
+            f"region; the file likely uses the physical sign convention "
+            f"(Gamry/EC-Lab/ZView default). Flip the Z_im column sign and retry."
+        )
+
     # mean() over a column with NaNs returns NaN, which would pass the
     # "is not None" checks downstream and poison the temperature filters
     T_mean = float(df["temperature"].mean()) if "temperature" in df.columns else None
