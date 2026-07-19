@@ -73,21 +73,34 @@ def build_modes(pcts: list[float], include_auto: bool = True) -> dict[str, dict]
     return modes
 
 
-def stage2_hard_limits(session_path: Path,
-                       sample_id: str) -> tuple[float | None, float | None]:
-    """Per-sample hard frequency limits from session.json stage2_params.
+def resolve_hard_limits(entry: dict, condition: str,
+                        T_nominal: int | None) -> tuple[float | None, float | None]:
+    """Hard frequency limits resolved like stage 2: per-T kk_overrides,
+    then per-condition, then the stage2_params globals. T keys are matched
+    both as int and as the string the session.json round-trip produces.
 
-    >>> stage2_hard_limits(Path("does_not_exist.json"), "X")
+    >>> e = {"stage2_params": {"KK_F_MIN_HARD": 1.0},
+    ...      "kk_overrides": {"c1": {"600": {"f_max_hard": 1e4}}}}
+    >>> resolve_hard_limits(e, "c1", 600)
+    (1.0, 10000.0)
+    >>> resolve_hard_limits({}, "c1", 600)
     (None, None)
     """
-    p2 = load_session_entry(session_path, sample_id).get("stage2_params", {})
-    return p2.get("KK_F_MIN_HARD"), p2.get("KK_F_MAX_HARD")
+    p2 = entry.get("stage2_params", {})
+    cond_ov = (entry.get("kk_overrides", {}) or {}).get(condition, {}) or {}
+    t_ov = cond_ov.get(str(T_nominal), cond_ov.get(T_nominal, {}))
+    if not isinstance(t_ov, dict):
+        t_ov = {}
+    f_min = t_ov.get("f_min_hard",
+                     cond_ov.get("f_min_hard", p2.get("KK_F_MIN_HARD")))
+    f_max = t_ov.get("f_max_hard",
+                     cond_ov.get("f_max_hard", p2.get("KK_F_MAX_HARD")))
+    return f_min, f_max
 
 
 def compare_sample(sample_dir: Path, modes: dict[str, dict],
                    iqr_fence: float, iqr_window: int,
-                   f_min_hard: float | None,
-                   f_max_hard: float | None) -> list[dict]:
+                   entry: dict | None = None) -> list[dict]:
     """Run every mode on every spectrum of one sample; one dict per run.
 
     Spectra are taken from ISM validation/ (Zahner) or input_spectra/ (CSV),
@@ -113,6 +126,8 @@ def compare_sample(sample_dir: Path, modes: dict[str, dict],
                     continue
                 freq, Z_re, Z_im, _ = strip_inductive(rec.freq, rec.Z_re,
                                                       rec.Z_im)
+                f_min_hard, f_max_hard = resolve_hard_limits(
+                    entry or {}, condition, rec.T_nominal)
                 for mode, kw in modes.items():
                     try:
                         res = run_linkk(freq, Z_re, Z_im,
@@ -189,9 +204,9 @@ def main() -> None:
             print(f"[WARN] sample folder not found: {sample_dir}",
                   file=sys.stderr)
             continue
-        f_min_hard, f_max_hard = stage2_hard_limits(args.session, sample_id)
+        entry = load_session_entry(args.session, sample_id)
         rows = compare_sample(sample_dir, modes, args.iqr_fence,
-                              args.iqr_window, f_min_hard, f_max_hard)
+                              args.iqr_window, entry)
         if not rows:
             print(f"[WARN] no spectra found for {sample_id}", file=sys.stderr)
             continue

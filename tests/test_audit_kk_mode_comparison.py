@@ -28,8 +28,7 @@ PCTS = {"pct76": 0.76, "pct50": 0.50}
 def _rows():
     modes = kkc.build_modes(list(PCTS.values()), include_auto=True)
     return kkc.compare_sample(_ROOT / "EXAMPLE_SAMPLE", modes,
-                              iqr_fence=2.0, iqr_window=5,
-                              f_min_hard=None, f_max_hard=None)
+                              iqr_fence=2.0, iqr_window=5)
 
 
 def test_table_shape_and_window_retention():
