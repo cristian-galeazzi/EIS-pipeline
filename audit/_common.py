@@ -25,7 +25,7 @@ from pipeline.drt import clip_spectrum
 from pipeline.ingest import load_csv_spectrum, load_ism
 from pipeline.session import load_sample
 
-K_B_EV = 8.617333e-5  # Boltzmann constant [eV/K]
+from pipeline.model import KB_EV as K_B_EV  # Boltzmann constant [eV/K], shared
 
 # Notebook defaults, overridable per sample via session.json stage3_params.
 DEFAULTS = {

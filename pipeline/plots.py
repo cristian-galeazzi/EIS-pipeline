@@ -40,7 +40,7 @@ from pipeline.utils import format_pO2_value
 # ---------------------------------------------------------------------------
 # Physical constants
 # ---------------------------------------------------------------------------
-KB    = 8.617e-5   # Boltzmann constant [eV/K]
+from pipeline.model import KB_EV as KB  # Boltzmann constant [eV/K], shared
 EPS_0 = 8.854e-12  # vacuum permittivity [F/m]
 
 # ---------------------------------------------------------------------------

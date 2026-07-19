@@ -40,7 +40,7 @@ import pandas as pd
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import least_squares, nnls
 
-KB_EV: float = 8.617e-5  # Boltzmann constant (eV/K)
+KB_EV: float = 8.617333e-5  # Boltzmann constant (eV/K), single source for the repo
 
 # Minimum distinct (pO2, T) points required to constrain the fit. The model has
 # up to 6 free parameters, so we ask for a clear margin above that.
