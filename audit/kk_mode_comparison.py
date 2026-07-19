@@ -53,7 +53,8 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from audit._common import _load_record, _spectrum_dirs, load_session_entry
+from audit._common import (_load_record, _spectrum_dirs, load_session_entry,
+                           run_jobs)
 from pipeline.quality import run_linkk, strip_inductive
 
 CSV_FIELDS = ["sample", "condition", "file", "mode", "N", "M", "mu",
@@ -98,13 +99,53 @@ def resolve_hard_limits(entry: dict, condition: str,
     return f_min, f_max
 
 
+def kk_file_job(args: tuple) -> list[dict]:
+    """Worker: every mode on one spectrum file; one dict per successful run."""
+    (sample_id, condition, path_str, modes,
+     iqr_fence, iqr_window, entry) = args
+    path = Path(path_str)
+    try:
+        rec = _load_record(path)
+    except Exception as exc:
+        print(f"[WARN] {path.name}: {exc}", file=sys.stderr)
+        return []
+    freq, Z_re, Z_im, _ = strip_inductive(rec.freq, rec.Z_re, rec.Z_im)
+    f_min_hard, f_max_hard = resolve_hard_limits(entry, condition,
+                                                 rec.T_nominal)
+    rows: list[dict] = []
+    for mode, kw in modes.items():
+        try:
+            res = run_linkk(freq, Z_re, Z_im,
+                            iqr_fence_factor=iqr_fence,
+                            iqr_window=iqr_window,
+                            f_min_hard=f_min_hard,
+                            f_max_hard=f_max_hard, **kw)
+        except Exception as exc:
+            print(f"[WARN] {path.name} {mode}: {exc}", file=sys.stderr)
+            continue
+        rows.append({
+            "sample": sample_id, "condition": condition,
+            "file": path.name, "mode": mode,
+            "N": len(freq), "M": res["M"],
+            "mu": round(res["mu"], 3),
+            "kk_score": round(res["kk_score"], 4),
+            "W_re": round(res["W_re"], 4),
+            "W_im": round(res["W_im"], 4),
+            "f_min_cut": round(res["f_min_cut"], 1),
+            "f_max_cut": round(res["f_max_cut"], 1),
+        })
+    return rows
+
+
 def compare_sample(sample_dir: Path, modes: dict[str, dict],
                    iqr_fence: float, iqr_window: int,
-                   entry: dict | None = None) -> list[dict]:
+                   entry: dict | None = None,
+                   workers: int = 1) -> list[dict]:
     """Run every mode on every spectrum of one sample; one dict per run.
 
     Spectra are taken from ISM validation/ (Zahner) or input_spectra/ (CSV),
-    every condition, every replica.
+    every condition, every replica. Each file's Lin-KK runs are independent,
+    so workers > 1 dispatches one job per file through the shared pool.
 
     >>> # See tests/test_audit_kk_mode_comparison.py for a runnable example.
     """
@@ -113,43 +154,15 @@ def compare_sample(sample_dir: Path, modes: dict[str, dict],
                          for root in ("ISM validation", "input_spectra")
                          if (sample_dir / root).is_dir()
                          for d in (sample_dir / root).iterdir() if d.is_dir()})
+    jobs = [(sample_id, condition, str(path), modes,
+             iqr_fence, iqr_window, entry or {})
+            for condition in conditions
+            for spec_dir in _spectrum_dirs(sample_dir, condition)
+            for path in sorted(spec_dir.iterdir())
+            if path.suffix.lower() in {".ism", ".csv", ".txt"}]
     rows: list[dict] = []
-    for condition in conditions:
-        for spec_dir in _spectrum_dirs(sample_dir, condition):
-            for path in sorted(spec_dir.iterdir()):
-                if path.suffix.lower() not in {".ism", ".csv", ".txt"}:
-                    continue
-                try:
-                    rec = _load_record(path)
-                except Exception as exc:
-                    print(f"[WARN] {path.name}: {exc}", file=sys.stderr)
-                    continue
-                freq, Z_re, Z_im, _ = strip_inductive(rec.freq, rec.Z_re,
-                                                      rec.Z_im)
-                f_min_hard, f_max_hard = resolve_hard_limits(
-                    entry or {}, condition, rec.T_nominal)
-                for mode, kw in modes.items():
-                    try:
-                        res = run_linkk(freq, Z_re, Z_im,
-                                        iqr_fence_factor=iqr_fence,
-                                        iqr_window=iqr_window,
-                                        f_min_hard=f_min_hard,
-                                        f_max_hard=f_max_hard, **kw)
-                    except Exception as exc:
-                        print(f"[WARN] {path.name} {mode}: {exc}",
-                              file=sys.stderr)
-                        continue
-                    rows.append({
-                        "sample": sample_id, "condition": condition,
-                        "file": path.name, "mode": mode,
-                        "N": len(freq), "M": res["M"],
-                        "mu": round(res["mu"], 3),
-                        "kk_score": round(res["kk_score"], 4),
-                        "W_re": round(res["W_re"], 4),
-                        "W_im": round(res["W_im"], 4),
-                        "f_min_cut": round(res["f_min_cut"], 1),
-                        "f_max_cut": round(res["f_max_cut"], 1),
-                    })
+    for job_rows in run_jobs(kk_file_job, jobs, workers):
+        rows.extend(job_rows)
     return rows
 
 
@@ -195,6 +208,8 @@ def main() -> None:
     parser.add_argument("--iqr-window", type=int, default=5)
     parser.add_argument("--session", type=Path, default=REPO / "session.json")
     parser.add_argument("--output", type=Path, default=REPO / "audit" / "output")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="process-pool size; 1 = serial in-process")
     args = parser.parse_args()
 
     modes = build_modes(args.pcts, include_auto=not args.no_auto)
@@ -206,7 +221,7 @@ def main() -> None:
             continue
         entry = load_session_entry(args.session, sample_id)
         rows = compare_sample(sample_dir, modes, args.iqr_fence,
-                              args.iqr_window, entry)
+                              args.iqr_window, entry, workers=args.workers)
         if not rows:
             print(f"[WARN] no spectra found for {sample_id}", file=sys.stderr)
             continue
