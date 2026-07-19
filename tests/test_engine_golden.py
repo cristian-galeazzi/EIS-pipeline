@@ -582,6 +582,27 @@ def test_find_furnace_log_strips_gas_like_sample_prefix(tmp_path):
     assert found == log
 
 
+def test_hard_limits_are_a_keep_window():
+    """f_min_hard/f_max_hard define the frequency window to keep. The HF
+    clamp must cap f_max_cut even when fewer than 8 points fall inside the
+    hard window and the adaptive scan falls back to the full spectrum
+    (regression: the old clamp could only raise f_max)."""
+    from pipeline.quality import run_linkk
+
+    freq = np.logspace(-2.0, 4.0, 40)
+    Z = 1000.0 / (1.0 + 1j * 2.0 * np.pi * freq * 1.0)
+    Z_re, Z_im = Z.real, -Z.imag  # positive-capacitive convention
+
+    # 5 points inside the hard window: the <8-point fallback path
+    res = run_linkk(freq, Z_re, Z_im, f_max_hard=0.05)
+    assert res["f_max_cut"] <= 0.05
+
+    # regular path: both boundaries respected
+    res = run_linkk(freq, Z_re, Z_im, f_min_hard=0.1, f_max_hard=100.0)
+    assert res["f_min_cut"] >= 0.1
+    assert res["f_max_cut"] <= 100.0
+
+
 if __name__ == "__main__":
     import traceback
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

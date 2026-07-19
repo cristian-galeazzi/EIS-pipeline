@@ -457,13 +457,15 @@ def run_linkk(
             freq, p1["res_re"], p1["res_im"], iqr_fence_factor, iqr_window
         )
 
-    # Hard floors: adaptive cuts can never cross these boundaries.
-    # f_min_hard raises the LF cutoff (excludes electrode noise from below).
-    # f_max_hard raises the HF cutoff (preserves bulk arc from HF trimming).
+    # Hard limits define the keep-window: no adaptive cut may cross them.
+    # f_min_hard is a floor (excludes electrode noise from below), f_max_hard
+    # a ceiling (excludes HF cable/inductive artifacts from above). The clamp
+    # also covers the <8-point fallback above, where the adaptive scan ran on
+    # the full spectrum instead of the hard-masked one.
     if f_min_hard is not None:
         f_min = max(f_min, float(f_min_hard))
     if f_max_hard is not None:
-        f_max = max(f_max, float(f_max_hard))
+        f_max = min(f_max, float(f_max_hard))
 
     # ── Pass 2: trimmed spectrum ──────────────────────────────────────────
     mask   = (freq >= f_min) & (freq <= f_max)
