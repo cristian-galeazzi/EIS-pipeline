@@ -325,12 +325,13 @@ def _weights(freq: np.ndarray, Z_exp: np.ndarray, hf_weight: float,
     [3.0, 4.0, 5.0]
     """
     if hf_weight and hf_weight > 0:
-        mod = np.abs(Z_exp)
+        # floor keeps a malformed zero-impedance point from zeroing a weight
+        mod = np.maximum(np.abs(Z_exp), 1e-12)
         lf = np.log10(freq)
         lfn = (lf - lf.min()) / ((lf.max() - lf.min()) + 1e-12)
         return mod / (1.0 + hf_weight * lfn)
     if weight_by_modulus:
-        return np.abs(Z_exp)
+        return np.maximum(np.abs(Z_exp), 1e-12)
     return np.ones(len(freq))
 
 
@@ -506,6 +507,15 @@ def fit_zarc(
     # IsmRecord stores Z_im positive in the capacitive region
     Z_exp = Z_re - 1j * Z_im
 
+    # Underdetermined fits can report converged=True with meaningless
+    # parameters; fail loud like Lin-KK (>=4 points) and the Stage-5 model.
+    _n_fit_params = 3 * n_peaks + (1 if include_r0 else 0)
+    if 2 * len(freq) <= _n_fit_params:
+        raise ValueError(
+            f"fit_zarc: {len(freq)} frequency points give {2 * len(freq)} "
+            f"residuals for {_n_fit_params} parameters; the fit is "
+            f"underdetermined.")
+
     if R0_guess is None:
         # identical HF-intercept heuristic to v1 (see fit_zarc)
         n_hf = max(5, int(0.3 * len(freq)))
@@ -635,7 +645,14 @@ def fit_zarc(
         R_arr, tau_arr, alpha_arr = params[0::3], params[1::3], params[2::3]
 
     # C_eff = tau / R, exact for the Zarc parametrization (see fitting.py)
-    C_eff_arr = tau_arr / R_arr
+    with np.errstate(divide="ignore", invalid="ignore"):
+        C_eff_arr = tau_arr / R_arr
+
+    if np.any(R_arr <= 0):
+        warnings.warn(
+            "fit_zarc: one or more R values are <= 0 after fitting (pinned "
+            "via fix_params?). C_eff = tau/R is not physically meaningful "
+            "for those peaks.", UserWarning, stacklevel=2)
 
     if np.any((alpha_arr <= 0) | (alpha_arr > 1)):
         warnings.warn(

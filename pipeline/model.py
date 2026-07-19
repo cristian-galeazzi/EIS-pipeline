@@ -315,9 +315,15 @@ def fit_global_conductivity(
     )
 
     model = total_conductivity(pO2, T_K, params)
-    ln_obs, ln_fit = np.log(sig), np.log(model)
+    ln_obs = np.log(sig)
     ss_tot = float(np.sum((ln_obs - ln_obs.mean()) ** 2))
-    r2 = 1.0 - float(np.sum((ln_obs - ln_fit) ** 2)) / ss_tot if ss_tot > 0 else np.nan
+    # model can hit 0 when NNLS deactivates every channel: r2 must be NaN,
+    # not -inf from log(0)
+    if ss_tot > 0 and np.all(model > 0):
+        ln_fit = np.log(model)
+        r2 = 1.0 - float(np.sum((ln_obs - ln_fit) ** 2)) / ss_tot
+    else:
+        r2 = np.nan
 
     err = _covariance_errors(polish)  # order: s0 of selected channels, then their Ea
     perr = {f"sigma0_{ch}": float("nan") for ch in CHANNELS}

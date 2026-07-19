@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import io
 import contextlib
+import warnings
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -296,6 +297,14 @@ def find_drt_peaks(
             gamma[left_idx : right_idx + 1],
             ln_tau[left_idx : right_idx + 1],
         ))
+
+        # max(R_i, 1e-6) below does not stop NaN (max(nan, x) is nan):
+        # a degenerate DRT must fail here, not inside the Zarc fit bounds
+        if not np.isfinite(R_i):
+            warnings.warn(
+                f"find_drt_peaks: peak at tau={float(tau[idx]):.3g} s has "
+                f"non-finite area; peak discarded.", UserWarning, stacklevel=2)
+            continue
 
         peaks.append({
             "peak_id":    k + 1,          # will be renumbered after sort

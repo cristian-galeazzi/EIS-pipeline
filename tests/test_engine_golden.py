@@ -582,6 +582,34 @@ def test_find_furnace_log_strips_gas_like_sample_prefix(tmp_path):
     assert found == log
 
 
+def test_nan_drt_peak_area_is_discarded():
+    """A NaN peak area must not survive the R_approx guard (max(nan, x)
+    is nan in Python) and reach the Zarc fit bounds."""
+    import warnings as _warnings
+    from types import SimpleNamespace
+    from pipeline.drt import find_drt_peaks
+
+    tau = np.logspace(-6, 0, 121)
+    gamma = 100.0 * np.exp(-0.5 * ((np.log(tau) - np.log(1e-3)) / 0.5) ** 2)
+    gamma[58] = np.nan  # poison a point inside the peak's integration range
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        peaks = find_drt_peaks(SimpleNamespace(out_tau_vec=tau, gamma=gamma))
+    assert all(np.isfinite(p["R_approx"]) for p in peaks)
+
+
+def test_fit_zarc_rejects_underdetermined_spectrum():
+    """Fewer residuals than parameters must fail loud, not converge."""
+    import pytest
+    from pipeline.fitting import zarc_model
+
+    f = np.logspace(3, 1, 3)
+    Z = zarc_model(f, np.array([1e3, 1e-4, 0.9]), False)
+    pk = [{"R_approx": 8e2, "tau": 2e-4}, {"R_approx": 5e2, "tau": 1e-3}]
+    with pytest.raises(ValueError, match="underdetermined"):
+        fit_zarc(f, Z.real, -Z.imag, pk, include_r0=True)
+
+
 def test_hard_limits_are_a_keep_window():
     """f_min_hard/f_max_hard define the frequency window to keep. The HF
     clamp must cap f_max_cut even when fewer than 8 points fall inside the
