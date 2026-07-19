@@ -482,18 +482,15 @@ def run_linkk(
         p2    = _fit_linkk(freq_t, Z_re_t, Z_im_t,
                            c=c, M_override=M2,
                            add_inductance=add_inductance)
-        W_re  = p2["W_re"]
-        W_im  = p2["W_im"]
-        M_out = p2["M"]
-        R_inf = p2["R_inf"]
-        R_w = p2["R_weights"]
     else:
         # Not enough points after trimming - fall back to Pass 1
-        W_re  = p1["W_re"]
-        W_im  = p1["W_im"]
-        M_out = p1["M"]
-        R_inf = p1["R_inf"]
-        R_w = p1["R_weights"]
+        p2 = p1
+
+    W_re  = p2["W_re"]
+    W_im  = p2["W_im"]
+    M_out = p2["M"]
+    R_inf = p2["R_inf"]
+    R_w   = p2["R_weights"]
 
     return {
         "W_re":      float(W_re),
