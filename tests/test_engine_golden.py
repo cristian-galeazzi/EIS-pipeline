@@ -418,6 +418,34 @@ def test_session_remove_override_entries():
         assert not remove_override_entries("S2", "kk_overrides", "Ar", path=p)
 
 
+def test_session_remove_override_subkey():
+    """subkey removal deletes one field, prunes emptied entries, spans all T."""
+    from pipeline.session import (load_sample, remove_override_entries,
+                                  update_sample)
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "session.json"
+        update_sample("S1", path=p,
+                      kk_overrides={"Ar": {600: {"f_min_hard": 1e3, "f_max_hard": 1e6},
+                                           550: {"f_min_hard": 2e3}}})
+
+        # per-T subkey removal leaves the sibling field intact
+        assert remove_override_entries("S1", "kk_overrides", "Ar", 600, path=p,
+                                       subkey="f_min_hard")
+        kk = load_sample("S1", path=p)["kk_overrides"]
+        assert kk == {"Ar": {"600": {"f_max_hard": 1e6},
+                             "550": {"f_min_hard": 2e3}}}
+
+        # T=None removes the subkey from every temperature; emptied T pruned
+        assert remove_override_entries("S1", "kk_overrides", "Ar", path=p,
+                                       subkey="f_min_hard")
+        kk = load_sample("S1", path=p)["kk_overrides"]
+        assert kk == {"Ar": {"600": {"f_max_hard": 1e6}}}
+
+        # missing subkey is a no-op
+        assert not remove_override_entries("S1", "kk_overrides", "Ar", 600, path=p,
+                                           subkey="f_min_hard")
+
+
 def test_session_canonical_key_order():
     """Saved entries keep all data but serialize keys in canonical order."""
     import json as _json

@@ -192,6 +192,7 @@ def remove_override_entries(
     condition: str,
     T: int | str | None = None,
     path: Path | str = SESSION_FILE,
+    subkey: str | None = None,
 ) -> bool:
     """
     Delete a saved per-condition override from a MERGE_KEYS store.
@@ -202,6 +203,11 @@ def remove_override_entries(
     values, so this is the only way to make a (condition, T) fall back to
     the config-cell globals. A condition left empty by the removal is
     pruned. Returns True when something was removed.
+
+    ``subkey`` narrows the deletion to one field inside the per-T dict
+    (e.g. ``"f_min_hard"``), leaving the rest of the entry intact; with
+    ``T=None`` the subkey is removed from every temperature of the
+    condition. Entries emptied by the removal are pruned.
 
     Temperature keys are matched both as given and stringified, since the
     JSON round-trip stores them as strings. For ``zarc_peak_windows`` pass
@@ -216,6 +222,13 @@ def remove_override_entries(
     ...     load_sample("S1", path=p)["kk_overrides"]
     True
     {}
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     p = Path(d) / "session.json"
+    ...     update_sample("S1", path=p, kk_overrides={"Ar": {600: {"f_min_hard": 1e3, "f_max_hard": 1e5}}})
+    ...     remove_override_entries("S1", "kk_overrides", "Ar", 600, path=p, subkey="f_min_hard")
+    ...     load_sample("S1", path=p)["kk_overrides"]
+    True
+    {'Ar': {'600': {'f_max_hard': 100000.0}}}
     """
     path = Path(path)
     data = load_session(path)
@@ -224,11 +237,29 @@ def remove_override_entries(
     if not isinstance(store, dict) or condition not in store:
         return False
     removed = False
-    if T is None:
+    sub = store[condition]
+
+    def _strip_subkey(d: dict) -> bool:
+        if isinstance(d, dict) and subkey in d:
+            del d[subkey]
+            return True
+        return False
+
+    if subkey is not None:
+        if not isinstance(sub, dict):
+            return False
+        t_keys = list(sub) if T is None else [k for k in (T, str(T)) if k in sub]
+        for k in t_keys:
+            if _strip_subkey(sub[k]):
+                removed = True
+            if isinstance(sub[k], dict) and not sub[k]:
+                del sub[k]
+        if not sub:
+            del store[condition]
+    elif T is None:
         del store[condition]
         removed = True
     else:
-        sub = store[condition]
         if isinstance(sub, dict):
             for k in (T, str(T)):
                 if k in sub:
