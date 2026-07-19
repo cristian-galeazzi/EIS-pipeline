@@ -53,7 +53,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import product
 from pathlib import Path
 
@@ -69,6 +68,7 @@ from audit._common import (
     default_min_track_points,
     discover_conditions,
     load_condition_spectra,
+    run_jobs,
     run_slug,
     sample_settings,
     score_condition,
@@ -160,19 +160,11 @@ def run_grid(sample_dir: Path, conditions: list[str],
                 for d, lam, c in product(rbf_ders, lambdas, conditions)]
     drt_cache: dict[tuple, list[dict]] = {}
     print(f"Phase 1: {len(drt_jobs)} DRT jobs...", flush=True)
-    if workers == 1:
-        for job in drt_jobs:
-            d, lam, c, res = drt_job(job)
-            drt_cache[(d, lam, c)] = res
-    else:
-        from pipeline._worker import limit_blas_threads
-        with ProcessPoolExecutor(max_workers=workers,
-                                 initializer=limit_blas_threads) as ex:
-            for fut in as_completed([ex.submit(drt_job, j) for j in drt_jobs]):
-                d, lam, c, res = fut.result()
-                drt_cache[(d, lam, c)] = res
-                print(f"  DRT done {d} lambda={lam:.1e} "
-                      f"({time.time() - t0:.0f}s)", flush=True)
+    for d, lam, c, res in run_jobs(drt_job, drt_jobs, workers):
+        drt_cache[(d, lam, c)] = res
+        if workers > 1:
+            print(f"  DRT done {d} lambda={lam:.1e} "
+                  f"({time.time() - t0:.0f}s)", flush=True)
 
     combos = list(product(rbf_ders, lambdas, hf_weights, caps))
     fit_jobs = [(combo, c, drt_cache[(combo[0], combo[1], c)],
@@ -180,21 +172,13 @@ def run_grid(sample_dir: Path, conditions: list[str],
                 for combo in combos for c in conditions]
     print(f"Phase 2: {len(fit_jobs)} fit jobs...", flush=True)
     raw: dict[tuple, dict] = {}
-    if workers == 1:
-        for job in fit_jobs:
-            combo, cond, pk, sm = fit_job(job)
-            raw[(combo, cond)] = {"peaks": pk, "summary": sm}
-    else:
-        from pipeline._worker import limit_blas_threads
-        done = 0
-        with ProcessPoolExecutor(max_workers=workers,
-                                 initializer=limit_blas_threads) as ex:
-            for fut in as_completed([ex.submit(fit_job, j) for j in fit_jobs]):
-                combo, cond, pk, sm = fut.result()
-                raw[(combo, cond)] = {"peaks": pk, "summary": sm}
-                done += 1
-                print(f"  [{done}/{len(fit_jobs)}] fitted "
-                      f"({time.time() - t0:.0f}s)", flush=True)
+    done = 0
+    for combo, cond, pk, sm in run_jobs(fit_job, fit_jobs, workers):
+        raw[(combo, cond)] = {"peaks": pk, "summary": sm}
+        done += 1
+        if workers > 1:
+            print(f"  [{done}/{len(fit_jobs)}] fitted "
+                  f"({time.time() - t0:.0f}s)", flush=True)
 
     rows = []
     for combo in combos:

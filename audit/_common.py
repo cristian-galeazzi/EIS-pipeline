@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import sys
 import zlib
+from collections.abc import Callable, Iterator
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -294,6 +296,27 @@ def score_condition(peak_rows: list[dict], summary_rows: list[dict],
             "n_long_tracks": n_long, "n_tracks": len(tracks),
             "conv_frac": round(conv, 2), "rmse_mean": round(rmse, 4),
             "npeaks_std": round(np_std, 2)}
+
+
+def run_jobs(fn: Callable, jobs: list, workers: int) -> Iterator:
+    """Yield fn(job) for every job, serially or via a BLAS-capped pool.
+
+    workers=1 runs in-process in job order (what the known-answer tests
+    use); otherwise results arrive in completion order from a
+    ProcessPoolExecutor whose workers cap their BLAS threads.
+
+    >>> list(run_jobs(len, [[1], [1, 2]], workers=1))
+    [1, 2]
+    """
+    if workers == 1:
+        for job in jobs:
+            yield fn(job)
+        return
+    from pipeline._worker import limit_blas_threads
+    with ProcessPoolExecutor(max_workers=workers,
+                             initializer=limit_blas_threads) as ex:
+        for fut in as_completed([ex.submit(fn, j) for j in jobs]):
+            yield fut.result()
 
 
 def load_session_entry(session_path: Path, sample_id: str) -> dict:

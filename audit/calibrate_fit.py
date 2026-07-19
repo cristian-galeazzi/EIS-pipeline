@@ -56,7 +56,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import product
 from pathlib import Path
 
@@ -72,6 +71,7 @@ from audit._common import (
     default_min_track_points,
     discover_conditions,
     load_condition_spectra,
+    run_jobs,
     run_slug,
     sample_settings,
     score_condition,
@@ -212,39 +212,23 @@ def run_fit_grid(sample_dir: Path, conditions: list[str], rbf_der: str,
     drt_cache: dict[str, list[dict]] = {}
     print(f"Phase 1: DRT (frozen set) on {len(drt_jobs)} conditions...",
           flush=True)
-    if workers == 1:
-        for job in drt_jobs:
-            c, res = drt_job(job)
-            drt_cache[c] = res
-    else:
-        from pipeline._worker import limit_blas_threads
-        with ProcessPoolExecutor(max_workers=workers,
-                                 initializer=limit_blas_threads) as ex:
-            for fut in as_completed([ex.submit(drt_job, j) for j in drt_jobs]):
-                c, res = fut.result()
-                drt_cache[c] = res
-                print(f"  DRT done ({time.time() - t0:.0f}s)", flush=True)
+    for c, res in run_jobs(drt_job, drt_jobs, workers):
+        drt_cache[c] = res
+        if workers > 1:
+            print(f"  DRT done ({time.time() - t0:.0f}s)", flush=True)
 
     combos = list(product(hf_weights, r_decs, tau_decs))
     fit_jobs = [(combo, c, drt_cache[c], settings, L_m, D_m)
                 for combo in combos for c in conditions]
     print(f"Phase 2: {len(fit_jobs)} fit jobs...", flush=True)
     raw: dict[tuple, dict] = {}
-    if workers == 1:
-        for job in fit_jobs:
-            combo, cond, res = fit_job(job)
-            raw[(combo, cond)] = res
-    else:
-        from pipeline._worker import limit_blas_threads
-        done = 0
-        with ProcessPoolExecutor(max_workers=workers,
-                                 initializer=limit_blas_threads) as ex:
-            for fut in as_completed([ex.submit(fit_job, j) for j in fit_jobs]):
-                combo, cond, res = fut.result()
-                raw[(combo, cond)] = res
-                done += 1
-                print(f"  [{done}/{len(fit_jobs)}] fitted "
-                      f"({time.time() - t0:.0f}s)", flush=True)
+    done = 0
+    for combo, cond, res in run_jobs(fit_job, fit_jobs, workers):
+        raw[(combo, cond)] = res
+        done += 1
+        if workers > 1:
+            print(f"  [{done}/{len(fit_jobs)}] fitted "
+                  f"({time.time() - t0:.0f}s)", flush=True)
 
     rows = []
     for combo in combos:
