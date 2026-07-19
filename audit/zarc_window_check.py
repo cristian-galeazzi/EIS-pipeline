@@ -51,7 +51,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from audit._common import DEFAULTS, load_session_entry
-from pipeline.fitting import resolve_condition_entry
+from pipeline.fitting import resolve_condition_entry, resolve_peak_windows
 
 DEFAULT_MARGIN = 0.15   # within 15% of the boundary (in decades) = "pinned"
 
@@ -83,12 +83,15 @@ def edge_distance(value: float, lo: float, hi: float) -> float:
     return min(log_v - log_lo, log_hi - log_v) / half if half > 0 else 0.0
 
 
-def check_rows(drt: pd.DataFrame, fit: pd.DataFrame, R_dec: float,
-               tau_dec: float, condition: str, margin: float) -> list[dict]:
+def check_rows(drt: pd.DataFrame, fit: pd.DataFrame,
+               R_dec: float | list[float], tau_dec: float | list[float],
+               condition: str, margin: float) -> list[dict]:
     """Boundary check of one condition from its DRT-seed and fit tables.
 
     `drt` needs columns T_nominal, peak_id, tau, R_approx; `fit` needs
     T_nominal, peak_id, tau_i, R_i. Rows are matched on (T_nominal, peak_id).
+    R_dec/tau_dec are scalars, or per-peak lists aligned with `drt` sorted
+    by peak_id (the resolve_peak_windows contract).
 
     >>> drt = pd.DataFrame([{"T_nominal": 600, "peak_id": 1,
     ...                      "tau": 1e-4, "R_approx": 100.0}])
@@ -97,14 +100,23 @@ def check_rows(drt: pd.DataFrame, fit: pd.DataFrame, R_dec: float,
     >>> row = check_rows(drt, fit, 0.7, 0.7, "c", 0.15)[0]
     >>> row["pinned_R"], row["pinned_tau"]
     (True, False)
+    >>> row = check_rows(drt, fit, [1.5], [0.7], "c", 0.15)[0]
+    >>> row["pinned_R"]
+    False
     """
+    dec_map: dict = {}
+    for i, (_, s) in enumerate(drt.sort_values("peak_id").iterrows()):
+        rd = R_dec[i] if isinstance(R_dec, (list, tuple)) else R_dec
+        td = tau_dec[i] if isinstance(tau_dec, (list, tuple)) else tau_dec
+        dec_map[s["peak_id"]] = (rd, td)
     merged = fit.merge(
         drt[["T_nominal", "peak_id", "tau", "R_approx"]],
         on=["T_nominal", "peak_id"], how="inner", suffixes=("", "_seed"))
     rows = []
     for _, r in merged.iterrows():
-        tau_lo, tau_hi = bounds_from_seed(r["tau"], tau_dec)
-        R_lo, R_hi = bounds_from_seed(r["R_approx"], R_dec)
+        rd, td = dec_map[r["peak_id"]]
+        tau_lo, tau_hi = bounds_from_seed(r["tau"], td)
+        R_lo, R_hi = bounds_from_seed(r["R_approx"], rd)
         d_tau = edge_distance(r["tau_i"], tau_lo, tau_hi)
         d_R = edge_distance(r["R_i"], R_lo, R_hi)
         rows.append({
@@ -120,13 +132,20 @@ def check_rows(drt: pd.DataFrame, fit: pd.DataFrame, R_dec: float,
     return rows
 
 
-def _condition_windows(entry: dict, condition: str) -> tuple[float, float]:
-    """R_dec/tau_dec for a condition: per-condition override, then
-    stage3_params, then the notebook defaults."""
+def _window_defaults(entry: dict, condition: str,
+                     T_int: int) -> tuple[float, float]:
+    """Scalar R_dec/tau_dec defaults: per-T override, then per-condition,
+    then stage3_params, then the notebook defaults (mirrors the stage-3
+    _resolve_zarc_params chain, str/int T keys both accepted)."""
     p3 = entry.get("stage3_params", {})
-    over = resolve_condition_entry(entry.get("condition_params", {}), condition)
-    R_dec = over.get("R_dec", p3.get("ZARC_R_DEC", DEFAULTS["R_dec"]))
-    tau_dec = over.get("tau_dec", p3.get("ZARC_TAU_DEC", DEFAULTS["tau_dec"]))
+    cond_ov = resolve_condition_entry(entry.get("condition_params", {}), condition)
+    t_ov = cond_ov.get(str(T_int), cond_ov.get(T_int, {}))
+    if not isinstance(t_ov, dict):
+        t_ov = {}
+    R_dec = t_ov.get("R_dec", cond_ov.get(
+        "R_dec", p3.get("ZARC_R_DEC", DEFAULTS["R_dec"])))
+    tau_dec = t_ov.get("tau_dec", cond_ov.get(
+        "tau_dec", p3.get("ZARC_TAU_DEC", DEFAULTS["tau_dec"])))
     return R_dec, tau_dec
 
 
@@ -157,9 +176,19 @@ def check_sample(sample_dir: Path, margin: float,
         except (ValueError, OSError) as exc:
             print(f"[WARN] {cond_dir.name}: {exc}", file=sys.stderr)
             continue
-        R_dec, tau_dec = _condition_windows(entry, cond_dir.name)
-        rows.extend(check_rows(drt, fit, R_dec, tau_dec,
-                               cond_dir.name, margin))
+        # per-T defaults + per-peak windows, exactly as the stage-3 batch
+        for T_val, grp in drt.groupby("T_nominal"):
+            T_int = int(T_val)
+            peaks = [{"peak_id": int(r["peak_id"])}
+                     for _, r in grp.sort_values("peak_id").iterrows()]
+            R_def, tau_def = _window_defaults(entry, cond_dir.name, T_int)
+            r_dec, tau_dec = resolve_peak_windows(
+                peaks, cond_dir.name, T_int,
+                windows=entry.get("zarc_peak_windows", {}) or {},
+                legacy=entry.get("zarc_peak_bounds", {}) or {},
+                r_dec_default=R_def, tau_dec_default=tau_def)
+            rows.extend(check_rows(grp, fit[fit["T_nominal"] == T_val],
+                                   r_dec, tau_dec, cond_dir.name, margin))
     return pd.DataFrame(rows) if rows else None
 
 
