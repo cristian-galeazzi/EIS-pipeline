@@ -58,23 +58,33 @@ def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
     Prompt for the sample to work on and return its folder name.
 
     Accepts either the number shown in the discovered-samples list or a
-    folder name typed directly. Falls back to a free-text prompt when no
-    sample folders are found. One implementation for all five notebooks.
+    folder name typed directly. A typed name outside the discovered list is
+    accepted only if that folder exists under ``notebook_dir`` (CSV-only
+    samples have no ``Raw data/`` so they never appear in the list). Empty or
+    unknown input re-prompts instead of being silently accepted, so a stray
+    Enter can no longer create a session entry with an empty sample_id.
+    One implementation for all five notebooks.
 
     >>> SAMPLE_ID = select_sample(".", show_list=True)  # doctest: +SKIP
     """
     import sys
 
-    found = discover_samples(Path(notebook_dir))
-    if not found:
-        return input("Sample folder name: ").strip()
-    if show_list:
+    base = Path(notebook_dir)
+    found = discover_samples(base)
+    if show_list and found:
         print("Available samples:")
         for i, name in enumerate(found, 1):
             print(f"  {i}. {name}")
         sys.stdout.flush()
-    sel = input("Sample number (or name): ").strip()
-    return found[int(sel) - 1] if sel.isdigit() and 1 <= int(sel) <= len(found) else sel
+    prompt = "Sample number (or name): " if found else "Sample folder name: "
+    while True:
+        sel = input(prompt).strip()
+        if sel.isdigit() and 1 <= int(sel) <= len(found):
+            return found[int(sel) - 1]
+        if sel and (sel in found or (base / sel).is_dir()):
+            return sel
+        hint = f"1-{len(found)} or an existing folder name" if found else "an existing folder name"
+        print(f"Invalid sample {sel!r}: enter {hint}.")
 
 
 def _normalize_param_mode(mode: str | bool) -> str:
