@@ -445,6 +445,15 @@ def test_session_canonical_key_order():
         assert on_disk[-1] == "custom_key", "unknown keys must trail"
 
 
+def test_session_file_anchored_to_repo_root():
+    """SESSION_FILE must be absolute and point at the notebook/repo root,
+    so a kernel started from another CWD cannot load a fresh session.json."""
+    import pipeline.session as _s
+    assert _s.SESSION_FILE.is_absolute()
+    assert _s.SESSION_FILE.parent == Path(_s.__file__).resolve().parent.parent
+    assert _s.SESSION_FILE.name == "session.json"
+
+
 def test_matching_classifies_windows():
     """match_ism_to_furnace: stable plateau VALID, ramp UNSTABLE, gap OUTSIDE."""
     import pandas as pd

@@ -22,7 +22,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-SESSION_FILE = Path("session.json")
+# Anchored to the repo root (where the stage notebooks live), not the CWD:
+# a kernel started elsewhere must not silently read/write a fresh session.json.
+SESSION_FILE = Path(__file__).resolve().parent.parent / "session.json"
 
 # Dict-of-dict keys holding per-condition calibrations: merged, never replaced
 # wholesale, because a notebook session may legitimately hold only a subset
