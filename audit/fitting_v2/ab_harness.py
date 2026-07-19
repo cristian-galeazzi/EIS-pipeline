@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import sys
 import time
 import zlib
@@ -51,7 +50,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from audit._common import DEFAULTS, load_condition_spectra
+from audit._common import DEFAULTS, load_condition_spectra, load_session_entry
 from audit.zarc_window_check import bounds_from_seed, edge_distance
 from audit.fitting_v2.v1_reference import fit_zarc_v1
 from pipeline.fitting import (fit_zarc, resolve_condition_entry,
@@ -240,12 +239,7 @@ def run_sample(sample_dir: Path, session_path: Path,
 
     >>> # See tests/test_fitting_v2_ab.py for a runnable example.
     """
-    try:
-        cfg = json.loads(session_path.read_text())
-        entry = next((s for s in cfg
-                      if s.get("sample_id") == sample_dir.name), {})
-    except (OSError, ValueError):
-        entry = {}
+    entry = load_session_entry(session_path, sample_dir.name)
     p3 = entry.get("stage3_params", {})
     include_r0 = p3.get("ZARC_INCLUDE_R0", False)
     r0_max = p3.get("ZARC_R0_MAX")

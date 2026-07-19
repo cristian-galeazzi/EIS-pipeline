@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -54,7 +53,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from audit._common import _load_record, _spectrum_dirs
+from audit._common import _load_record, _spectrum_dirs, load_session_entry
 from pipeline.quality import run_linkk, strip_inductive
 
 CSV_FIELDS = ["sample", "condition", "file", "mode", "N", "M", "mu",
@@ -81,12 +80,7 @@ def stage2_hard_limits(session_path: Path,
     >>> stage2_hard_limits(Path("does_not_exist.json"), "X")
     (None, None)
     """
-    try:
-        cfg = json.loads(session_path.read_text())
-        entry = next(s for s in cfg if s.get("sample_id") == sample_id)
-    except (OSError, ValueError, StopIteration):
-        return None, None
-    p2 = entry.get("stage2_params", {})
+    p2 = load_session_entry(session_path, sample_id).get("stage2_params", {})
     return p2.get("KK_F_MIN_HARD"), p2.get("KK_F_MAX_HARD")
 
 

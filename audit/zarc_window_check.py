@@ -40,7 +40,6 @@ Usage (from the repository root)
 from __future__ import annotations
 
 import argparse
-import json
 import math
 import sys
 from pathlib import Path
@@ -51,7 +50,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from audit._common import DEFAULTS
+from audit._common import DEFAULTS, load_session_entry
 from pipeline.fitting import resolve_condition_entry
 
 DEFAULT_MARGIN = 0.15   # within 15% of the boundary (in decades) = "pinned"
@@ -141,12 +140,7 @@ def check_sample(sample_dir: Path, margin: float,
 
     >>> # See tests/test_audit_zarc_window_check.py for a runnable example.
     """
-    try:
-        cfg = json.loads(session_path.read_text())
-        entry = next((s for s in cfg
-                      if s.get("sample_id") == sample_dir.name), {})
-    except (OSError, ValueError):
-        entry = {}
+    entry = load_session_entry(session_path, sample_dir.name)
 
     results_dir = sample_dir / "Results"
     if not results_dir.is_dir():

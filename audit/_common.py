@@ -7,7 +7,6 @@ public entry points are the scripts that import from here.
 """
 from __future__ import annotations
 
-import json
 import sys
 import zlib
 from pathlib import Path
@@ -22,6 +21,7 @@ if str(REPO) not in sys.path:
 
 from pipeline.drt import clip_spectrum
 from pipeline.ingest import load_csv_spectrum, load_ism
+from pipeline.session import load_sample
 
 K_B_EV = 8.617333e-5  # Boltzmann constant [eV/K]
 
@@ -296,6 +296,21 @@ def score_condition(peak_rows: list[dict], summary_rows: list[dict],
             "npeaks_std": round(np_std, 2)}
 
 
+def load_session_entry(session_path: Path, sample_id: str) -> dict:
+    """Session.json entry for a sample, {} when the file or entry is missing.
+
+    A corrupted session.json also falls back to {}: the audit scripts keep
+    running on the notebook defaults instead of aborting.
+
+    >>> load_session_entry(Path("does_not_exist.json"), "X")
+    {}
+    """
+    try:
+        return load_sample(sample_id, path=session_path)
+    except ValueError:
+        return {}
+
+
 def sample_settings(session_path: Path, sample_id: str) -> tuple[dict, float, float]:
     """Merge session.json stage3_params over the notebook defaults.
 
@@ -309,11 +324,7 @@ def sample_settings(session_path: Path, sample_id: str) -> tuple[dict, float, fl
     """
     settings = dict(DEFAULTS)
     L_m, D_m = 1e-3, 1e-2
-    try:
-        cfg = json.loads(session_path.read_text())
-        entry = next(s for s in cfg if s.get("sample_id") == sample_id)
-    except (OSError, ValueError, StopIteration):
-        return settings, L_m, D_m
+    entry = load_session_entry(session_path, sample_id)
     p3 = entry.get("stage3_params", {})
     key_map = {"peak_height_frac": "PEAK_HEIGHT_FRAC",
                "peak_min_dist_decades": "PEAK_MIN_DIST_DECADES",
