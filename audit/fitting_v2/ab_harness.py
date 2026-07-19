@@ -51,7 +51,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from audit._common import load_condition_spectra
+from audit._common import DEFAULTS, load_condition_spectra
 from audit.zarc_window_check import bounds_from_seed, edge_distance
 from audit.fitting_v2.v1_reference import fit_zarc_v1
 from pipeline.fitting import (fit_zarc, resolve_condition_entry,
@@ -85,9 +85,9 @@ def resolve_zarc_params(entry: dict, condition: str, T_int: int) -> dict:
     if not isinstance(t_ov, dict):
         t_ov = {}
     return {
-        "R_dec":      t_ov.get("R_dec",      cond_ov.get("R_dec",      p3.get("ZARC_R_DEC", 1.5))),
-        "tau_dec":    t_ov.get("tau_dec",    cond_ov.get("tau_dec",    p3.get("ZARC_TAU_DEC", 1.5))),
-        "alpha_init": t_ov.get("alpha_init", cond_ov.get("alpha_init", p3.get("ZARC_ALPHA_INIT", 0.8))),
+        "R_dec":      t_ov.get("R_dec",      cond_ov.get("R_dec",      p3.get("ZARC_R_DEC", DEFAULTS["R_dec"]))),
+        "tau_dec":    t_ov.get("tau_dec",    cond_ov.get("tau_dec",    p3.get("ZARC_TAU_DEC", DEFAULTS["tau_dec"]))),
+        "alpha_init": t_ov.get("alpha_init", cond_ov.get("alpha_init", p3.get("ZARC_ALPHA_INIT", DEFAULTS["alpha_init"]))),
         "hf_weight":  t_ov.get("hf_weight",  cond_ov.get("hf_weight",  p3.get("ZARC_HF_WEIGHT", 0.0))),
     }
 
