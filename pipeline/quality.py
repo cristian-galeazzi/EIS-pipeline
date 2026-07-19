@@ -560,8 +560,7 @@ def select_best_replica(kk_results: list[dict]) -> int:
 # ---------------------------------------------------------------------------
 
 def compute_frequency_cutoffs(
-    kk_result:     dict,
-    res_threshold: float = 0.05,   # kept for API compatibility - not used
+    kk_result: dict,
 ) -> tuple[Optional[float], Optional[float]]:
     """
     Return the frequency cutoffs stored in the Lin-KK result.
@@ -572,8 +571,7 @@ def compute_frequency_cutoffs(
 
     Parameters
     ----------
-    kk_result     : dict from run_linkk()
-    res_threshold : unused (kept for API compatibility)
+    kk_result : dict from run_linkk()
 
     Returns
     -------
