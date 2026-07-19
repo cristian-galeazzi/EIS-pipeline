@@ -31,6 +31,7 @@ from pipeline.model import KB_EV as K_B_EV  # Boltzmann constant [eV/K], shared
 DEFAULTS = {
     "peak_height_frac": 0.05,
     "peak_min_dist_decades": 0.3,
+    "peak_min_prom_decades": 0.3,  # 0/None = height-based mode, as in stage 3
     "include_r0": False,
     "r0_max": 200.0,
     "n_restarts": 4,
@@ -351,6 +352,7 @@ def sample_settings(session_path: Path, sample_id: str) -> tuple[dict, float, fl
     p3 = entry.get("stage3_params", {})
     key_map = {"peak_height_frac": "PEAK_HEIGHT_FRAC",
                "peak_min_dist_decades": "PEAK_MIN_DIST_DECADES",
+               "peak_min_prom_decades": "PEAK_MIN_PROM_DECADES",
                "include_r0": "ZARC_INCLUDE_R0", "r0_max": "ZARC_R0_MAX",
                "R_dec": "ZARC_R_DEC", "tau_dec": "ZARC_TAU_DEC",
                "alpha_init": "ZARC_ALPHA_INIT"}

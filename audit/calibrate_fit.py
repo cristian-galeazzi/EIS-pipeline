@@ -97,7 +97,8 @@ def drt_job(args: tuple) -> tuple:
                 find_drt_peaks(
                     entry,
                     min_height_frac=settings["peak_height_frac"],
-                    min_dist_decades=settings["peak_min_dist_decades"]),
+                    min_dist_decades=settings["peak_min_dist_decades"],
+                    min_prom_decades=settings["peak_min_prom_decades"] or None),
                 cap)
         except Exception as exc:
             print(f"[DRT ERROR] {condition} T={sp['T_nominal']}: {exc}",
