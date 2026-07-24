@@ -28,11 +28,9 @@ spectra from any other instrument, you start at stage 2. Full per-stage detail
 and every parameter are in [docs/STAGES.md](docs/STAGES.md).
 
 Stage 5 fits the whole conductivity surface of each process at once. The
-surface above is the bundled synthetic sample: a mixed conductor with an n-type
-branch at low p(O₂), an ionic plateau, and a p-type branch at high p(O₂), shown
-again here with the fit residuals in view.
-
-![Stage 5 global fit of the conductivity surface for the example sample](docs/img/stage5_surface3d.png)
+surface shown at the top of this page is the bundled synthetic sample: a mixed
+conductor with an n-type branch at low p(O₂), an ionic plateau, and a p-type
+branch at high p(O₂).
 
 ## Quickstart
 
