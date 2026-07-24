@@ -78,7 +78,7 @@ expands to per-file tables when a mismatch is detected (or with
 
 ## Stage 2: Lin-KK validity test
 
-<!-- img-slot: docs/img/stage2_kk_panel.png -->
+<!-- img-slot: img/stage2_kk_panel.png -->
 
 A spectrum is worth fitting only if it describes a causal, linear,
 time-invariant system. The Lin-KK test (Schönleber et al. 2014) checks this
@@ -131,9 +131,9 @@ is always judged by the W statistics.
 
 ## Stage 3: DRT deconvolution and Zarc fit
 
-![Stage 3 DRT panel: an example spectrum deconvolved into two clean peaks](docs/img/stage3_drt_panel.png)
-![Stage 3 Zarc fit controls: per-element R and tau search windows](docs/img/stage3_fit_panel.png)
-![Nyquist with the fitted Zarc circuit and relative residuals](docs/img/stage3_fit_nyquist.png)
+![Stage 3 DRT panel: an example spectrum deconvolved into two clean peaks](img/stage3_drt_panel.png)
+![Stage 3 Zarc fit controls: per-element R and tau search windows](img/stage3_fit_panel.png)
+![Nyquist with the fitted Zarc circuit and relative residuals](img/stage3_fit_nyquist.png)
 
 The distribution of relaxation times decomposes the impedance response as
 
@@ -229,8 +229,8 @@ and the Arrhenius behaviour; starting-point thresholds from Vendrell & West
 
 ## Stage 4: figures and per-isotherm analysis
 
-<!-- img-slot: docs/img/stage4_nyquist.png -->
-![Brouwer diagram of the example bulk process: n branch at low pO2, ionic plateau, p branch at high pO2](docs/img/stage4_brouwer.png)
+<!-- img-slot: img/stage4_nyquist.png -->
+![Brouwer diagram of the example bulk process: n branch at low pO2, ionic plateau, p branch at high pO2](img/stage4_brouwer.png)
 
 Reads the stage-3 outputs and generates publication figures (PNG + PDF):
 per condition the DRT stack, Nyquist, Bode and a 2×2 Arrhenius panel; across
@@ -309,7 +309,7 @@ its Eₐ is an effective value for the block.
 
 ## Stage 5: global MIEC model
 
-![Stage 5 global fit: the σ(pO2, T) surface with the measured points on it](docs/img/stage5_surface3d.png)
+![Stage 5 global fit: the σ(pO2, T) surface with the measured points on it](img/stage5_surface3d.png)
 
 The stage-4 decomposition treats each isotherm in isolation and drops
 temperatures with too few p(O₂) points. Stage 5 removes both limitations by

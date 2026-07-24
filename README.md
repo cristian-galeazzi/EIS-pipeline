@@ -10,7 +10,9 @@ files (or plain CSV spectra) to publication figures and a global conductivity
 model in six sequential Jupyter notebooks, with every methodological choice
 documented, tested, and reproducible.
 
-![DRT deconvolution of an example spectrum into two relaxation processes, with the interactive tuning panel](docs/img/stage3_drt_panel.png)
+![Stage 5 global fit: the σ(p(O₂), T) conductivity surface with the measured points on it](docs/img/stage5_surface3d.png)
+
+From raw spectra to a global conductivity model. The per-stage figures that lead here are in [docs/STAGES.md](docs/STAGES.md).
 
 | Stage | Notebook | What it does |
 | ----- | -------- | ------------ |
@@ -26,8 +28,9 @@ spectra from any other instrument, you start at stage 2. Full per-stage detail
 and every parameter are in [docs/STAGES.md](docs/STAGES.md).
 
 Stage 5 fits the whole conductivity surface of each process at once. The
-example below is the bundled synthetic sample: a mixed conductor with an n-type
-branch at low p(O₂), an ionic plateau, and a p-type branch at high p(O₂).
+surface above is the bundled synthetic sample: a mixed conductor with an n-type
+branch at low p(O₂), an ionic plateau, and a p-type branch at high p(O₂), shown
+again here with the fit residuals in view.
 
 ![Stage 5 global fit of the conductivity surface for the example sample](docs/img/stage5_surface3d.png)
 
@@ -103,8 +106,7 @@ This repository contains code only. No measurement data, fitted parameters or
 sample identifiers are committed. Sample names are entered at runtime and kept
 locally in `session.json` (gitignored). Raw files are never modified, and no
 network calls are made. Scientific work and methodological decisions are the
-author's own; the Python implementation was developed with AI coding
-assistance and validated against experimental data.
+author's own.
 
 ## References
 
@@ -113,6 +115,14 @@ assistance and validated against experimental data.
 - M. D. Murbach et al., *impedance.py: A Python package for electrochemical impedance analysis*, J. Open Source Softw. 5(52) (2020) 2349.
 
 The full reference list is in [docs/STAGES.md](docs/STAGES.md).
+
+## AI assistance
+
+This software was developed with the assistance of Claude (Anthropic): the
+initial version with Claude Fable, later revisions with Claude Opus. Every
+change was supervised and reviewed by the author, who remains solely
+responsible for the method, the validation suite and any result published
+using this software.
 
 ## License
 
