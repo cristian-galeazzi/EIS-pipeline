@@ -65,6 +65,8 @@ analysis_audit/
 
 # Bundled synthetic example sample (no real measurements; committable)
 !EXAMPLE_SAMPLE/**/*.csv
+# README/docs demo images (synthetic figures or UI screenshots; committable)
+!docs/img/**
 # public, synthetic-only validation record of the engine migration
 !audit/fitting_v2/results/*.csv
 
