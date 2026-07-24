@@ -230,7 +230,7 @@ and the Arrhenius behaviour; starting-point thresholds from Vendrell & West
 ## Stage 4: figures and per-isotherm analysis
 
 <!-- img-slot: docs/img/stage4_nyquist.png -->
-<!-- img-slot: docs/img/stage4_brouwer.png -->
+![Brouwer diagram of the example bulk process: n branch at low pO2, ionic plateau, p branch at high pO2](docs/img/stage4_brouwer.png)
 
 Reads the stage-3 outputs and generates publication figures (PNG + PDF):
 per condition the DRT stack, Nyquist, Bode and a 2×2 Arrhenius panel; across
@@ -309,7 +309,7 @@ its Eₐ is an effective value for the block.
 
 ## Stage 5: global MIEC model
 
-<!-- img-slot: docs/img/stage5_surface3d.png -->
+![Stage 5 global fit: the σ(pO2, T) surface with the measured points on it](docs/img/stage5_surface3d.png)
 
 The stage-4 decomposition treats each isotherm in isolation and drops
 temperatures with too few p(O₂) points. Stage 5 removes both limitations by

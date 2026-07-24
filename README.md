@@ -25,6 +25,12 @@ Stages 0 and 1 are the optional Zahner furnace-log front-end. If you bring CSV
 spectra from any other instrument, you start at stage 2. Full per-stage detail
 and every parameter are in [docs/STAGES.md](docs/STAGES.md).
 
+Stage 5 fits the whole conductivity surface of each process at once. The
+example below is the bundled synthetic sample: a mixed conductor with an n-type
+branch at low p(O₂), an ionic plateau, and a p-type branch at high p(O₂).
+
+![Stage 5 global fit of the conductivity surface for the example sample](docs/img/stage5_surface3d.png)
+
 ## Quickstart
 
 ```bash
