@@ -42,7 +42,7 @@ saves them to `session.json`, so later stages pick up where the previous one
 left off. Conditions and temperatures are discovered from the folder names.
 
 **Try it without data:** the repository bundles `EXAMPLE_SAMPLE/`, a synthetic
-sample (nine p(O₂) conditions from 1 bar down to 1e-15 bar, five temperatures,
+sample (eight p(O₂) conditions from 1 bar down to 1e-12 bar, five temperatures,
 two-Zarc spectra of a mixed n + ionic + p-type bulk and a pure-ionic grain
 boundary, with realistic noise, regenerable with
 `python tools/generate_example_sample.py`). The wide pressure span draws the

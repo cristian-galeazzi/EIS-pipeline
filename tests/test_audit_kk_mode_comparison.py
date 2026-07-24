@@ -21,7 +21,7 @@ if str(_ROOT) not in sys.path:
 
 from audit import kk_mode_comparison as kkc
 
-N_SPECTRA = 45   # 9 conditions x 5 temperatures
+N_SPECTRA = 40   # 8 conditions x 5 temperatures
 PCTS = {"pct76": 0.76, "pct50": 0.50}
 
 

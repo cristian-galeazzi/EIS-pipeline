@@ -1,7 +1,7 @@
 """
 Generate the bundled synthetic sample (EXAMPLE_SAMPLE/).
 
-Nine oxygen partial pressures x five temperatures of two-Zarc impedance
+Eight oxygen partial pressures x five temperatures of two-Zarc impedance
 spectra, written as CSVs in the non-Zahner input format so anyone can run
 stages 2-5 without real measurements. Deterministic: same seed, same files.
 
@@ -22,7 +22,7 @@ electrons, ionic, p-type holes), so its Brouwer diagram is a full bathtub: the
 p branch rises at high pO2, the ionic plateau is flat in the middle, and the
 n branch rises at low pO2, with the electronic minimum near pO2 = 1e-6 bar.
 Process 2 (grain boundary) is a pure ionic conductor, so its Brouwer diagram
-is flat. The pO2 grid spans 1 bar down to 1e-15 bar to sample both electronic
+is flat. The pO2 grid spans 1 bar down to 1e-12 bar to sample both electronic
 branches; the four oxidizing conditions still read as a clean ion+p bulk (the
 n channel is 0.5% of ionic there), matching what the audit tests expect.
 
@@ -57,20 +57,21 @@ BROUWER_X = 0.25           # p(O2) exponent (dilute regime)
 R0 = 120.0                 # series resistance [ohm]
 
 # (condition folder name, pO2 [bar]) - a full Brouwer sweep from oxidizing
-# (p-type branch) through the ionic plateau to reducing (n-type branch). pO2 is
-# carried in each CSV's pO2 column; the reducing folder gas tokens (Ar/N2/H2)
-# only need to parse. The four oxidizing names are fixed: the audit DRT/fit
-# known-answer tests look them up in this list.
+# (p-type branch) through the ionic plateau to reducing (n-type branch). The
+# reducing side is an Ar/H2 forming-gas series with H2 rising as pO2 falls, the
+# way a real reducing atmosphere is set (pure Ar/O2 cannot go below ~1e-5 bar).
+# pO2 is authoritative from each CSV's pO2 column, as it would come from the
+# lambda probe; the gas tokens are valve-setpoint labels. The four oxidizing
+# names are fixed: the audit DRT/fit known-answer tests look them up here.
 CONDITIONS = [
     ("O2-100_600_400_50",      1.00),
     ("Ar-80_O2-20_600_400_50", 0.20),
     ("Ar-95_O2-5_600_400_50",  0.05),
     ("Ar-99_O2-1_600_400_50",  0.01),
     ("Ar-100_600_400_50",      1.0e-4),
-    ("Ar-97_H2-3_600_400_50",  1.0e-6),
-    ("Ar-95_H2-5_600_400_50",  1.0e-9),
-    ("N2-95_H2-5_600_400_50",  1.0e-12),
-    ("N2-90_H2-10_600_400_50", 1.0e-15),
+    ("Ar-99_H2-1_600_400_50",  1.0e-6),
+    ("Ar-97_H2-3_600_400_50",  1.0e-9),
+    ("Ar-95_H2-5_600_400_50",  1.0e-12),
 ]
 
 # Each process: constant C_eff [F], Zarc depression alpha, and a list of
