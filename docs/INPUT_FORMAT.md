@@ -79,7 +79,7 @@ EIS-pipeline/
         └── pO2/            ← Brouwer + transference + stage5_model.xlsx
 ```
 
-**Requirements:** Python ≥ 3.10 and the pinned `requirements.txt`:
+**Requirements:** Python ≥ 3.11 and the pinned `requirements.txt`:
 `zahner_analysis` (.ism reader), `pyDRTtools` (DRT), `impedance` (circuit
 fit), `scipy`/`numpy`, `pandas`/`openpyxl` (Excel I/O), `matplotlib`,
 `ipywidgets` (interactive panels, stages 0-5).

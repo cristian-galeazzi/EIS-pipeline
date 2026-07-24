@@ -2,7 +2,7 @@
 
 ![tests](https://github.com/cristian-galeazzi/EIS-pipeline/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![python](https://img.shields.io/badge/python-3.11%2B-blue)
 
 Python pipeline for electrochemical impedance spectroscopy of high-resistance
 ceramic electrolytes and mixed conductors. It goes from raw Zahner `.ism`
@@ -86,7 +86,7 @@ parameters are documented in [docs/STAGES.md](docs/STAGES.md).
 
 ## Requirements
 
-Python ≥ 3.10 and the pinned `requirements.txt`: `zahner_analysis` (.ism
+Python ≥ 3.11 and the pinned `requirements.txt`: `zahner_analysis` (.ism
 reader), `pyDRTtools` (DRT), `impedance` (circuit fit), `scipy`/`numpy`,
 `pandas`/`openpyxl` (Excel I/O), `matplotlib`, `ipywidgets` (interactive
 panels).
