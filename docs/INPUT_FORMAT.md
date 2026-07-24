@@ -45,7 +45,7 @@ data) those p(O₂) steps are skipped.
 ## Folder layout
 
 ```
-eis-pipeline/
+EIS-pipeline/
 │
 ├── pipeline/               ← calculation engine and helpers
 │   ├── ingest.py           ← .ism reader + CSV entry point

@@ -36,7 +36,7 @@ branch at high p(O₂).
 
 ```bash
 git clone https://github.com/cristian-galeazzi/EIS-pipeline.git
-cd eis-pipeline
+cd EIS-pipeline
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 jupyter lab          # or open the folder in VS Code
