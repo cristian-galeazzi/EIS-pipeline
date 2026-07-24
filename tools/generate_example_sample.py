@@ -1,7 +1,7 @@
 """
 Generate the bundled synthetic sample (EXAMPLE_SAMPLE/).
 
-Four oxygen partial pressures x five temperatures of two-Zarc impedance
+Nine oxygen partial pressures x five temperatures of two-Zarc impedance
 spectra, written as CSVs in the non-Zahner input format so anyone can run
 stages 2-5 without real measurements. Deterministic: same seed, same files.
 
@@ -17,12 +17,14 @@ that every downstream figure is meaningful, not just well-formed:
   * C_eff = tau / R is held constant per process (a T-independent geometric
     capacitance), so tau tracks R and the peak walks in frequency with T.
 
-Process 1 (bulk) is a mixed conductor (ionic + p-type): its Brouwer diagram
-has a real positive slope and its transference numbers are non-trivial.
-Process 2 (grain boundary) is a pure ionic conductor: its Brouwer diagram is
-flat. Together they exercise the ion+p channels of the Stage 5 fit while the
-measured pO2 window (1e-2 to 1 bar) is never reducing enough to justify an
-n-type channel, matching the defect-chemistry channel-selection rule.
+Process 1 (bulk) is a mixed conductor with all three channels (n-type
+electrons, ionic, p-type holes), so its Brouwer diagram is a full bathtub: the
+p branch rises at high pO2, the ionic plateau is flat in the middle, and the
+n branch rises at low pO2, with the electronic minimum near pO2 = 1e-6 bar.
+Process 2 (grain boundary) is a pure ionic conductor, so its Brouwer diagram
+is flat. The pO2 grid spans 1 bar down to 1e-15 bar to sample both electronic
+branches; the four oxidizing conditions still read as a clean ion+p bulk (the
+n channel is 0.5% of ionic there), matching what the audit tests expect.
 
 The pO2 value of each condition is written into a `pO2` column of every CSV;
 `ingest.load_csv_spectrum` reads it, which is what makes Stage 4/5 testable.
@@ -54,25 +56,33 @@ GEOM = L_M / (math.pi * (D_M / 2.0) ** 2)   # L / A [1/m]
 BROUWER_X = 0.25           # p(O2) exponent (dilute regime)
 R0 = 120.0                 # series resistance [ohm]
 
-# (condition folder name, pO2 [bar]) - a two-decade oxidizing pO2 sweep.
-# Four points per isotherm so the Stage 4 transference decomposition (NNLS on
-# sigma_ion + sigma_p*pO2^+x + sigma_n*pO2^-x) has enough pO2 leverage.
+# (condition folder name, pO2 [bar]) - a full Brouwer sweep from oxidizing
+# (p-type branch) through the ionic plateau to reducing (n-type branch). pO2 is
+# carried in each CSV's pO2 column; the reducing folder gas tokens (Ar/N2/H2)
+# only need to parse. The four oxidizing names are fixed: the audit DRT/fit
+# known-answer tests look them up in this list.
 CONDITIONS = [
     ("O2-100_600_400_50",      1.00),
     ("Ar-80_O2-20_600_400_50", 0.20),
     ("Ar-95_O2-5_600_400_50",  0.05),
     ("Ar-99_O2-1_600_400_50",  0.01),
+    ("Ar-100_600_400_50",      1.0e-4),
+    ("Ar-97_H2-3_600_400_50",  1.0e-6),
+    ("Ar-95_H2-5_600_400_50",  1.0e-9),
+    ("N2-95_H2-5_600_400_50",  1.0e-12),
+    ("N2-90_H2-10_600_400_50", 1.0e-15),
 ]
 
 # Each process: constant C_eff [F], Zarc depression alpha, and a list of
 # conductivity channels (sigma600 [S/m] at 600 C and pO2=1, Ea [eV], pO2 expo).
 PROCESSES = [
-    {   # bulk: mixed ionic + p-type conductor
+    {   # bulk: mixed conductor, full Brouwer (n + ionic + p)
         # C_eff set so tau(600 C) ~ 2e-6 s at the Ar-80/O2-20 reference
         "C_eff": 3.2e-10, "alpha": 0.90,
         "channels": [
+            (4.7e-6, 1.25, -BROUWER_X),   # n-type electrons (low pO2)
             (1.5e-3, 0.90, 0.0),          # ionic
-            (2.0e-3, 1.05, +BROUWER_X),   # p-type
+            (4.7e-3, 1.05, +BROUWER_X),   # p-type holes (high pO2)
         ],
     },
     {   # grain boundary: pure ionic conductor; tau(600 C) ~ 3e-4 s
