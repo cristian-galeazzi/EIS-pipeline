@@ -1,6 +1,6 @@
 # EIS Analysis Pipeline
 
-![tests](https://github.com/cristian-galeazzi/eis-pipeline/actions/workflows/tests.yml/badge.svg)
+![tests](https://github.com/cristian-galeazzi/EIS-pipeline/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 
@@ -28,7 +28,7 @@ and every parameter are in [docs/STAGES.md](docs/STAGES.md).
 ## Quickstart
 
 ```bash
-git clone https://github.com/cristian-galeazzi/eis-pipeline.git
+git clone https://github.com/cristian-galeazzi/EIS-pipeline.git
 cd eis-pipeline
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
