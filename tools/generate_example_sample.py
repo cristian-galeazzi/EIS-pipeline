@@ -46,7 +46,10 @@ K_B = 8.617333e-5          # eV/K
 T600_K = 873.15            # reference temperature (600 C) in K
 TEMPS_C = [600, 550, 500, 450, 400]
 N_POINTS = 40
-F_MAX, F_MIN = 1.0e6, 0.5
+# F_MIN reaches 0.1 Hz so the slow grain-boundary arc is fully captured at the
+# lowest temperatures; a 0.5 Hz floor left a low-frequency DRT edge artifact
+# (a spurious third peak) on one reducing spectrum at the shipped defaults.
+F_MAX, F_MIN = 1.0e6, 0.1
 
 # Sample geometry (must match the L_m / D_m entered in the notebooks): the
 # generator converts sigma -> R through the same L / A the pipeline inverts.

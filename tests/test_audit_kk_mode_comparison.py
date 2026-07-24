@@ -35,16 +35,22 @@ def test_table_shape_and_window_retention():
     rows = _rows()
     assert len(rows) == N_SPECTRA * 3
     assert all(set(r) == set(kkc.CSV_FIELDS) for r in rows)
-    full = np.log10(1.0e6) - np.log10(0.5)      # generator f range
+    full = np.log10(1.0e6) - np.log10(0.1)      # generator f range
     for r in rows:
         kept = np.log10(r["f_max_cut"]) - np.log10(r["f_min_cut"])
-        # Percentage modes fit enough RC elements to read the causal data as
-        # clean and keep the whole window; binary-M "auto" minimises M,
-        # underfits the widest low-T spectra and trims more (the audit exists
-        # to expose this, justifying the percentage default).
-        # auto (binary M) underfits the widest spectra: looser floors than the
-        # percentage modes, which read the causal data as clean.
-        ret_floor, score_floor = (0.60, 0.70) if r["mode"] == "auto" else (0.95, 0.75)
+        # pct76 is the production RC density: it fits enough elements to read
+        # the causal data as clean and keep the whole window, so it holds a
+        # tight score floor. The low-density comparison modes underfit the
+        # widest low-T spectra (the audit exists to expose this): binary-M
+        # "auto" also trims more of the window, and pct50 leaves slightly
+        # less-normal residuals now that F_MIN reaches 0.1 Hz (sparser per
+        # decade). Both keep a looser score floor.
+        if r["mode"] == "pct76":
+            ret_floor, score_floor = 0.95, 0.80
+        elif r["mode"] == "pct50":
+            ret_floor, score_floor = 0.95, 0.70
+        else:  # auto (binary M)
+            ret_floor, score_floor = 0.60, 0.70
         assert kept / full >= ret_floor, (r["file"], r["mode"])
         assert score_floor <= r["kk_score"] <= 1.0, (r["file"], r["mode"])
 
@@ -55,7 +61,7 @@ def test_percentage_mode_M_contract():
             continue
         # M is chosen on the pass-2 spectrum: N points inside the final cuts
         # of the 40-point grid; reconstruct that count from the log spacing
-        grid = np.logspace(np.log10(1.0e6), np.log10(0.5), 40)
+        grid = np.logspace(np.log10(1.0e6), np.log10(0.1), 40)
         n2 = int(np.sum((grid >= r["f_min_cut"] * 0.999)
                         & (grid <= r["f_max_cut"] * 1.001)))
         assert r["M"] == round(PCTS[r["mode"]] * n2), (r["file"], r["mode"])
