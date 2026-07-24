@@ -131,7 +131,9 @@ is always judged by the W statistics.
 
 ## Stage 3: DRT deconvolution and Zarc fit
 
-<!-- img-slot: docs/img/stage3_drt_panel.png -->
+![Stage 3 DRT panel: an example spectrum deconvolved into two clean peaks](docs/img/stage3_drt_panel.png)
+![Stage 3 Zarc fit controls: per-element R and tau search windows](docs/img/stage3_fit_panel.png)
+![Nyquist with the fitted Zarc circuit and relative residuals](docs/img/stage3_fit_nyquist.png)
 
 The distribution of relaxation times decomposes the impedance response as
 

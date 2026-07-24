@@ -10,7 +10,7 @@ files (or plain CSV spectra) to publication figures and a global conductivity
 model in six sequential Jupyter notebooks, with every methodological choice
 documented, tested, and reproducible.
 
-<!-- hero-img: docs/img/<hero>.png added once the screenshot exists -->
+![DRT deconvolution of an example spectrum into two relaxation processes, with the interactive tuning panel](docs/img/stage3_drt_panel.png)
 
 | Stage | Notebook | What it does |
 | ----- | -------- | ------------ |
