@@ -355,3 +355,33 @@ activation energy, and the conductivity-minimum prediction is reported only
 when both electronic channels are present. Outputs:
 `Results/pO2/stage5_model.xlsx`, the `Stage5_*` figures, and
 `session.json → stage5_params`.
+
+---
+
+## References
+
+**Lin-KK**
+
+- M. Schönleber, D. Klotz, E. Ivers-Tiffée, *A method for improving the robustness of linear Kramers-Kronig validity tests*, Electrochim. Acta 131 (2014) 20-27.
+- B. A. Boukamp, *A linear Kronig-Kramers transform test for immittance data validation*, J. Electrochem. Soc. 142 (1995) 1885-1894.
+
+**DRT**
+
+- T. H. Wan, M. Saccoccio, C. Chen, F. Ciucci, *Influence of the discretization methods on the distribution of relaxation times deconvolution: implementing radial basis functions with DRTtools*, Electrochim. Acta 184 (2015) 483-499.
+- A. Maradesa, B. Py, T. H. Wan, M. B. Effat, F. Ciucci, *Selecting the regularization parameter in the distribution of relaxation times*, J. Electrochem. Soc. 170 (2023) 030502. (Cited for the automatic λ-selection methods exposed by `DRT_CV_TYPE`; the validated default uses a fixed λ.)
+
+**Equivalent circuits**
+
+- J. T. S. Irvine, D. C. Sinclair, A. R. West, *Electroceramics: characterization by impedance spectroscopy*, Adv. Mater. 2 (1990) 132-138.
+- X. Vendrell, A. R. West, *Electrical properties of yttria-stabilized zirconia, YSZ single crystal: local AC and long range DC conduction*, J. Electrochem. Soc. 165 (2018) F966-F975.
+
+**Software used by the engine**
+
+- M. D. Murbach, B. Gerwe, N. Dawson-Elli, L.-k. Tsui, *impedance.py: A Python package for electrochemical impedance analysis*, J. Open Source Softw. 5(52) (2020) 2349.
+- pyDRTtools (Ciucci group), https://github.com/ciuccislab/pyDRTtools - implementation of the DRT method of Wan et al. (2015).
+
+**Scientific computing**
+
+- G. Wilson et al., *Best Practices for Scientific Computing*, PLoS Biology 12(1) (2014) e1001745.
+- G. Wilson et al., *Good Enough Practices in Scientific Computing*, PLoS Computational Biology 13(6) (2017) e1005510.
+- A. Scopatz, K. D. Huff, *Effective Computation in Physics*, O'Reilly Media (2015).
