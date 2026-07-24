@@ -5,8 +5,46 @@ type: software
 authors:
   - family-names: Galeazzi
     given-names: Cristian
+    orcid: "https://orcid.org/0009-0006-7150-2659"
 license: MIT
 repository-code: "https://github.com/cristian-galeazzi/eis-pipeline"
-version: 1.0.0
-date-released: "2026-06-12"
+version: 1.1.0
+date-released: "2026-07-24"
+keywords:
+  - electrochemical impedance spectroscopy
+  - distribution of relaxation times
+  - equivalent circuit fitting
+  - mixed ionic-electronic conductor
+  - solid electrolyte
+abstract: >-
+  A six-stage Python pipeline for electrochemical impedance spectroscopy of
+  high-resistance ceramic electrolytes and mixed conductors: Lin-KK validation,
+  Tikhonov DRT deconvolution, Zarc equivalent-circuit fitting, and a global
+  MIEC conductivity model, with reproducible, tested outputs.
+references:
+  - type: software
+    title: "pyDRTtools"
+    authors:
+      - family-names: Wan
+        given-names: Ting Hei
+      - family-names: Ciucci
+        given-names: Francesco
+    url: "https://github.com/ciuccislab/pyDRTtools"
+    notes: "Tikhonov DRT deconvolution (Wan et al., Electrochim. Acta 184, 2015)."
+  - type: software
+    title: "impedance.py"
+    authors:
+      - family-names: Murbach
+        given-names: Matthew D.
+      - family-names: Gerwe
+        given-names: Brian
+      - family-names: Dawson-Elli
+        given-names: Neal
+      - family-names: Tsui
+        given-names: Lok-kun
+    doi: "10.21105/joss.02349"
+    notes: "Zarc equivalent-circuit fitting (J. Open Source Softw. 5(52), 2020)."
+  - type: software
+    title: "zahner_analysis"
+    notes: "Reads Zahner .ism binary spectra."
 # doi: 10.5281/zenodo.XXXXXXX   # added after the first Zenodo release
