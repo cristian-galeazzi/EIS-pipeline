@@ -13,9 +13,9 @@ Notation used throughout: a spectrum is a set of complex impedances
 $Z(\omega_i) = Z'(\omega_i) + j Z''(\omega_i)$ measured at angular frequencies
 $\omega_i = 2\pi f_i$, $i = 1 \dots N$. Boltzmann's constant is written $k_B$
 throughout, since a bare $k$ already indexes channels and RC elements below.
-The pipeline stores $Z''$ positive in the capacitive region and
-flips the sign where the physical convention is needed (see the sign note
-in `CLAUDE.md`).
+The pipeline stores $Z''$ positive in the capacitive region, the convention
+required of CSV input ([docs/INPUT_FORMAT.md](INPUT_FORMAT.md)), and flips the
+sign only where a step expects the physical one.
 
 ---
 
@@ -30,7 +30,9 @@ so the linearized test fits the measured spectrum with a basis that
 satisfies KK **by construction**: a series of $M$ RC relaxations with fixed,
 log-spaced time constants $\tau_k$ spanning the measured window,
 
-$$Z_\text{KK}(\omega) = R_\text{ohm} + \sum_{k=1}^{M} \frac{R_k}{1 + j\omega\tau_k}$$
+```math
+Z_\text{KK}(\omega) = R_\text{ohm} + \sum_{k=1}^{M} \frac{R_k}{1 + j\omega\tau_k}
+```
 
 Only the weights $R_k$ (and $R_\text{ohm}$) are unknown, and they enter
 linearly, so the fit is a plain linear least-squares solve; the $R_k$ may be negative
@@ -42,20 +44,24 @@ instrument artifacts).
 Residuals are magnitude-normalized so that both arcs of very different
 size count equally:
 
-$$r_\text{re}(\omega_i) = \frac{Z'_\text{meas}(\omega_i) - Z'_\text{KK}(\omega_i)}{|Z(\omega_i)|}, \qquad r_\text{im}(\omega_i) = \frac{Z''_\text{meas}(\omega_i) - Z''_\text{KK}(\omega_i)}{|Z(\omega_i)|}$$
+```math
+r_\text{re}(\omega_i) = \frac{Z'_\text{meas}(\omega_i) - Z'_\text{KK}(\omega_i)}{|Z(\omega_i)|}, \qquad r_\text{im}(\omega_i) = \frac{Z''_\text{meas}(\omega_i) - Z''_\text{KK}(\omega_i)}{|Z(\omega_i)|}
+```
 
 **Choice of M.** Too few RC elements underfit (structure left in the
 residual); too many overfit and start reproducing the noise, which shows up
 as adjacent weights $R_k$, $R_{k+1}$ of alternating sign. The sign-change
 fraction
 
-$$\mu(M) = \frac{\text{number of adjacent pairs with opposite sign}}{M - 1}$$
+```math
+\mu(M) = \frac{\text{number of adjacent pairs with opposite sign}}{M - 1}
+```
 
 runs from about 0 (underfit) to about 1 (overfit). The automatic mode scans $M$
 upward from 3 and stops at the smallest $M$ with $\mu \geq 0.50$
 (`_find_optimal_M(mu_target=0.50)`); the scan is linear because $\mu(M)$ is not
 monotonic, so bisection could skip valid $M$. The fixed mode uses
-$M = \operatorname{round}(c N)$ with the density $c$ (`KK_C` in the stage-2
+$M = \text{round}(c N)$ with the density $c$ (`KK_C` in the stage-2
 notebook) calibrated once per instrument/dataset class. When no $M$ in
 $[3, N-1]$ reaches $\mu \geq$ `mu_target`, the scan falls back to the fixed
 mode with $c = 0.85$ rather than failing, so a spectrum that never reaches the
@@ -69,7 +75,9 @@ normality test with $W \geq 0.95$, evaluated after edge trimming.
 extremes. Pass 1 fits the full spectrum and walks inward from each edge; a
 point is cut while its $|r|$ exceeds an adaptive fence
 
-$$\text{fence} = Q_3^\text{interior} + k_\text{IQR}\,\text{IQR}^\text{interior}$$
+```math
+\text{fence} = Q_3^\text{interior} + k_\text{IQR}\,\text{IQR}^\text{interior}
+```
 
 ($Q_3$ and IQR of the interior residuals; `KK_IQR_FENCE`, default 2.0) until
 `KK_IQR_WINDOW` consecutive clean points confirm the boundary. Pass 2
@@ -87,14 +95,18 @@ fit sees the same validated window.
 The DRT model writes the polarization part of the impedance as a continuous
 superposition of ideal RC relaxations with distribution $\gamma(\tau)$:
 
-$$Z(\omega) = R_\infty + \int_{-\infty}^{+\infty} \frac{\gamma(\ln\tau)}{1 + j\omega\tau}\, d(\ln\tau)$$
+```math
+Z(\omega) = R_\infty + \int_{-\infty}^{+\infty} \frac{\gamma(\ln\tau)}{1 + j\omega\tau}\, d(\ln\tau)
+```
 
 Recovering $\gamma$ from $Z$ sampled at $N$ frequencies is a Fredholm integral
 equation of the first kind: ill-posed, so plain least squares amplifies
 noise into spurious oscillations of $\gamma$. Tikhonov regularization restores
 well-posedness by penalizing rough solutions:
 
-$$\min_{\gamma}\; \lVert Z_\text{meas} - Z_\text{model}[\gamma] \rVert^2 + \lambda \lVert L\gamma \rVert^2$$
+```math
+\min_{\gamma}\; \lVert Z_\text{meas} - Z_\text{model}[\gamma] \rVert^2 + \lambda \lVert L\gamma \rVert^2
+```
 
 where $L$ is a derivative operator (the `DRT_RBF_DER` order; default second
 derivative) applied to the radial-basis-function discretization of $\gamma$
@@ -108,7 +120,9 @@ public procedure `audit/calibrate_drt.py`, not a fitted quantity.
 criterion in $\log\tau$ space (`PEAK_MIN_PROM_DECADES`, `PEAK_MIN_DIST_DECADES`)
 and each peak is integrated between its flanking minima:
 
-$$R_\text{approx} = \int_{\ln\tau_\text{left}}^{\ln\tau_\text{right}} \gamma(\ln\tau)\, d(\ln\tau)$$
+```math
+R_\text{approx} = \int_{\ln\tau_\text{left}}^{\ln\tau_\text{right}} \gamma(\ln\tau)\, d(\ln\tau)
+```
 
 The integration variable matters: integrating over $\log_{10}\tau$ instead of
 $\ln\tau$ would underestimate $R$ by a factor $\ln 10 \approx 2.303$.
@@ -130,7 +144,9 @@ The circuit is $R_0 + \text{Zarc}_1 + \dots + \text{Zarc}_N$ ($R_0$ optional),
 each Zarc being a resistor in parallel with a constant-phase element,
 parametrized as
 
-$$Z_k(\omega) = \frac{R_k}{1 + (j\omega\tau_k)^{\alpha_k}}, \qquad k = 1 \dots N$$
+```math
+Z_k(\omega) = \frac{R_k}{1 + (j\omega\tau_k)^{\alpha_k}}, \qquad k = 1 \dots N
+```
 
 with $R_k > 0$ the process resistance, $\tau_k > 0$ its relaxation time and
 $\alpha_k \in [0.5, 1]$ the depression exponent ($\alpha = 1$ is an ideal
@@ -143,7 +159,9 @@ For a CPE with admittance $Y = Q(j\omega)^\alpha$ in parallel with $R$, the
 standard Brug effective capacitance is $C_\text{eff} = Q^{1/\alpha}
 R^{(1-\alpha)/\alpha}$. In the Zarc parametrization $Q = \tau^\alpha / R$, hence
 
-$$C_\text{eff} = \left(\frac{\tau^\alpha}{R}\right)^{1/\alpha} R^{(1-\alpha)/\alpha} = \tau\, R^{-1/\alpha} R^{1/\alpha - 1} = \frac{\tau}{R}$$
+```math
+C_\text{eff} = \left(\frac{\tau^\alpha}{R}\right)^{1/\alpha} R^{(1-\alpha)/\alpha} = \tau\, R^{-1/\alpha} R^{1/\alpha - 1} = \frac{\tau}{R}
+```
 
 exactly, for every $\alpha$. This is an identity of the parametrization, not an
 approximation, and it is enforced by a golden test
@@ -154,7 +172,9 @@ approximation, and it is enforced by a golden test
 The residual vector stacks weighted real and imaginary parts over the $N$
 frequencies:
 
-$$r(\theta) = \left[\frac{Z'_\text{model} - Z'_\text{meas}}{s};\ \frac{Z''_\text{model} - Z''_\text{meas}}{s}\right] \in \mathbb{R}^{2N}$$
+```math
+r(\theta) = \left[\frac{Z'_\text{model} - Z'_\text{meas}}{s};\ \frac{Z''_\text{model} - Z''_\text{meas}}{s}\right] \in \mathbb{R}^{2N}
+```
 
 and the optimizer minimizes $\lVert r(\theta) \rVert^2$ subject to box bounds
 (next subsection). The per-frequency scale $s_i$ implements the weighting mode:
@@ -174,7 +194,9 @@ proportional residuals, i.e. a dimensionless relative misfit.
 
 `build_bounds` converts each DRT seed into a box constraint per parameter:
 
-$$R_k \in \left[R_{\text{approx},k}\,10^{-d_{R,k}},\; R_{\text{approx},k}\,10^{+d_{R,k}}\right], \quad \tau_k \in \left[\tau_{\text{seed},k}\,10^{-d_{\tau,k}},\; \tau_{\text{seed},k}\,10^{+d_{\tau,k}}\right], \quad \alpha_k \in [\alpha_\text{min}, \alpha_\text{max}]$$
+```math
+R_k \in \left[R_{\text{approx},k}\,10^{-d_{R,k}},\; R_{\text{approx},k}\,10^{+d_{R,k}}\right], \quad \tau_k \in \left[\tau_{\text{seed},k}\,10^{-d_{\tau,k}},\; \tau_{\text{seed},k}\,10^{+d_{\tau,k}}\right], \quad \alpha_k \in [\alpha_\text{min}, \alpha_\text{max}]
+```
 
 where $d_{R,k}$ and $d_{\tau,k}$ are half-widths **in decades** (`R_dec`, `tau_dec`,
 default 0.7). A window is a statement of trust in that peak's DRT seed, not
@@ -220,7 +242,9 @@ in log space the decade boxes of 3.4 become plain symmetric intervals and the
 conditioning improves by orders of magnitude. The Jacobian is analytic:
 with $p = \ln R$, $q = \ln\tau$, $a = \alpha$ and $u = (j\omega\tau)^a$,
 
-$$\frac{\partial Z}{\partial p} = Z_k, \qquad \frac{\partial Z}{\partial q} = -\frac{R u a}{(1 + u)^2}, \qquad \frac{\partial Z}{\partial a} = -\frac{R u \ln(j\omega\tau)}{(1 + u)^2}$$
+```math
+\frac{\partial Z}{\partial p} = Z_k, \qquad \frac{\partial Z}{\partial q} = -\frac{R u a}{(1 + u)^2}, \qquad \frac{\partial Z}{\partial a} = -\frac{R u \ln(j\omega\tau)}{(1 + u)^2}
+```
 
 with $\ln(j\omega\tau) = \ln(\omega\tau) + j\pi/2$, each column stacked as
 real and imaginary parts and divided by the same $s_i$ as
@@ -240,13 +264,22 @@ implementation, in `audit/fitting_v2/`.
 With the pellet geometry (thickness $L$, diameter $D$, area $A = \pi(D/2)^2$),
 each process resistance maps to a conductivity
 
-$$\sigma_k = \frac{L}{R_k A} \quad [\text{S/m}]$$
+```math
+\sigma_k = \frac{L}{R_k A} \quad [\text{S/m}]
+```
 
 and $C_{\text{eff},k} = \tau_k / R_k$ (3.2) is the quantity compared across
-temperatures to check that a peak keeps its character along the series.
-Assigning a peak to a named physical process is an operator decision from
-independent evidence, never a conclusion drawn from a capacitance magnitude
-alone.
+temperatures to check that a peak keeps its character along the series. The
+same geometry turns that capacitance into a relative permittivity
+
+```math
+\varepsilon_{\text{r},k} = \frac{C_{\text{eff},k}\, L}{\varepsilon_0 A}
+```
+
+with $\varepsilon_0$ the vacuum permittivity (`EPS_0` in
+`pipeline/plots.py`). Assigning a peak to a named physical process is an
+operator decision from independent evidence, never a conclusion drawn from a
+capacitance magnitude alone.
 
 ---
 
@@ -255,10 +288,12 @@ alone.
 **Code:** `pipeline/plots.py::build_arrhenius_results`
 
 Thermally activated transport with mobility $\propto 1/T$ follows
-$\sigma T = A \exp\!\left(-E_\text{a}/k_B T\right)$, so the pipeline fits
+$\sigma T = A \exp\left(-E_\text{a}/k_B T\right)$, so the pipeline fits
 straight lines by ordinary least squares in the linearized coordinates:
 
-$$\ln(\sigma_k T) = \ln A - \frac{E_\text{a}^\text{cond}}{k_B}\cdot\frac{1}{T} \quad \text{(conduction)}, \qquad \ln(\tau_k) = \text{const} + \frac{E_\text{a}^\text{pol}}{k_B}\cdot\frac{1}{T} \quad \text{(relaxation)}$$
+```math
+\ln(\sigma_k T) = \ln A - \frac{E_\text{a}^\text{cond}}{k_B}\cdot\frac{1}{T} \quad \text{(conduction)}, \qquad \ln(\tau_k) = \text{const} + \frac{E_\text{a}^\text{pol}}{k_B}\cdot\frac{1}{T} \quad \text{(relaxation)}
+```
 
 with the slope errors propagated to $\pm\Delta E_\text{a}$ and the $R^2$ of each
 regression reported. `Ea_C` (from $\ln C_\text{eff}$) equals
@@ -275,18 +310,37 @@ an independent measurement.
 At a fixed temperature $T$, the Patterson model in the dilute defect regime
 decomposes the measured conductivity of one process along the $p_{\text{O}_2}$ axis:
 
-$$\sigma(p_{\text{O}_2}) = \sigma_{\text{ion}} + \sigma_{p\text{-type}}\, p_{\text{O}_2}^{+x} + \sigma_{n\text{-type}}\, p_{\text{O}_2}^{-x}$$
+```math
+\sigma(p_{\text{O}_2}) = \sigma_{\text{ion}} + \sigma_{p\text{-type}}\, p_{\text{O}_2}^{+x} + \sigma_{n\text{-type}}\, p_{\text{O}_2}^{-x}
+```
 
 with $x$ the Brouwer exponent. The three coefficients enter **linearly**, so
 over the $N$ measured pressures $p_1 \dots p_N$ of the isotherm the design
 matrix and the unknown vector are
 
-$$A = \begin{bmatrix} 1 & p_1^{+x} & p_1^{-x} \\ \vdots & \vdots & \vdots \\ 1 & p_N^{+x} & p_N^{-x} \end{bmatrix} \in \mathbb{R}^{N \times 3}, \qquad \mathbf{s} = \begin{bmatrix} \sigma_{\text{ion}} \\ \sigma_{p\text{-type}} \\ \sigma_{n\text{-type}} \end{bmatrix}$$
+```math
+A =
+\begin{bmatrix}
+1      & p_1^{+x} & p_1^{-x} \\
+\vdots & \vdots   & \vdots   \\
+1      & p_N^{+x} & p_N^{-x}
+\end{bmatrix}
+\in \mathbb{R}^{N \times 3},
+\qquad
+\mathbf{s} =
+\begin{bmatrix}
+\sigma_{\text{ion}} \\
+\sigma_{p\text{-type}} \\
+\sigma_{n\text{-type}}
+\end{bmatrix}
+```
 
 the three columns being the ionic, p-type and n-type channels. The
 coefficients solve the non-negative least squares problem
 
-$$\mathbf{s} = \arg\min_{\mathbf{s} \geq 0} \lVert A\mathbf{s} - \boldsymbol{\sigma}^\text{meas} \rVert^2$$
+```math
+\mathbf{s} = \arg\min_{\mathbf{s} \geq 0} \lVert A\mathbf{s} - \boldsymbol{\sigma}^\text{meas} \rVert^2
+```
 
 by `scipy.optimize.nnls` (active-set method; no initial guess, global optimum
 guaranteed because the problem is convex). Non-negativity is the physics: a
@@ -294,7 +348,9 @@ partial conductivity cannot be negative, and an unconstrained solve on noisy
 plateau data routinely returns a small negative $\sigma_{n\text{-type}}$ that
 would corrupt the transference numbers. From the solution,
 
-$$t_{\text{ion}}(p_{\text{O}_2}) = \frac{\sigma_{\text{ion}}}{\sigma(p_{\text{O}_2})}, \qquad t_{\text{elect}} = 1 - t_{\text{ion}}$$
+```math
+t_{\text{ion}}(p_{\text{O}_2}) = \frac{\sigma_{\text{ion}}}{\sigma(p_{\text{O}_2})}, \qquad t_{\text{elect}} = 1 - t_{\text{ion}}
+```
 
 and the local Brouwer slope obeys
 $d\log\sigma / d\log p_{\text{O}_2} = x\,(t_{p\text{-type}} - t_{n\text{-type}})$:
@@ -319,7 +375,9 @@ temperature-coupled fit.
 The whole surface $\sigma(p_{\text{O}_2}, T)$ of one process is described by
 three parallel, Arrhenius-activated channels with mobility $\propto 1/T$:
 
-$$\sigma(p_{\text{O}_2}, T) = \frac{\sigma_0^{\text{ion}}}{T} \exp\!\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T}\right) + \frac{\sigma_0^{p\text{-type}}}{T} \exp\!\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{+x} + \frac{\sigma_0^{n\text{-type}}}{T} \exp\!\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{-x}$$
+```math
+\sigma(p_{\text{O}_2}, T) = \frac{\sigma_0^{\text{ion}}}{T} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T}\right) + \frac{\sigma_0^{p\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{+x} + \frac{\sigma_0^{n\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{-x}
+```
 
 Six parameters: three prefactors $\sigma_0$ (with the $1/T$ pulled out) and
 three activation energies. One parameter set must fit **all** points at once;
@@ -334,7 +392,19 @@ At **fixed** activation energies the model is linear in the prefactors. With
 points $(p_i, T_i, \sigma_i)$, $i = 1 \dots N$, and the selected channels as
 columns, the design matrix is
 
-$$A(E_\text{a}) = \begin{bmatrix} \frac{1}{T_1} e^{-E_\text{a}^{\text{ion}}/k_B T_1} & \frac{1}{T_1} e^{-E_\text{a}^{p}/k_B T_1} p_1^{+x} & \frac{1}{T_1} e^{-E_\text{a}^{n}/k_B T_1} p_1^{-x} \\ \vdots & \vdots & \vdots \\ \frac{1}{T_N} e^{-E_\text{a}^{\text{ion}}/k_B T_N} & \frac{1}{T_N} e^{-E_\text{a}^{p}/k_B T_N} p_N^{+x} & \frac{1}{T_N} e^{-E_\text{a}^{n}/k_B T_N} p_N^{-x} \end{bmatrix} \in \mathbb{R}^{N \times n_\text{ch}}$$
+```math
+A(E_\text{a}) =
+\begin{bmatrix}
+\frac{1}{T_1} e^{-E_\text{a}^{\text{ion}}/k_B T_1} &
+\frac{1}{T_1} e^{-E_\text{a}^{p}/k_B T_1}\, p_1^{+x} &
+\frac{1}{T_1} e^{-E_\text{a}^{n}/k_B T_1}\, p_1^{-x} \\
+\vdots & \vdots & \vdots \\
+\frac{1}{T_N} e^{-E_\text{a}^{\text{ion}}/k_B T_N} &
+\frac{1}{T_N} e^{-E_\text{a}^{p}/k_B T_N}\, p_N^{+x} &
+\frac{1}{T_N} e^{-E_\text{a}^{n}/k_B T_N}\, p_N^{-x}
+\end{bmatrix}
+\in \mathbb{R}^{N \times n_\text{ch}}
+```
 
 that is $A_{ic}(E_\text{a}) = T_i^{-1} \exp(-E_{\text{a},c}/k_B T_i)\,
 p_i^{e_c x}$ with $e_c = 0$ (ionic), $+1$ (p-type), $-1$ (n-type), so
@@ -345,12 +415,16 @@ $\mathbf{s}_0$ the prefactor vector. The fit is weighted by $w_i = 1/\sigma_i$
 The **inner problem** is convex and solved exactly by weighted NNLS at every
 step:
 
-$$\mathbf{s}_0(E_\text{a}) = \arg\min_{\mathbf{s}_0 \geq 0} \lVert \operatorname{diag}(w)\left(A(E_\text{a})\,\mathbf{s}_0 - \boldsymbol{\sigma}\right) \rVert^2$$
+```math
+\mathbf{s}_0(E_\text{a}) = \arg\min_{\mathbf{s}_0 \geq 0} \lVert \text{diag}(w)\left(A(E_\text{a})\,\mathbf{s}_0 - \boldsymbol{\sigma}\right) \rVert^2
+```
 
 The **outer problem** optimizes only the activation energies, with bounded
 least squares (TRF) from a seed of 1 eV:
 
-$$E_\text{a} = \arg\min_{E_\text{a} \in [0, 3]\,\text{eV}} \lVert \operatorname{diag}(w)\left(A(E_\text{a})\,\mathbf{s}_0(E_\text{a}) - \boldsymbol{\sigma}\right) \rVert^2$$
+```math
+E_\text{a} = \arg\min_{E_\text{a} \in [0, 3]\,\text{eV}} \lVert \text{diag}(w)\left(A(E_\text{a})\,\mathbf{s}_0(E_\text{a}) - \boldsymbol{\sigma}\right) \rVert^2
+```
 
 Eliminating the linear parameters this way removes the
 $\sigma_0$ versus $E_\text{a}$ seesaw direction that traps a naive
@@ -370,7 +444,9 @@ least squares over all $2 n_\text{ch}$ parameters
 $\theta = (\mathbf{s}_0, E_\text{a})$ starting at the VARPRO optimum. Its
 Jacobian $J$ at convergence gives the Gauss-Newton covariance estimate
 
-$$\operatorname{Cov}(\theta) \approx (J^\mathsf{T} J)^{-1}\,\frac{2\,\text{SSR}}{\text{dof}}, \qquad \text{dof} = N - \dim\theta$$
+```math
+\text{Cov}(\theta) \approx (J^\mathsf{T} J)^{-1}\,\frac{2\,\text{SSR}}{\text{dof}}, \qquad \text{dof} = N - \dim\theta
+```
 
 computed through the SVD of $J$ for rank safety
 (`pipeline/model.py::_covariance_errors`); the square roots of the diagonal
@@ -389,7 +465,9 @@ meaningless.
 * Conductivity minimum ($n = p$ crossover), meaningful only when both
   electronic channels are present:
 
-$$p_{\text{O}_2}^\text{min}(T) = \left[\frac{\sigma_0^{n\text{-type}}}{\sigma_0^{p\text{-type}}} \exp\!\left(\frac{E_\text{a}^{p\text{-type}} - E_\text{a}^{n\text{-type}}}{k_B T}\right)\right]^{1/2x}$$
+```math
+p_{\text{O}_2}^\text{min}(T) = \left[\frac{\sigma_0^{n\text{-type}}}{\sigma_0^{p\text{-type}}} \exp\left(\frac{E_\text{a}^{p\text{-type}} - E_\text{a}^{n\text{-type}}}{k_B T}\right)\right]^{1/2x}
+```
 
   from setting the p and n terms equal
   (`pipeline/model.py::stoichiometric_pO2`).
