@@ -64,7 +64,7 @@ monotonic, so bisection could skip valid $`M`$. The fixed mode uses
 $`M = \text{round}(c N)`$ with the density $`c`$ (`KK_C` in the stage-2
 notebook) calibrated once per instrument/dataset class. When no $`M`$ in
 $`[3, N-1]`$ reaches $`\mu \geq`$ `mu_target`, the scan falls back to the fixed
-mode with a density of 0.85 rather than failing, so a spectrum that never
+mode at the configured density rather than failing, so a spectrum that never
 reaches the target is still scored instead of being dropped silently.
 
 **Pass criterion.** A KK-consistent spectrum leaves residuals that are pure

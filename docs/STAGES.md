@@ -107,7 +107,9 @@ Two $`M`$-selection modes exist (`KK_USE_BINARY_M`):
   $`\mu`$ reaches `KK_MU_TARGET` (under-fitting leaves correlated residuals
   with $`\mu`$ well below 0.5, over-fitting chases noise with $`\mu`$
   approaching 1).
-  $`M`$ is scanned linearly because $`\mu(M)`$ is not monotonic.
+  $`M`$ is scanned linearly because $`\mu(M)`$ is not monotonic. If no $`M`$
+  reaches the target, the count falls back to the Percentage-mode one at the
+  same density.
 - **Percentage** (default): $`M = \text{round}(cN)`$ with the density $`c`$
   (`KK_C`). The shipped density, 0.76, is calibrated on the author's dataset (see
   `audit/kk_mode_comparison.py` to recalibrate on yours); the RelaxIS KK-View
@@ -120,7 +122,7 @@ quality is always judged by the $`W`$ statistics.
 
 | Parameter | Default | Purpose |
 | --------- | ------- | ------- |
-| `KK_C` | 0.76 | RC-element density $`c`$ in $`M = \text{round}(cN)`$, Percentage mode |
+| `KK_C` | 0.76 | RC-element density $`c`$ in $`M = \text{round}(cN)`$ |
 | `KK_MU_TARGET` | 0.50 | Sign-change target $`\mu`$ in automatic mode |
 | `KK_F_MIN_HARD` | None | Hard lower frequency cutoff (None = adaptive only) |
 | `KK_F_MAX_HARD` | None | Hard upper frequency cutoff (None = off) |
