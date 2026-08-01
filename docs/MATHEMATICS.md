@@ -19,7 +19,7 @@ in `CLAUDE.md`).
 
 ## 1. Kramers-Kronig validity test (stage 2)
 
-**Code:** `pipeline/quality.py::run_linkk`, `::select_M_binary`
+**Code:** `pipeline/quality.py::run_linkk`, `::_find_optimal_M`
 **Reference:** Schönleber et al., Electrochimica Acta 131 (2014) 20-27.
 
 A causal, linear, time-invariant system must satisfy the Kramers-Kronig
@@ -54,7 +54,10 @@ runs from ~0 (underfit) to ~1 (overfit). The automatic mode scans M upward
 from 3 and stops at the smallest M with μ ≥ 0.50 (`mu_target`); the scan is
 linear because μ(M) is not monotonic, so bisection could skip valid M. The
 fixed mode uses M = round(c · N) with the density c (`KK_C` in the stage-2
-notebook) calibrated once per instrument/dataset class.
+notebook) calibrated once per instrument/dataset class. When no M in [3, N−1]
+reaches μ ≥ mu_target, the scan falls back to the fixed mode with c = 0.85
+rather than failing, so a spectrum that never reaches the target is still
+scored instead of being dropped silently.
 
 **Pass criterion.** A KK-consistent spectrum leaves residuals that are pure
 noise, so both r_re and r_im must pass a Shapiro-Wilk normality test with
@@ -345,6 +348,11 @@ way removes the σ0/Ea seesaw direction that traps a naive 6-parameter fit
 in false minima, guarantees non-negative prefactors by construction, and
 reduces the nonlinear search space from 6 to n_ch dimensions.
 
+A fit is refused outright below `MIN_POINTS` = 8 usable (pO₂, T) points
+(`pipeline/model.py::fit_global_conductivity`): with up to 6 free parameters,
+fewer points leave no redundancy, and the covariance of 6.3 would be
+meaningless rather than merely wide.
+
 ### 6.3 Covariance and reported uncertainties
 
 The outer VARPRO solution is used to seed one **full polish**: a bounded
@@ -372,8 +380,10 @@ meaningless.
 
       pO₂_min(T) = [ (σ0_n / σ0_p) · e^{(Ea_p − Ea_n)/k_B T} ]^{1/2x} ,
 
-  from setting the p and n terms equal (`::stoichiometric_pO2`).
-* Model-based transference table (`::global_transference_table`): the
+  from setting the p and n terms equal
+  (`pipeline/model.py::stoichiometric_pO2`).
+* Model-based transference table
+  (`pipeline/model.py::global_transference_table`): the
   stage-4 figure redrawn from the single global parameter set instead of
   the per-isotherm NNLS.
 
