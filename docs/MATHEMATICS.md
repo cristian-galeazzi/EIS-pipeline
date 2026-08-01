@@ -93,7 +93,7 @@ fit sees the same validated window.
 (Tikhonov solver: `pyDRTtools.runs.simple_run`)
 
 The DRT model writes the polarization part of the impedance as a continuous
-superposition of ideal RC relaxations with distribution $`\gamma(\tau)`$:
+superposition of ideal RC relaxations with distribution $`\gamma(\ln\tau)`$:
 
 ```math
 Z(\omega) = R_\infty + \int_{-\infty}^{+\infty} \frac{\gamma(\ln\tau)}{1 + j\omega\tau}\, d(\ln\tau)
