@@ -8,8 +8,8 @@ authors:
     orcid: "https://orcid.org/0009-0006-7150-2659"
 license: MIT
 repository-code: "https://github.com/cristian-galeazzi/EIS-pipeline"
-version: 1.1.0
-date-released: "2026-07-24"
+version: 1.2.0
+date-released: "2026-08-01"
 keywords:
   - electrochemical impedance spectroscopy
   - distribution of relaxation times
