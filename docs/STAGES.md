@@ -48,6 +48,8 @@ when you process one at a time.
 
 ## Stage 0 and Stage 1: from furnace log to labelled spectra
 
+**Code:** `pipeline/matching.py::match_ism_to_furnace`, `pipeline/matching.py::build_auto_labels`, `pipeline/ingest.py::scan_condition_dir`
+
 Optional. Stages 0 and 1 are the Zahner furnace-log front-end: use them only
 if you measure with a Zahner instrument and record a furnace log. CSV users
 skip straight to Stage 2.
@@ -78,6 +80,8 @@ expands to per-file tables when a mismatch is detected (or with
 
 ## Stage 2: Lin-KK validity test
 
+**Code:** `pipeline/quality.py::run_linkk`, `pipeline/quality.py::select_best_replica`, `pipeline/quality.py::compute_frequency_cutoffs`
+
 <!-- img-slot: img/stage2_kk_panel.png -->
 
 A spectrum is worth fitting only if it describes a causal, linear,
@@ -92,7 +96,7 @@ Z_KK(ω) = R_∞ + Σₖ rₖ / (1 + jωτₖ),   k = 1 … M
 
 The chain is Kramers-Kronig consistent by construction, so any systematic
 misfit flags a KK violation (drift, nonlinearity, artifacts). Compliance is
-judged on the magnitude-normalised residuals: a compliant spectrum leaves
+judged on the magnitude-normalized residuals: a compliant spectrum leaves
 only noise in Δ_re and Δ_im, so each residual vector is tested for normality
 with the Shapiro-Wilk statistic (W → 1 for structure-free residuals) and
 `kk_score = (W_re + W_im) / 2`. Classification: GREEN (`kk_score ≥ 0.97`),
@@ -130,6 +134,8 @@ is always judged by the W statistics.
 ---
 
 ## Stage 3: DRT deconvolution and Zarc fit
+
+**Code:** `pipeline/drt.py::compute_drt`, `pipeline/drt.py::find_drt_peaks`, `pipeline/fitting.py::fit_zarc`, `pipeline/fitting.py::fit_condition_batch`
 
 ![Stage 3 DRT panel: an example spectrum deconvolved into two clean peaks](img/stage3_drt_panel.png)
 ![Stage 3 Zarc fit controls: per-element R and tau search windows](img/stage3_fit_panel.png)
@@ -215,7 +221,7 @@ are honoured until an Apply replaces them) and is re-applied by the batch
 fit, so a fresh kernel reproduces the exported sheets exactly.
 
 **Process identification** is never automatic. Use the C_eff magnitude plot
-and the Arrhenius behaviour; starting-point thresholds from Vendrell & West
+and the Arrhenius behavior; starting-point thresholds from Vendrell & West
 2018 (YSZ):
 
 | C_eff | Typical process |
@@ -228,6 +234,8 @@ and the Arrhenius behaviour; starting-point thresholds from Vendrell & West
 ---
 
 ## Stage 4: figures and per-isotherm analysis
+
+**Code:** `pipeline/plots.py::build_arrhenius_results`, `pipeline/plots.py::fit_transference`
 
 <!-- img-slot: img/stage4_nyquist.png -->
 ![Brouwer diagram of the example bulk process: n branch at low pO2, ionic plateau, p branch at high pO2](img/stage4_brouwer.png)
@@ -252,16 +260,15 @@ can produce them).
 
 ### Arrhenius analysis
 
-Two independent fits per Zarc peak,
+Two independent fits per Zarc peak, one on the conductivity and one on the
+relaxation time, written out in [docs/MATHEMATICS.md](MATHEMATICS.md)
+section 4. The conductivity line has a negative slope, the relaxation line a
+positive one.
 
-```
-ln(σT) = ln(A₀) − Eₐᶜᵒⁿᵈ / (k_B T)      conductivity   (slope < 0)
-ln(τ)  = ln(τ₀) + Eₐᵖᵒˡ  / (k_B T)      relaxation time (slope > 0)
-```
-
-plus a third on ln(C_eff), whose slope must satisfy
-Eₐᶜ = Eₐᵖᵒˡ − Eₐᶜᵒⁿᵈ (from ln C = ln τ − ln R): an internal consistency
-check, not a new measurement. Energies are reported in eV.
+A third fit on $\ln C_\text{eff}$ must satisfy
+$E_\text{a}^\text{C} = E_\text{a}^\text{pol} - E_\text{a}^\text{cond}$, since
+$\ln C = \ln\tau - \ln R$: an internal consistency check, not a new
+measurement. Energies are reported in eV.
 
 ### Ionic/electronic decomposition (per isotherm)
 
@@ -287,7 +294,8 @@ transference number t_ion = σ_ion/σ_tot is tabulated per peak in
 dilute regime; use 1/6 where that regime applies.
 
 A second fit, ln(σT) vs 1/T on the per-isotherm σ_ion(T) and σ_p(T), gives
-each channel its activation energy. Two straight lines with distinct Eₐ are
+each channel its activation energy. Two straight lines with distinct
+$E_\text{a}$ are
 the rigorous proof that the decomposition separated two physically different
 channels. Temperatures where NNLS returned zero carry no information about
 that channel and are skipped, so the point count can differ between σ_ion
@@ -302,41 +310,36 @@ Below some temperature two close peaks may no longer separate reliably.
 Their series resistances still add, so σ = L/((R₁+R₂)·A) stays well defined
 at every T. The `Arrhenius_sigma_HF_*` figure draws the separated branches
 only for T ≥ `ARRHENIUS_T_MIN` and the series sum over the full range. The
-sum mixes processes with different Eₐ, so its line may curve slightly and
-its Eₐ is an effective value for the block.
+sum mixes processes with different $E_\text{a}$, so its line may curve
+slightly and
+its $E_\text{a}$ is an effective value for the block.
 
 ---
 
 ## Stage 5: global MIEC model
 
+**Code:** `pipeline/model.py::fit_global_conductivity`, `pipeline/model.py::stoichiometric_pO2`, `pipeline/model.py::global_transference_table`
+
 ![Stage 5 global fit: the σ(pO2, T) surface with the measured points on it](img/stage5_surface3d.png)
 
 The stage-4 decomposition treats each isotherm in isolation and drops
 temperatures with too few p(O₂) points. Stage 5 removes both limitations by
-fitting the whole conductivity surface of each process at once with a
-six-parameter model, three prefactors and three activation energies:
+fitting the whole conductivity surface of each process at once: one
+prefactor and one activation energy per conduction channel, with the Brouwer
+exponent fixed by `MODEL_EXPONENT`. The model is written out in
+[docs/MATHEMATICS.md](MATHEMATICS.md) section 6.1.
 
-```
-σ(pO₂,T) = (σ₀_ion/T)·e^(−Eₐ_ion/kT)
-         + (σ₀_p  /T)·e^(−Eₐ_p  /kT)·pO₂^(+x)
-         + (σ₀_n  /T)·e^(−Eₐ_n  /kT)·pO₂^(−x),      x = MODEL_EXPONENT
-```
-
-The six parameters are material constants over the whole (p(O₂), T) surface;
+Those parameters are material constants over the whole (p(O₂), T) surface;
 that constancy is itself the validity test. The fit is solved by variable
-projection: at fixed activation energies the model is linear in the three
-prefactors (exact NNLS, inner problem), so only the three Eₐ are optimised
-non-linearly (outer problem), and a final six-parameter polish yields the
-uncertainties. Validation: the global R², a structureless residual map over
+projection: at fixed activation energies the model is linear in the
+prefactors (exact NNLS, inner problem), so only the activation energies are
+optimized non-linearly (outer problem), and a final polish over every
+parameter yields the uncertainties. Section 6.2 of MATHEMATICS.md gives the
+design matrix. Validation: the global R², a structureless residual map over
 (p(O₂), T), and the predicted electronic conductivity minimum, which follows
-in closed form,
-
-```
-ln pO₂_min(T) = (1/2x)·[ ln(σ₀_n/σ₀_p) − (Eₐ_n − Eₐ_p)/(k_B T) ]
-```
-
-and whose migration with T (slope set by Eₐ_n − Eₐ_p) is an independent
-check against the data.
+in closed form ([docs/MATHEMATICS.md](MATHEMATICS.md) section 6.4), and whose
+migration with $T$, its slope set by the difference of the two electronic
+activation energies, is an independent check against the data.
 
 | Parameter | Default | Purpose |
 | --------- | ------- | ------- |
@@ -350,7 +353,7 @@ Which channels exist (`MODEL_CHANNELS`) is an operator decision based on
 defect-chemistry reasoning, not a fit outcome: drop `n` when the measured
 p(O₂) window is never reducing enough to create electrons. The fit never
 adds or removes channels on its own; an excluded channel is stored with
-σ₀ = 0 and Eₐ = NaN (all nine parameter columns are kept for schema
+σ₀ = 0 and $E_\text{a}$ = NaN (all nine parameter columns are kept for schema
 stability) and appears in no figure. A selected channel that NNLS drives to
 σ₀ = 0 is reported as `not active (s0 = 0)` instead of a meaningless
 activation energy, and the conductivity-minimum prediction is reported only
