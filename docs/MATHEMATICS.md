@@ -49,7 +49,7 @@ residual); too many overfit and start reproducing the noise, which shows up
 as adjacent weights $R_k$, $R_{k+1}$ of alternating sign. The sign-change
 fraction
 
-$$\mu(M) = \frac{\#\\{\text{adjacent pairs with opposite sign}\\}}{M - 1}$$
+$$\mu(M) = \frac{\text{number of adjacent pairs with opposite sign}}{M - 1}$$
 
 runs from about 0 (underfit) to about 1 (overfit). The automatic mode scans $M$
 upward from 3 and stops at the smallest $M$ with $\mu \geq 0.50$
