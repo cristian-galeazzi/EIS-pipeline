@@ -30,6 +30,7 @@ M selection, automatic mode (use_binary_M=True):
     The trend is not monotonic, so M is found by a linear scan from M = 3
     upward (a bisection could skip valid M values).
     Target μ = 0.50 balances the two regimes (RelaxIS default).
+    If no M reaches the target, M falls back to round(c × N_freq).
     Fixed mode (use_binary_M=False): M = round(c × N_freq), c default 0.85.
 
 Adaptive frequency cutoffs (IQR-based, mirrors RelaxIS KK Filter §7.1.6):
@@ -193,6 +194,7 @@ def _find_optimal_M(
     Z_re:           np.ndarray,
     Z_im:           np.ndarray,
     mu_target:      float = 0.50,
+    c:              float = 0.85,
     add_inductance: bool  = False,
 ) -> int:
     """
@@ -214,11 +216,15 @@ def _find_optimal_M(
     freq           : frequency array [Hz], sorted ascending
     Z_re, Z_im     : impedance arrays [Ω]
     mu_target      : target sign-change fraction (default 0.50)
+    c              : RC density used by the fallback when no M reaches
+                     mu_target: M = round(c × N). Default 0.85, the value
+                     the fallback used before it became configurable.
     add_inductance : pass-through to _fit_linkk
 
     Returns
     -------
-    int : optimal M (clamped to [3, N−1])
+    int : optimal M (clamped to [3, N−1]), or round(c × N) when no M in
+          [3, N−1] reached mu_target
     """
     N = len(freq)
     for M in range(3, N):
@@ -229,7 +235,7 @@ def _find_optimal_M(
         if mu >= mu_target:
             return M
 
-    return max(3, round(0.85 * N))   # no M satisfied μ ≥ target
+    return max(3, round(c * N))   # no M satisfied μ ≥ target: fixed-mode count
 
 
 def _edge_cutoffs_adaptive(
@@ -378,7 +384,9 @@ def run_linkk(
     Z_re             : real part [Ω]
     Z_im             : imaginary part [Ω], positive for capacitive half
                        (IsmRecord convention: Z_im = −Z_complex.imag)
-    c                : RC density (only used when use_binary_M=False). Default 0.85.
+    c                : RC density. Fixed mode uses M = round(c × N_freq);
+                       automatic mode uses it only for the fallback M when no
+                       M reaches mu_target. Default 0.85.
     use_binary_M     : if True, linear scan for the smallest M with μ ≥ mu_target
                        (the name is historical). If False, M = round(c × N_freq).
                        Default True.
@@ -430,7 +438,7 @@ def run_linkk(
     # ── Pass 1: full spectrum ─────────────────────────────────────────────
     if use_binary_M:
         M1 = _find_optimal_M(freq, Z_re, Z_im,
-                             mu_target=mu_target,
+                             mu_target=mu_target, c=c,
                              add_inductance=add_inductance)
     else:
         M1 = None   # _fit_linkk will use c
@@ -482,7 +490,7 @@ def run_linkk(
     if len(freq_t) >= 4:
         if use_binary_M:
             M2 = _find_optimal_M(freq_t, Z_re_t, Z_im_t,
-                                 mu_target=mu_target,
+                                 mu_target=mu_target, c=c,
                                  add_inductance=add_inductance)
         else:
             M2 = None

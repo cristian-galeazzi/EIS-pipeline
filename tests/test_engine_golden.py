@@ -244,6 +244,44 @@ def test_linkk_synthetic_consistency():
     assert kept.sum() >= 0.9 * res["freq"].size, "edge cut ate a clean spectrum"
 
 
+def test_linkk_fallback_M_honors_density():
+    """When no M reaches mu_target, the fallback uses the caller's density c.
+
+    mu is a fraction of sign changes, so mu >= 1.01 cannot be satisfied by any
+    M: every M falls through to the fallback, which makes the branch reachable
+    without hunting for a pathological spectrum.
+    """
+    from pipeline.quality import _find_optimal_M
+    freq = np.logspace(5, 0, 20)
+    Z_re, Z_im = _synthetic_zarc(50.0, 1e4, 1e-4, 0.9, freq)
+
+    # default density: unchanged behaviour, round(0.85 * 20) = 17
+    assert _find_optimal_M(freq, Z_re, Z_im, mu_target=1.01) == 17
+    # configured density: round(0.50 * 20) = 10, not 17
+    assert _find_optimal_M(freq, Z_re, Z_im, mu_target=1.01, c=0.5) == 10
+
+
+def test_linkk_forwards_density_to_the_M_scan():
+    """Both automatic-mode call sites forward c, not just the first one."""
+    from pipeline import quality
+    seen = []
+    original = quality._find_optimal_M
+
+    def spy(freq, Z_re, Z_im, **kwargs):
+        seen.append(kwargs.get("c"))
+        return 5
+
+    freq = np.logspace(5, 0, 40)
+    Z_re, Z_im = _synthetic_zarc(50.0, 1e4, 1e-4, 0.9, freq)
+    quality._find_optimal_M = spy
+    try:
+        quality.run_linkk(freq, Z_re, Z_im, c=0.5, use_binary_M=True)
+    finally:
+        quality._find_optimal_M = original
+
+    assert seen == [0.5, 0.5], f"density not forwarded to both passes: {seen}"
+
+
 def test_drt_total_area_equals_R():
     """The DRT of one Zarc integrates to R over d(ln tau) - the documented
     identity behind peak areas. Peak COUNT is not asserted: the sharp
