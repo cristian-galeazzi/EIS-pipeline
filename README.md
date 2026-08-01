@@ -21,7 +21,7 @@ From raw spectra to a global conductivity model. The per-stage figures that lead
 | 2 | `stage2_kk.ipynb` | Lin-KK validity test; select the best replica per (condition, T) |
 | 3 | `stage3_drt.ipynb` | Tikhonov DRT, peak detection, Zarc equivalent-circuit fit |
 | 4 | `stage4_plots.ipynb` | Nyquist, Bode, DRT, Arrhenius, Brouwer p(O₂) figures |
-| 5 | `stage5_model.ipynb` | Global MIEC model: one six-parameter fit of σ(p(O₂), T) per process |
+| 5 | `stage5_model.ipynb` | Global MIEC model: one fit of σ(p(O₂), T) per process, across every condition at once |
 
 Stages 0 and 1 are the optional Zahner furnace-log front-end. If you bring CSV
 spectra from any other instrument, you start at stage 2. Full per-stage detail
@@ -72,8 +72,9 @@ parameters are documented in [docs/STAGES.md](docs/STAGES.md).
 - Zarc equivalent-circuit fit in log space with an analytic Jacobian,
   deterministic multi-start, and `C_eff = τ/R` exactly.
 - Per-isotherm ionic/electronic decomposition (NNLS) and Arrhenius energies.
-- Global MIEC model: one six-parameter fit of σ(p(O₂), T) per process, solved
-  by variable projection.
+- Global MIEC model: one fit of σ(p(O₂), T) per process over every condition at
+  once, solved by variable projection. Two parameters per conduction channel, so
+  six when all three channels are selected.
 - Deterministic outputs, a golden-master test suite, and calibration
   procedures under [`audit/`](audit/README.md).
 
