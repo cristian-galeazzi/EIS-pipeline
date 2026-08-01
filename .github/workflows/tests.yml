@@ -25,6 +25,8 @@ jobs:
       - run: ruff check pipeline tests tools audit
       - name: Check the documentation against the engine
         run: python tools/check_docs.py
+      - name: Check the documentation renders on GitHub
+        run: python tools/check_math.py
 
   pytest:
     runs-on: ubuntu-latest

@@ -55,6 +55,18 @@ It does not check that a formula matches the mathematics the code implements.
 Nothing can, reliably. The golden-master suite locks the engine's numbers, and
 derivations are reviewed by a person.
 
-When the checker reports a disagreement, the document is what changes: the code
-is the specification. If the engine itself is wrong, fix it in its own commit,
-never inside a `docs:` change.
+When `check_docs.py` reports a disagreement between a document and the code,
+the document is what changes: the code is the specification. If the engine
+itself is wrong, fix it in its own commit, never inside a `docs:` change.
+
+`tools/check_math.py` runs beside it and enforces that the equations survive
+GitHub's renderer. GitHub parses Markdown before the math extension, so a bare
+`$...$` span loses the underscores and backslashes Markdown claims for itself
+and KaTeX is handed a mangled string. Inline math therefore goes inside
+backticks, as `` $`\sigma_0`$ ``, and display math goes in a fenced ```math
+block. The checker also rejects a span that crosses a line break, whitespace
+against a delimiter, LaTeX in a heading, unbalanced delimiters, and the macros
+GitHub does not accept.
+
+The backtick form is a GitHub extension. Jupyter does not implement it, so
+notebook markdown keeps bare `$...$` and is not checked.
