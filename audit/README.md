@@ -7,7 +7,7 @@ The pact is simple:
 
 - Every script here is a **procedure**, not a result. It encodes the method
   (which grid to sweep, which criterion to rank by, how to interpret the
-  output) and takes the sample to analyse from the command line.
+  output) and takes the sample to analyze from the command line.
 - Scripts read your local data and write to `audit/output/`, which is
   gitignored. No measurement, fitted parameter, or ranking derived from real
   data ever enters this repository.
@@ -41,7 +41,7 @@ The pact is simple:
   spectrum, tabulating KK score, M, mu and the adaptive frequency cuts so the
   M-selection mode can be chosen per instrument and material. Validated in
   `tests/test_audit_kk_mode_comparison.py`: on the causal synthetic spectra
-  every mode must retain at least 80% of the frequency window and honour the
+  every mode must retain at least 80% of the frequency window and honor the
   M = round(c * N) and mu >= 0.5 contracts.
 - `zarc_window_check.py`: recomputes the R/tau fit windows from each DRT seed
   and flags fitted parameters sitting on a window boundary, separating

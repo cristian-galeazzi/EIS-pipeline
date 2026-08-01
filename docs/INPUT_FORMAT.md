@@ -23,7 +23,7 @@ with the expected structure is in `sample_template/input_spectra/`.
 
 The condition folder follows the same naming convention as `Raw data/`
 (`{prefix}_{gas_flows}_{T_max}_{T_min}_{T_step}`; the gas section is
-recognised from the first `Ar`/`O2`/`N2`/`H2` token). The file prefix before
+recognized from the first `Ar`/`O2`/`N2`/`H2` token). The file prefix before
 `_{T}C` is free. CSV format, separator comma/semicolon/tab:
 
 ```

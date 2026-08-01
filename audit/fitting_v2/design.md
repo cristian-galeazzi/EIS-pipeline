@@ -128,7 +128,7 @@ optimizer quality.
 Amendment, accepted by the operator before Session C: G3 is read as paired
 non-inferiority. It passes because (a) v2 is never worse on the fit
 objective, and (b) every recovery-error excess is within a 1% relative
-equivalence band, while the gains outside that band all favour v2. A real
+equivalence band, while the gains outside that band all favor v2. A real
 G3 failure remains any noise level where v2's median exceeds v1's by more
 than 1% relative.
 
