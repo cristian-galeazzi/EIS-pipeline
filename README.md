@@ -20,8 +20,8 @@ From raw spectra to a global conductivity model. The per-stage figures that lead
 | 1 | `stage1_labeling.ipynb` | Match `.ism` files to furnace windows, label temperatures, copy valid files |
 | 2 | `stage2_kk.ipynb` | Lin-KK validity test; select the best replica per (condition, T) |
 | 3 | `stage3_drt.ipynb` | Tikhonov DRT, peak detection, Zarc equivalent-circuit fit |
-| 4 | `stage4_plots.ipynb` | Nyquist, Bode, DRT, Arrhenius, Brouwer p(O₂) figures |
-| 5 | `stage5_model.ipynb` | Global MIEC model: one fit of σ(p(O₂), T) per process, across every condition at once |
+| 4 | `stage4_plots.ipynb` | Nyquist, Bode, DRT, Arrhenius, Brouwer $`p_{\text{O}_2}`$ figures |
+| 5 | `stage5_model.ipynb` | Global MIEC model: one fit of $`\sigma(p_{\text{O}_2}, T)`$ per process, across every condition at once |
 
 Stages 0 and 1 are the optional Zahner furnace-log front-end. If you bring CSV
 spectra from any other instrument, you start at stage 2. Full per-stage detail
@@ -29,8 +29,8 @@ and every parameter are in [docs/STAGES.md](docs/STAGES.md).
 
 Stage 5 fits the whole conductivity surface of each process at once. The
 surface shown at the top of this page is the bundled synthetic sample: a mixed
-conductor with an n-type branch at low p(O₂), an ionic plateau, and a p-type
-branch at high p(O₂).
+conductor with an n-type branch at low $`p_{\text{O}_2}`$, an ionic plateau, and a
+p-type branch at high $`p_{\text{O}_2}`$.
 
 ## Quickstart
 
@@ -49,12 +49,13 @@ saves them to `session.json`, so later stages pick up where the previous one
 left off. Conditions and temperatures are discovered from the folder names.
 
 **Try it without data:** the repository bundles `EXAMPLE_SAMPLE/`, a synthetic
-sample (eight p(O₂) conditions from 1 bar down to 1e-12 bar, five temperatures,
-two-Zarc spectra of a mixed n + ionic + p-type bulk and a pure-ionic grain
-boundary, with realistic noise, regenerable with
+sample (eight $`p_{\text{O}_2}`$ conditions from 1 bar down to $`10^{-12}`$
+bar, five temperatures, two-Zarc spectra of a mixed n + ionic + p-type bulk
+and a pure-ionic grain boundary, with realistic noise, regenerable with
 `python tools/generate_example_sample.py`). The wide pressure span draws the
-full Brouwer diagram: the p-type branch at high p(O₂), the ionic plateau, and
-the n-type branch at low p(O₂). It uses the CSV entry path, so start from
+full Brouwer diagram: the p-type branch at high $`p_{\text{O}_2}`$, the ionic
+plateau, and the n-type branch at low $`p_{\text{O}_2}`$. It uses the CSV
+entry path, so start from
 `stage2_kk.ipynb`, type `EXAMPLE_SAMPLE` at the sample prompt, and continue
 through stage 5. Any plausible pellet geometry works (thickness 1.4 mm,
 diameter 10 mm).
@@ -68,13 +69,13 @@ parameters are documented in [docs/STAGES.md](docs/STAGES.md).
 - Lin-KK validity test (Schönleber 2014) with adaptive frequency cuts and a
   ceramic-aware compliance score.
 - Tikhonov DRT deconvolution (pyDRTtools) with peak detection and area
-  integration over d(ln τ).
+  integration over $`d(\ln\tau)`$.
 - Zarc equivalent-circuit fit in log space with an analytic Jacobian,
-  deterministic multi-start, and `C_eff = τ/R` exactly.
+  deterministic multi-start, and `C_eff` $`= \tau/R`$ exactly.
 - Per-isotherm ionic/electronic decomposition (NNLS) and Arrhenius energies.
-- Global MIEC model: one fit of σ(p(O₂), T) per process over every condition at
-  once, solved by variable projection. Two parameters per conduction channel, so
-  six when all three channels are selected.
+- Global MIEC model: one fit of $`\sigma(p_{\text{O}_2}, T)`$ per process over
+  every condition at once, solved by variable projection. Two parameters per
+  conduction channel, so six when all three channels are selected.
 - Deterministic outputs, a golden-master test suite, and calibration
   procedures under [`audit/`](audit/README.md).
 
@@ -87,7 +88,7 @@ parameters are documented in [docs/STAGES.md](docs/STAGES.md).
 
 ## Requirements
 
-Python ≥ 3.11 and the pinned `requirements.txt`: `zahner_analysis` (.ism
+Python 3.11 or newer and the pinned `requirements.txt`: `zahner_analysis` (.ism
 reader), `pyDRTtools` (DRT), `impedance` (circuit fit), `scipy`/`numpy`,
 `pandas`/`openpyxl` (Excel I/O), `matplotlib`, `ipywidgets` (interactive
 panels).
