@@ -32,13 +32,14 @@ freq,Z_re,Z_im,temperature,pO2
 ```
 
 `Z_im` must be **positive** in the capacitive region (BioLogic EC-Lab
-exports −Im(Z): multiply by −1 before saving); the loader rejects a file
-whose `Z_im` column is mostly negative, naming the convention in the error. Temperature in the filename
-(`_{T}C`) and a `temperature` column are required for Arrhenius analysis
-(≥ 3 temperatures); Nyquist, Bode, DRT and the Zarc fit work without them.
-An optional `pO2` column [bar] enables the Brouwer p(O₂), transference and
-Stage 5 analyses without an oven log; without it (or stage 0-1 lambda-probe
-data) those p(O₂) steps are skipped.
+exports $`-\text{Im}(Z)`$: multiply by $`-1`$ before saving); the loader
+rejects a file whose `Z_im` column is mostly negative, naming the convention
+in the error. Temperature in the filename (`_{T}C`) and a `temperature`
+column are required for Arrhenius analysis (at least three temperatures);
+Nyquist, Bode, DRT and the Zarc fit work without them.
+An optional `pO2` column [bar] enables the Brouwer $`p_{\text{O}_2}`$, transference and
+stage 5 analyses without an oven log; without it (or stage 0-1 lambda-probe
+data) those $`p_{\text{O}_2}`$ steps are skipped.
 
 ---
 
@@ -79,7 +80,5 @@ EIS-pipeline/
         └── pO2/            ← Brouwer + transference + stage5_model.xlsx
 ```
 
-**Requirements:** Python ≥ 3.11 and the pinned `requirements.txt`:
-`zahner_analysis` (.ism reader), `pyDRTtools` (DRT), `impedance` (circuit
-fit), `scipy`/`numpy`, `pandas`/`openpyxl` (Excel I/O), `matplotlib`,
-`ipywidgets` (interactive panels, stages 0-5).
+**Requirements:** `requirements.txt` pins every dependency and the
+[README](../README.md#requirements) lists what each one is for.
