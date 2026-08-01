@@ -96,7 +96,7 @@ judged on the magnitude-normalized residuals: a compliant spectrum leaves
 only noise in $`r_\text{re}`$ and $`r_\text{im}`$, so each residual vector is
 tested for normality with the Shapiro-Wilk statistic ($`W`$ approaches 1 for
 structure-free residuals) and `kk_score = (W_re + W_im) / 2`. Classification:
-GREEN (`kk_score` $`\geq 0.97`$), YELLOW ($`\geq 0.90`$), RED (excluded
+GREEN (`kk_score` at least 0.97), YELLOW (at least 0.90), RED (excluded
 downstream). A ceramic-aware dual criterion (`KK_USE_W_CRITERIA = True`) is
 looser on $`Z''`$, which is intrinsically noisier in high-impedance ceramics;
 enable it only when the strict score rejects spectra that look valid by eye.
@@ -105,10 +105,11 @@ Two $`M`$-selection modes exist (`KK_USE_BINARY_M`):
 
 - **Automatic** (`True`): smallest $`M`$ whose residual sign-change fraction
   $`\mu`$ reaches `KK_MU_TARGET` (under-fitting leaves correlated residuals
-  with $`\mu \ll 0.5`$, over-fitting chases noise with $`\mu`$ approaching 1).
+  with $`\mu`$ well below 0.5, over-fitting chases noise with $`\mu`$
+  approaching 1).
   $`M`$ is scanned linearly because $`\mu(M)`$ is not monotonic.
 - **Percentage** (default): $`M = \text{round}(cN)`$ with the density $`c`$
-  (`KK_C`). The shipped $`c = 0.76`$ is calibrated on the author's dataset (see
+  (`KK_C`). The shipped density, 0.76, is calibrated on the author's dataset (see
   `audit/kk_mode_comparison.py` to recalibrate on yours); the RelaxIS KK-View
   default is 0.50.
 

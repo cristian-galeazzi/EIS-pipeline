@@ -58,18 +58,18 @@ fraction
 ```
 
 runs from about 0 (underfit) to about 1 (overfit). The automatic mode scans $`M`$
-upward from 3 and stops at the smallest $`M`$ with $`\mu \geq 0.50`$
+upward from 3 and stops at the smallest $`M`$ whose $`\mu`$ is at least 0.50
 (`_find_optimal_M(mu_target=0.50)`); the scan is linear because $`\mu(M)`$ is not
 monotonic, so bisection could skip valid $`M`$. The fixed mode uses
 $`M = \text{round}(c N)`$ with the density $`c`$ (`KK_C` in the stage-2
 notebook) calibrated once per instrument/dataset class. When no $`M`$ in
 $`[3, N-1]`$ reaches $`\mu \geq`$ `mu_target`, the scan falls back to the fixed
-mode with $`c = 0.85`$ rather than failing, so a spectrum that never reaches the
-target is still scored instead of being dropped silently.
+mode with a density of 0.85 rather than failing, so a spectrum that never
+reaches the target is still scored instead of being dropped silently.
 
 **Pass criterion.** A KK-consistent spectrum leaves residuals that are pure
 noise, so both $`r_\text{re}`$ and $`r_\text{im}`$ must pass a Shapiro-Wilk
-normality test with $`W \geq 0.95`$, evaluated after edge trimming.
+normality test, $`W`$ of at least 0.95, evaluated after edge trimming.
 
 **Edge trimming.** Measurement artifacts concentrate at the frequency
 extremes. Pass 1 fits the full spectrum and walks inward from each edge; a
@@ -211,7 +211,7 @@ would imprint operator choices onto the Arrhenius trends extracted later.
 
 The **pinning diagnostic** measures, for each fitted $`R`$ and $`\tau`$, the distance
 to the nearer window edge as a fraction of the $`\log_{10}`$ half-width (0 on the
-bound, 1 at the window center); a parameter with edge fraction $`\leq 0.15`$ is flagged
+bound, 1 at the window center); a parameter with edge fraction at most 0.15 is flagged
 PINNED, meaning the optimizer pushed against the constraint and the seed or
 the window, not the data, is limiting the result.
 
@@ -239,7 +239,8 @@ below the noise floor.
 
 The engine minimizes $`\lVert r(\theta) \rVert^2`$ with scipy's trust-region
 reflective (TRF) bounded least squares in a **logarithmic parametrization**
-$`x = (\ln R_0?, \ln R_k, \ln \tau_k, \alpha_k)`$. $`R`$ and $`\tau`$ span decades, so
+$`x = (\ln R_0, \ln R_k, \ln \tau_k, \alpha_k)`$, again with $`R_0`$ only when it
+is part of the circuit. $`R`$ and $`\tau`$ span decades, so
 in linear space the least-squares valley is a long ill-conditioned trench, while
 in log space the decade boxes of 3.4 become plain symmetric intervals and the
 conditioning improves by orders of magnitude. The Jacobian is analytic:
