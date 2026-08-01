@@ -349,10 +349,14 @@ def run_linkk(
 
     M selection
     -----------
-    use_binary_M=True (default, mirrors RelaxIS binary search):
-        Binary search finds the smallest M where the sign-change fraction
-        μ ≥ mu_target (0.50).  Run independently for Pass 1 and Pass 2.
-    use_binary_M=False (linear mode):
+    use_binary_M=True (default, automatic mode):
+        Linear scan upward from M = 3 for the smallest M where the
+        sign-change fraction μ ≥ mu_target (0.50).  A scan and not a
+        bisection: μ(M) is not monotonic in M, so bisection can skip valid
+        M and settle on a larger one.  Run independently for Pass 1 and
+        Pass 2.  The flag name is historical and predates the switch away
+        from bisection; the behavior it selects is the scan.
+    use_binary_M=False (fixed-density mode):
         M = round(c × N_freq), same for both passes.
 
     Frequency cutoffs
@@ -375,7 +379,9 @@ def run_linkk(
     Z_im             : imaginary part [Ω], positive for capacitive half
                        (IsmRecord convention: Z_im = −Z_complex.imag)
     c                : RC density (only used when use_binary_M=False). Default 0.85.
-    use_binary_M     : if True, binary search for M on μ = mu_target. Default True.
+    use_binary_M     : if True, linear scan for the smallest M with μ ≥ mu_target
+                       (the name is historical). If False, M = round(c × N_freq).
+                       Default True.
     mu_target        : sign-change fraction target for binary search. Default 0.50.
     add_inductance   : add inductive element for HF inductive loops. Default False.
     iqr_fence_factor : IQR fence multiplier.  Default 2.0 (RelaxIS default).
