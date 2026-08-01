@@ -398,13 +398,13 @@ columns, the design matrix is
 ```math
 A(E_\text{a}) =
 \begin{bmatrix}
-\frac{1}{T_1} e^{-E_\text{a}^{\text{ion}}/k_B T_1} &
-\frac{1}{T_1} e^{-E_\text{a}^{p}/k_B T_1}\, p_1^{+x} &
-\frac{1}{T_1} e^{-E_\text{a}^{n}/k_B T_1}\, p_1^{-x} \\
+\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T_1}\right) &
+\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T_1}\right) p_1^{+x} &
+\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T_1}\right) p_1^{-x} \\
 \vdots & \vdots & \vdots \\
-\frac{1}{T_N} e^{-E_\text{a}^{\text{ion}}/k_B T_N} &
-\frac{1}{T_N} e^{-E_\text{a}^{p}/k_B T_N}\, p_N^{+x} &
-\frac{1}{T_N} e^{-E_\text{a}^{n}/k_B T_N}\, p_N^{-x}
+\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T_N}\right) &
+\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T_N}\right) p_N^{+x} &
+\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T_N}\right) p_N^{-x}
 \end{bmatrix}
 \in \mathbb{R}^{N \times n_\text{ch}}
 ```
