@@ -23,6 +23,8 @@ jobs:
           cache: pip
       - run: pip install ruff==0.15.17
       - run: ruff check pipeline tests tools audit
+      - name: Check the documentation against the engine
+        run: python tools/check_docs.py
 
   pytest:
     runs-on: ubuntu-latest

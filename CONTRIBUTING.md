@@ -40,3 +40,21 @@ alters the numbers needs a dedicated discussion in an issue first.
 
 Plot styling (`pipeline/plots.py`), notebook UX (`pipeline/interactive.py`,
 the notebooks themselves) and documentation are free to evolve.
+
+## Documentation and the engine
+
+`tools/check_docs.py` runs in CI and enforces two things about the documents:
+
+- every symbol named in a `**Code:**` line exists in the file it names, and a
+  reference in ordinary prose spells out its file rather than writing a bare
+  `::name`, which would silently inherit the file from an earlier reference;
+- every constant a document cites by name, as `` `NAME` = value `` or as
+  `` `func(kw=value)` ``, matches the value in `pipeline/`.
+
+It does not check that a formula matches the mathematics the code implements.
+Nothing can, reliably. The golden-master suite locks the engine's numbers, and
+derivations are reviewed by a person.
+
+When the checker reports a disagreement, the document is what changes: the code
+is the specification. If the engine itself is wrong, fix it in its own commit,
+never inside a `docs:` change.
