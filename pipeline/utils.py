@@ -3,6 +3,7 @@
 Two responsibilities:
 - merge_sheet_by_T : safe per-temperature update of a sheet inside an Excel file
 - build_metadata_sheet : standardised 2-column DataFrame recording fixed parameters
+- condition_label : one naming rule for every condition shown to the user
 
 These helpers exist so that NB02 and NB03 export logic stays identical and the
 Metadata schema is uniform across all stages (NB01, NB02, NB03).
@@ -10,6 +11,8 @@ Metadata schema is uniform across all stages (NB01, NB02, NB03).
 from __future__ import annotations
 
 import datetime as _dt
+import os
+import re
 import warnings
 from pathlib import Path
 from typing import Any, Mapping
@@ -236,3 +239,42 @@ def build_metadata_sheet(
     rows.extend((str(k), v) for k, v in params.items())
     rows.extend(_library_versions())
     return pd.DataFrame(rows, columns=["parameter", "value"])
+
+
+_GAS_RE = re.compile(r"^(Ar|O2|N2|H2|Air)(?![A-Za-z0-9])", re.IGNORECASE)
+
+
+def condition_label(condition: str, sample_id: str) -> str:
+    """Short human label for a condition folder: the gas and the ramp range.
+
+    A folder name repeats the sample prefix, a bank letter and the ramp
+    endpoints (``S1_B_Ar-80_O2-20_600_400_25``); only the gas and the range are
+    worth showing. The prefix is stripped by exact match, or by shared prefix
+    when the sample id carries a run suffix the folder does not have
+    (``S1_Tvar`` against ``S1_B_...``), so repeated runs of one pellet can live
+    side by side without losing their labels.
+
+    A sample id sharing no prefix with the folder cannot be stripped; see the
+    naming convention in ``docs/INPUT_FORMAT.md``.
+
+    >>> condition_label("S1_B_Ar-80_O2-20_600_400_25", "S1")
+    'Ar-80 O2-20 | 400-600C'
+    >>> condition_label("S1_B_Air_600_400_25", "S1_Tvar")
+    'Air | 400-600C'
+    """
+    if condition.startswith(sample_id):
+        stripped = condition[len(sample_id):].lstrip("_")
+    else:
+        shared = os.path.commonprefix([condition, sample_id])
+        shared = shared[:shared.rfind("_") + 1] if "_" in shared else ""
+        stripped = condition[len(shared):]
+
+    parts = stripped.split("_")
+    # a bank or position letter (B, A1) precedes the gas; a gas never does
+    if parts and len(parts[0]) <= 3 and not _GAS_RE.match(parts[0]):
+        stripped = "_".join(parts[1:])
+
+    parts = stripped.split("_")
+    if len(parts) >= 4 and parts[-3].isdigit() and parts[-2].isdigit():
+        return f"{' '.join(parts[:-3])} | {parts[-2]}-{parts[-3]}C"
+    return stripped

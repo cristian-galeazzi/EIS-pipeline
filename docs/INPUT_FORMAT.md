@@ -81,5 +81,11 @@ EIS-pipeline/
         └── pO2/            ← Brouwer + transference + stage5_model.xlsx
 ```
 
+`{SAMPLE_ID}` is both the folder name and the key in `session.json`. A repeated
+measurement of the same pellet takes its own id, formed by suffixing the
+existing one (`{SAMPLE_ID}_Tvar`), so the two runs stay separate entries; the
+suffix must extend the condition-folder prefix, since an unrelated name cannot
+be stripped from the condition labels.
+
 **Requirements:** `requirements.txt` pins every dependency and the
 [README](../README.md#requirements) lists what each one is for.
