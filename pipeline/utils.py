@@ -1,13 +1,16 @@
-"""Shared helpers used by the notebook export cells.
+"""Shared helpers used by the notebook cells.
 
-Two responsibilities:
+Export:
 - merge_sheet_by_T : safe per-temperature update of a sheet inside an Excel file
-- build_metadata_sheet : standardised 2-column DataFrame recording fixed parameters
+- build_metadata_sheet : standardized 2-column DataFrame recording fixed parameters
+
+Presentation and input resolution:
+- format_pO2_value, condition_pO2_map : one formatting rule for every p(O2) label
 - condition_label : one naming rule for every condition shown to the user
 - stage2_pool_names : which filename stage 2 resolves inside ISM validation/
 
-These helpers exist so that NB02 and NB03 export logic stays identical and the
-Metadata schema is uniform across all stages (NB01, NB02, NB03).
+These helpers exist so the stages stay identical where they must agree: the
+Metadata schema, the p(O2) labels, the condition names and the input pool.
 """
 from __future__ import annotations
 

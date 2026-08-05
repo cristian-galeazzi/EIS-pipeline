@@ -65,7 +65,7 @@ class IsmRecord:
     T_std      : std of furnace temperature during measurement [C]
     pO2_mean   : mean pO2 during each ism measurement [bar], computed as (max+min)/2
     replica    : replica index within the (T_nominal) group, 1-based
-    status     : VALID | UNSTABLE | OUTSIDE_RANGE | OUT_OF_RANGE
+    status     : VALID | UNSTABLE | NEAR_TRANSITION | OUT_OF_RANGE | OUTSIDE_RANGE
     """
     path:      Path
     freq:      np.ndarray
@@ -420,7 +420,7 @@ def scan_input_spectra(sample_dir: Path | str) -> Optional[pd.DataFrame]:
 
     Each subfolder of input_spectra/ is treated as one condition.
     Files must follow the naming convention anyname_NNNc.csv (or .txt).
-    Files without a recognisable temperature in the name are skipped with a warning.
+    Files without a recognizable temperature in the name are skipped with a warning.
 
     Columns returned
     ----------------

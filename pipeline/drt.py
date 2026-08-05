@@ -121,7 +121,7 @@ def compute_drt(
     -------
     EIS_object with attributes populated by simple_run:
         .out_tau_vec  : τ grid [s]
-        .gamma        : DRT γ(logτ) [Ohm]
+        .gamma        : DRT γ(lnτ) [Ohm]
         .lambda_value : regularization parameter λ chosen
         .res_re       : fit residuals, real part
         .res_im       : fit residuals, imaginary part

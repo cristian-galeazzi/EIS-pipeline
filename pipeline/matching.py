@@ -114,7 +114,7 @@ def find_furnace_log(sample_dir: Path, condition_folder: str) -> Path:
     for p in parts:    
         # p is each token from the folder name split by '_'
         if not collecting:
-            # Start collecting from the first recognised gas token (Ar, O2, N2, H2, H2O, CO2, CO, He)
+            # Start collecting from the first recognized gas token (Ar, O2, N2, H2, H2O, CO2, CO, He)
             if p and p[0].isalpha() and not p.isdigit():
                 # Gas name must be the whole token or followed by a separator
                 # (e.g. 'Ar', 'O2-10'), otherwise sample prefixes like 'CoP03'

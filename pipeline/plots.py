@@ -83,8 +83,10 @@ def apply_pub_style() -> None:
     Apply publication-quality matplotlib rcParams.
     Call once at the top of each notebook or script.
 
-    Serif (Times New Roman / DejaVu Serif) with Computer Modern math -
-    matches the reference notebooks (DRT_Analysis, Brouwer) exactly.
+    Serif (Times New Roman / DejaVu Serif) with STIX math, the Times-metric
+    companion: every axis label is one math expression, so a math font of a
+    different family would set the whole label in a second serif. Computer
+    Modern, used before, is lighter than Times and made the labels recede.
     Inward ticks, top+right tick marks, dpi=150 display / 300 export.
 
     >>> apply_pub_style()
@@ -94,7 +96,7 @@ def apply_pub_style() -> None:
     mpl.rcParams.update({
         "font.family":        "serif",
         "font.serif":         ["Times New Roman", "DejaVu Serif"],
-        "mathtext.fontset":   "cm",
+        "mathtext.fontset":   "stix",
         "font.size":          10,
         "axes.labelsize":     12,
         "axes.titlesize":     12,
@@ -211,9 +213,9 @@ def plot_drt_stacked(
     show_pO2:      bool        = True,
 ) -> plt.Figure:
     """
-    Stacked DRT plot - normalised γ(τ) with vertical offset per temperature.
+    Stacked DRT plot - normalized γ(ln τ) with vertical offset per temperature.
 
-    Each trace is normalised to its own maximum, then offset vertically so
+    Each trace is normalized to its own maximum, then offset vertically so
     temperatures stack from bottom (low T) to top (high T) with no overlap.
 
     Parameters
@@ -271,10 +273,10 @@ def plot_drt_stacked(
                 fontsize=8, va="center", ha="left", color="black")
 
     ax.set_xscale("log")
-    ax.set_xlabel(r"$\tau$ / s", fontsize=8, labelpad=10)
+    ax.set_xlabel(r"$\tau\:/\:\mathrm{s}$", fontsize=8, labelpad=10)
     lbl_x = label_tau if label_tau is not None else 5e-8
     ax.set_xlim([lbl_x * 0.8, tau_max])
-    ax.set_ylabel(r"$\gamma(\tau)$ / $\Omega$ (normalised)", fontsize=8, labelpad=10)
+    ax.set_ylabel(r"$\gamma(\ln\tau)\:/\:\gamma_\mathrm{max}$", fontsize=8, labelpad=10)
     y_max = (len(temps) - 1) * offset_step + 1.5
     ax.set_ylim([-0.3, y_max])
     ax.set_yticks([])
@@ -292,7 +294,7 @@ def plot_drt_stacked(
     if df_peaks is not None:
         _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
         if _title:
-            fig.suptitle(_title, fontsize=11)
+            fig.suptitle(_title, fontsize=_suptitle_size(fig))
 
     if save:
         _save(fig, save_dir, f"DRT_{condition}_Stacked")
@@ -313,7 +315,7 @@ def plot_nyquist_multipanel(
     hf_inset:   bool = True,
     save:       bool = True,
     df_peaks:   pd.DataFrame | None = None,
-    label:      str = "",
+    label:      str  = "",
     show_pO2:   bool = True,
 ) -> plt.Figure:
     """
@@ -341,6 +343,8 @@ def plot_nyquist_multipanel(
     df_peaks   : optional stage3_fit.xlsx "Peaks" DataFrame; when given and it
                  carries pO2_mean, the median p(O2) is shown as a suptitle,
                  same value the condition selector and the Arrhenius figures use.
+    label      : condition label for the suptitle ("" = pressure only)
+    show_pO2   : False for a run whose lambda probe was off
 
     >>> fig = plot_nyquist_multipanel(records, fit_params, "Ar_100",
     ...                               "Results/Ar_100/plots")  # doctest: +SKIP
@@ -382,8 +386,8 @@ def plot_nyquist_multipanel(
                 warnings.warn(f"Nyquist fit overlay skipped for T={T}: "
                               f"{type(exc).__name__}: {exc}", stacklevel=2)
 
-    ax.set_xlabel(r"$Z'$ / k$\Omega$")
-    ax.set_ylabel(r"$-Z''$ / k$\Omega$")
+    ax.set_xlabel(r"$Z'\:/\:\mathrm{k}\Omega$")
+    ax.set_ylabel(r"$-Z''\:/\:\mathrm{k}\Omega$")
     ax.set_aspect("equal", adjustable="box")
     if xlim is not None:
         ax.set_xlim(left=xlim[0], right=xlim[1])
@@ -429,7 +433,7 @@ def plot_nyquist_multipanel(
     if df_peaks is not None:
         _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
         if _title:
-            fig.suptitle(_title, fontsize=11)
+            fig.suptitle(_title, fontsize=_suptitle_size(fig))
 
     if save:
         _save(fig, save_dir, f"Nyquist_{condition}")
@@ -451,7 +455,7 @@ def plot_bode(
     save:       bool = True,
     model_label: str | None = None,
     df_peaks:   pd.DataFrame | None = None,
-    label:      str = "",
+    label:      str  = "",
     show_pO2:   bool = True,
 ) -> plt.Figure:
     """
@@ -471,6 +475,8 @@ def plot_bode(
     df_peaks   : optional stage3_fit.xlsx "Peaks" DataFrame; when given and it
                  carries pO2_mean, the median p(O2) is shown as a suptitle,
                  same value the condition selector and the Arrhenius figures use.
+    label      : condition label for the suptitle ("" = pressure only)
+    show_pO2   : False for a run whose lambda probe was off
 
     >>> fig = plot_bode(records, fit_params, "Ar_100",
     ...                 "Results/Ar_100/plots")  # doctest: +SKIP
@@ -513,7 +519,7 @@ def plot_bode(
                 warnings.warn(f"Bode fit overlay skipped for T={T}: "
                               f"{type(exc).__name__}: {exc}", stacklevel=2)
 
-    ax_mag.set_ylabel(r"$|Z|$ / k$\Omega$")
+    ax_mag.set_ylabel(r"$|Z|\:/\:\mathrm{k}\Omega$")
     ax_mag.legend(loc="upper right", ncol=2, fontsize=8)
     ax_mag.grid(True, which="both", ls=":", alpha=0.4)
 
@@ -536,8 +542,8 @@ def plot_bode(
                     fontsize=9, ha="left", va="bottom",
                     bbox=dict(boxstyle="round", fc="wheat", alpha=0.8))
 
-    ax_ph.set_xlabel("Frequency / Hz")
-    ax_ph.set_ylabel("Phase / °")
+    ax_ph.set_xlabel(r"$f\:/\:\mathrm{Hz}$")
+    ax_ph.set_ylabel(r"$\varphi\:/\:^\circ$")
     ax_ph.grid(True, which="both", ls=":", alpha=0.4)
 
     if freq_lim is not None:
@@ -551,7 +557,7 @@ def plot_bode(
     if df_peaks is not None:
         _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
         if _title:
-            fig.suptitle(_title, fontsize=11)
+            fig.suptitle(_title, fontsize=_suptitle_size(fig))
 
     if save:
         _save(fig, save_dir, f"Bode_{condition}")
@@ -573,7 +579,7 @@ def build_arrhenius_results(
 
     Physical quantities derived
     ---------------------------
-    σ  = L / (R · A)       [S/m]          (conductivity)
+    σ  = L / (R · A)       [S/m], returned in S/cm  (conductivity)
     C  = C_eff_i = τ / R   [F]            (effective capacitance)
     εᵣ = C · L / (ε₀ · A)  (dimensionless) (relative permittivity)
 
@@ -634,10 +640,12 @@ def build_arrhenius_results(
         tau = sub["tau_i"].values.astype(float)
         C   = sub["C_eff_i"].values.astype(float)
 
+        # reported in S/cm like every other conductivity in the program;
+        # the stored column stays S/m, only this reporting boundary converts
         if "sigma_Sm_i" in sub.columns:
-            sigma = sub["sigma_Sm_i"].values.astype(float)
+            sigma = sub["sigma_Sm_i"].values.astype(float) / 100.0
         else:
-            sigma = L_m / (R * A_m2)
+            sigma = L_m / (R * A_m2) / 100.0
 
         def _safe_ln(vals: np.ndarray, label: str) -> np.ndarray:
             # log(0) gives -inf, which passes the NaN-only mask in
@@ -721,7 +729,7 @@ def _draw_arrhenius_panel(
         fit_y = r[int_key] + r[slope_key] * (fit_x / 1000)
         ax.plot(fit_x, fit_y, "-", color=r["color"], linewidth=1.0, alpha=0.7)
 
-    ax.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
+    ax.set_xlabel(r"$1000\,T^{-1}\:/\:\mathrm{K^{-1}}$", fontsize=12)
     ax.set_ylabel(ylabel, fontsize=12)
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15),
               fontsize=10, frameon=True, ncol=2)
@@ -731,6 +739,24 @@ def _draw_arrhenius_panel(
 # ---------------------------------------------------------------------------
 # 5. Arrhenius 2×2 panel
 # ---------------------------------------------------------------------------
+
+def _suptitle_size(fig: plt.Figure) -> float:
+    """Suptitle size in points, proportional to the figure width.
+
+    Equal point sizes are not equal on the page. A figure is scaled to a fixed
+    column width before it is read, so the same 11 pt lands 2.8 times larger on
+    a 4-inch figure than on an 11-inch one. Tying the size to the width keeps
+    the apparent size constant across the whole set. The constant is 12 pt on
+    the 6.5-inch figure, the reference width of this module.
+
+    >>> from matplotlib.figure import Figure
+    >>> round(_suptitle_size(Figure(figsize=(6.5, 5))), 1)
+    12.0
+    >>> round(_suptitle_size(Figure(figsize=(4, 4))), 1)
+    7.4
+    """
+    return 12.0 / 6.5 * float(fig.get_size_inches()[0])
+
 
 def _condition_suptitle(df_peaks: pd.DataFrame, label: str = "", *,
                         show_pO2: bool = True) -> str:
@@ -777,7 +803,7 @@ def plot_arrhenius_panel(
     Panel layout
     ------------
     [0,0]  ln(σT)  vs 1000/T  →  Eₐᶜᵒⁿᵈ  (long-range transport)
-    [0,1]  ln(τ)   vs 1000/T  →  Eₐᵖᵒˡ   (polarisation / local hop)
+    [0,1]  ln(τ)   vs 1000/T  →  Eₐᵖᵒˡ   (polarization / local hop)
     [1,0]  ln(C)   vs 1000/T  →  Eₐᶜ      (net: Eₐᵖᵒˡ − Eₐᶜᵒⁿᵈ)
     [1,1]  log₁₀(εᵣ) vs 1000/T (no Arrhenius line - diagnostic only)
 
@@ -785,11 +811,13 @@ def plot_arrhenius_panel(
     ----------
     df_peaks  : DataFrame from stage3_fit.xlsx sheet "Peaks"
     L_m, D_m  : sample geometry [m]
-    condition : label for title and filename
+    condition : filename stem for the saved figure
     save_dir  : output directory
     t_min     : exclude temperatures below this value [°C] from the
                 Arrhenius fits (see build_arrhenius_results); the active
                 range is annotated on the figure. None = all temperatures.
+    label     : condition label for the suptitle ("" = pressure only)
+    show_pO2  : False for a run whose lambda probe was off
 
     Returns
     -------
@@ -807,7 +835,7 @@ def plot_arrhenius_panel(
 
     _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
     if _title:
-        fig.suptitle(_title, fontsize=11)
+        fig.suptitle(_title, fontsize=_suptitle_size(fig))
 
     # The figure must declare its own fit range when low-T points are excluded
     if t_min is not None:
@@ -816,15 +844,15 @@ def plot_arrhenius_panel(
 
     _draw_arrhenius_panel(
         axes[0, 0], results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
-        r"E_a^{cond}", r"ln($\sigma T$ / S·K·m$^{-1}$)")
+        r"E_a^{cond}", r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$")
 
     _draw_arrhenius_panel(
         axes[0, 1], results, "ln_tau", "slope_pol", "int_pol", "Ea_pol",
-        r"E_a^{pol}", r"ln($\tau$ / s)")
+        r"E_a^{pol}", r"$\ln[\tau\:/\:\mathrm{s}]$")
 
     _draw_arrhenius_panel(
         axes[1, 0], results, "ln_C", "slope_C", "int_C", "Ea_C",
-        r"E_a^{C}", r"ln($C$ / F)")
+        r"E_a^{C}", r"$\ln[C\:/\:\mathrm{F}]$")
 
     # Panel [1,1]: log₁₀(εᵣ) - diagnostic, no fit line
     ax4 = axes[1, 1]
@@ -838,8 +866,8 @@ def plot_arrhenius_panel(
             markersize=7, markeredgecolor="black", markeredgewidth=0.5,
             linewidth=1, label=r["Peak"],
         )
-    ax4.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
-    ax4.set_ylabel(r"log$_{10}$($\varepsilon_r$)", fontsize=12)
+    ax4.set_xlabel(r"$1000\,T^{-1}\:/\:\mathrm{K^{-1}}$", fontsize=12)
+    ax4.set_ylabel(r"$\log_{10}\![\varepsilon_\mathrm{r}]$", fontsize=12)
     ax4.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15),
                fontsize=10, frameon=True, ncol=2)
     ax4.tick_params(direction="in", top=True, right=True)
@@ -879,6 +907,8 @@ def plot_arrhenius_sigma(
                    the figure (returns None)
     t_min        : threshold above which the split is validated [°C];
                    None = branches drawn over the full range
+    label        : condition label for the suptitle ("" = pressure only)
+    show_pO2     : False for a run whose lambda probe was off
 
     >>> fig = plot_arrhenius_sigma(df_peaks, 1.2e-3, 1.0e-2, "Ar_100",
     ...     "Results/Ar_100/plots", t_min=500, sum_peak_ids=[1, 2])  # doctest: +SKIP
@@ -897,13 +927,13 @@ def plot_arrhenius_sigma(
 
     _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
     if _title:
-        fig.suptitle(_title, fontsize=11)
+        fig.suptitle(_title, fontsize=_suptitle_size(fig))
 
     # branches: validated range only
     branch_results = build_arrhenius_results(sub, L_m, D_m, t_min=t_min)
     _draw_arrhenius_panel(
         ax, branch_results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
-        r"E_a", r"ln($\sigma T$ / S·K·m$^{-1}$)")
+        r"E_a", r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$")
 
     # series sum: full range, only at T where every block peak was fitted
     wide = sub.pivot_table(index="T_nominal", columns="peak_id",
@@ -912,7 +942,8 @@ def plot_arrhenius_sigma(
     if len(wide) >= 3:
         T_K     = wide.index.to_numpy(dtype=float) + 273.15
         R_sum   = wide.sum(axis=1).to_numpy(dtype=float)
-        sigma   = L_m / (R_sum * A_m2)
+        # S/cm, same unit as the per-branch curves it is drawn beside
+        sigma   = L_m / (R_sum * A_m2) / 100.0
         ln_sT   = np.log(sigma * T_K)
         inv_T   = 1000.0 / T_K
         Ea, _, _, slope, intercept = _arrhenius_linreg(1.0 / T_K, ln_sT)
@@ -988,7 +1019,7 @@ def plot_brouwer(
     df_all        : DataFrame aggregated from all conditions' stage3_fit.xlsx
                     Required columns: T_nominal, peak_id, pO2_mean, sigma_Sm_i
     save_dir      : output directory
-    sample_name   : sample label for title and filename stem
+    sample_name   : sample id, appended to the filename stem
     peak_id       : which peak to use (default 1 = highest-frequency process)
     temps_to_plot : temperatures to show (default None = all available)
     add_slopes    : draw the reference slope guides (default True)
@@ -1085,22 +1116,10 @@ def plot_brouwer(
                         label_pad=(0.15, -0.10 if grey else 0.0),
                         color="#888888" if grey else "black",
                         lw=1.0, ls="--", zorder=3)
-        _neg = [s for s in slopes if s.startswith("-")]
-        _pos = [s for s in slopes if s.startswith("+")]
-        _cap = "    ".join(p for p in (
-            _neg and ", ".join(rf"${s}$" for s in _neg) + r": $n$-type",
-            "0" in slopes and r"$plateau$: purely ionic",
-            _pos and ", ".join(rf"${s}$" for s in _pos) + r": $p$-type",
-        ) if p)
-        ax.text(
-            0.02, 0.03, _cap,
-            transform=ax.transAxes, fontsize=7, va="bottom", ha="left",
-            fontstyle="italic", color="#444444",
-        )
 
-    ax.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
+    ax.set_xlabel(r"$\log_{10}\![p(\mathrm{O_2})\:/\:\mathrm{bar}]$", fontsize=12)
     ax.set_ylabel(
-        r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
+        r"$\log_{10}\!\left[\sigma_{" + str(peak_id) + r"}\:/\:\mathrm{(S\,cm^{-1})}\right]$", fontsize=12)
     ax.legend(loc="upper left", frameon=True, fontsize=8,
               ncol=2, handlelength=1.3, borderpad=0.5,
               labelspacing=0.3, columnspacing=0.8)
@@ -1294,9 +1313,9 @@ def plot_brouwer_transference(
     # No panel titles (publication style): the Patterson model formula goes in
     # the figure caption / README. The shared legend sits in a framed box above
     # the figure, outside both panels, so it can never collide with the data.
-    ax_s.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
+    ax_s.set_xlabel(r"$\log_{10}\![p(\mathrm{O_2})\:/\:\mathrm{bar}]$", fontsize=12)
     ax_s.set_ylabel(
-        r"log$_{10}$($\sigma_{" + str(peak_id) + r"}$ / S cm$^{-1}$)", fontsize=12)
+        r"$\log_{10}\!\left[\sigma_{" + str(peak_id) + r"}\:/\:\mathrm{(S\,cm^{-1})}\right]$", fontsize=12)
     _handles, _labels = ax_s.get_legend_handles_labels()
     # No dashed sigma_ion guide in the legend when the channel is absent
     # everywhere (no line was drawn), so a reduced model shows no phantom entry.
@@ -1307,8 +1326,8 @@ def plot_brouwer_transference(
                fontsize=9, ncol=min(len(_labels), 7), handlelength=1.3,
                columnspacing=0.8)
 
-    ax_t.set_xlabel(r"log$_{10}$[$p$(O$_2$) / bar]", fontsize=12)
-    ax_t.set_ylabel(r"$t_{ion} = \sigma_{ion}/\sigma_{tot}$", fontsize=12)
+    ax_t.set_xlabel(r"$\log_{10}\![p(\mathrm{O_2})\:/\:\mathrm{bar}]$", fontsize=12)
+    ax_t.set_ylabel(r"$t_\mathrm{ion} = \sigma_\mathrm{ion}/\sigma_\mathrm{tot}$", fontsize=12)
     # Zoom on the data range so overlapping curves separate; the 0/1 guides
     # and their labels appear only when they fall inside the window.
     _t_lo, _t_hi = float(df_t["t_ion"].min()), float(df_t["t_ion"].max())
@@ -1443,12 +1462,12 @@ def plot_transference_arrhenius(
     drew = False
     for col, lab, color, marker in channels:
         # NNLS zeros mean "channel absent at this T", not a measured value
-        sigma_Sm = per_T[col].to_numpy(dtype=float) * 100.0   # S/cm -> S/m
-        mask = sigma_Sm > 0
+        sigma_Scm = per_T[col].to_numpy(dtype=float)   # already S/cm
+        mask = sigma_Scm > 0
         if not mask.any():
             continue
         x  = 1000.0 / T_K[mask]
-        ln = np.log(sigma_Sm[mask] * T_K[mask])
+        ln = np.log(sigma_Scm[mask] * T_K[mask])
         if mask.sum() >= 3:
             Ea, Ea_err, r2, slope, intercept = _arrhenius_linreg(1.0 / T_K[mask], ln)
             label = (f"{lab}: $E_a$ = {Ea:.2f} ± {Ea_err:.2f} eV"
@@ -1468,8 +1487,8 @@ def plot_transference_arrhenius(
                       f"peak {peak_id}", stacklevel=2)
         return None
 
-    ax.set_xlabel(r"1000$\cdot T^{-1}$/ K$^{-1}$", fontsize=12)
-    ax.set_ylabel(r"ln($\sigma T$ / S·K·m$^{-1}$)", fontsize=12)
+    ax.set_xlabel(r"$1000\,T^{-1}\:/\:\mathrm{K^{-1}}$", fontsize=12)
+    ax.set_ylabel(r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$", fontsize=12)
     # No in-figure title: the file name carries the identity (publication style)
     ax.legend(fontsize=9, frameon=True, loc="best")
     ax.tick_params(direction="in", top=True, right=True)
@@ -1522,9 +1541,9 @@ def plot_conductivity_surface_3d(df_peak, params, save_dir, *, sample_name="",
     ax.plot_surface(PO2, TT, np.log10(Z), cmap="viridis", alpha=0.6,
                     linewidth=0, antialiased=True)
     ax.scatter(np.log10(p_obs), Tc, np.log10(sig), color="black", s=18, depthshade=True)
-    ax.set_xlabel(r"log$_{10}$ $p$(O$_2$)/bar", fontsize=10)
-    ax.set_ylabel(r"$T$ / °C", fontsize=10)
-    ax.set_zlabel(r"log$_{10}$($\sigma$/S cm$^{-1}$)", fontsize=10, labelpad=8)
+    ax.set_xlabel(r"$\log_{10}\![p(\mathrm{O_2})\:/\:\mathrm{bar}]$", fontsize=10)
+    ax.set_ylabel(r"$T\:/\:^\circ\!\mathrm{C}$", fontsize=10)
+    ax.set_zlabel(r"$\log_{10}\!\left[\sigma\:/\:\mathrm{(S\,cm^{-1})}\right]$", fontsize=10, labelpad=8)
     # pure-white cube walls instead of the default off-grey panes
     for _pane in (ax.xaxis.pane, ax.yaxis.pane, ax.zaxis.pane):
         _pane.set_facecolor("white")
@@ -1563,8 +1582,8 @@ def plot_fit_residuals(df_peak, params, save_dir, *, sample_name="", peak_id=Non
     sc = ax.scatter(p_obs, Tc, c=resid, cmap="coolwarm", vmin=-vmax, vmax=vmax,
                     s=60, edgecolor="black", linewidth=0.5)
     ax.set_xscale("log")
-    ax.set_xlabel(r"$p$(O$_2$) / bar", fontsize=12)
-    ax.set_ylabel(r"$T$ / °C", fontsize=12)
+    ax.set_xlabel(r"$p(\mathrm{O_2})\:/\:\mathrm{bar}$", fontsize=12)
+    ax.set_ylabel(r"$T\:/\:^\circ\!\mathrm{C}$", fontsize=12)
     ax.tick_params(direction="in", which="both", top=True, right=True)
     fig.colorbar(sc, ax=ax, label=r"relative residual $(\sigma_\mathrm{model}-\sigma_\mathrm{exp})/\sigma_\mathrm{exp}$")
 

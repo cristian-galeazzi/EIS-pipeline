@@ -68,8 +68,9 @@ mode at the configured density rather than failing, so a spectrum that never
 reaches the target is still scored instead of being dropped silently.
 
 **Pass criterion.** A KK-consistent spectrum leaves residuals that are pure
-noise, so both $`r_\text{re}`$ and $`r_\text{im}`$ must pass a Shapiro-Wilk
-normality test, $`W`$ of at least 0.95, evaluated after edge trimming.
+noise, so $`r_\text{re}`$ and $`r_\text{im}`$ are each scored with a
+Shapiro-Wilk normality test after edge trimming and averaged into `kk_score`;
+the classification thresholds are in [STAGES.md](STAGES.md).
 
 **Edge trimming.** Measurement artifacts concentrate at the frequency
 extremes. Pass 1 fits the full spectrum and walks inward from each edge; a
@@ -272,6 +273,8 @@ each process resistance maps to a conductivity
 \sigma_k = \frac{L}{R_k A} \quad [\text{S/m}]
 ```
 
+stored in that unit as `sigma_Sm_i` and reported in
+$`\text{S cm}^{-1}`$ by every figure and table,
 and $`C_{\text{eff},k} = \tau_k / R_k`$ (3.2) is the quantity compared across
 temperatures to check that a peak keeps its character along the series. The
 same geometry turns that capacitance into a relative permittivity
@@ -383,8 +386,8 @@ three parallel, Arrhenius-activated channels with mobility $`\propto 1/T`$:
 \sigma(p_{\text{O}_2}, T) = \frac{\sigma_0^{\text{ion}}}{T} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T}\right) + \frac{\sigma_0^{p\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{+x} + \frac{\sigma_0^{n\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{-x}
 ```
 
-Six parameters: three prefactors $`\sigma_0`$ (with the $`1/T`$ pulled out) and
-three activation energies. One parameter set must fit **all** points at once;
+Six parameters: three prefactors $`\sigma_0`$ (with the $`1/T`$ pulled out),
+reported in $`\text{S K cm}^{-1}`$, and three activation energies. One parameter set must fit **all** points at once;
 that constancy across the surface is the physical-validity test of the
 defect-chemical picture. Which channels are included (`MODEL_CHANNELS`) is
 an operator decision from defect chemistry, never a fit outcome: an excluded

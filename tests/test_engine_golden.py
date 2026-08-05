@@ -8,7 +8,7 @@ numerically frozen. These tests turn that guarantee into automatic checks so an
 accidental change is caught without a manual md5 inspection.
 
 They cover:
-1. C_eff = τ/R is exact for the Zarc parametrisation (the documented identity).
+1. C_eff = τ/R is exact for the Zarc parametrization (the documented identity).
 2. ``fit_zarc`` recovers the parameters of a synthetic single-Zarc spectrum.
 3. Saved ``stage3_fit.xlsx`` rows still satisfy C_eff_i == τ_i / R_i
    (skipped automatically when no sample data is present).
