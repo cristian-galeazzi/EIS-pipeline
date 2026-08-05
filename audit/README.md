@@ -12,7 +12,7 @@ The pact is simple:
   gitignored. No measurement, fitted parameter, or ranking derived from real
   data ever enters this repository.
 - The default values shipped in the notebooks (regularization strength, peak
-  cap, KK settings) were calibrated with these procedures on the authors'
+  cap, KK settings) were calibrated with these procedures on the author's
   datasets. They are documented starting points, not universal constants:
   different materials, geometries, or frequency windows can prefer different
   values. Rerun the relevant script on your own spectra before trusting a
@@ -49,19 +49,20 @@ The pact is simple:
   detection). Validated in `tests/test_audit_zarc_window_check.py` against
   analytically constructed boundary geometries and a fabricated xlsx round
   trip.
-- `fitting_v2/`: v2 Zarc engine migration record (design, validation gates, synthetic results; see its README)
-  (log-space parametrization, analytic Jacobian, robust loss) with the
-  acceptance gates G1-G5 fixed before any result was produced. The prototype
-  lives on the `fitting-v2-prototype` branch until the gates decide its fate.
-- `fitting_v2/synthetic_gate.py` (branch only): ground-truth recovery gate,
-  gate G3. Both engines fit the same known-parameter spectra with shared
-  seeds; recovery error is measured against the truth. Smoke-tested in
+- `fitting_v2/`: the v2 Zarc engine migration record (log-space
+  parametrization, analytic Jacobian, robust loss), with the acceptance gates
+  G1-G5 fixed before any result was produced. Design, gates and synthetic
+  results are in its own README; the engine those gates cleared is the one the
+  pipeline runs today.
+- `fitting_v2/synthetic_gate.py`: ground-truth recovery gate, gate G3. Both
+  engines fit the same known-parameter spectra with shared seeds; recovery
+  error is measured against the truth. Smoke-tested in
   `tests/test_fitting_v2_gate.py`.
-- `fitting_v2/ab_harness.py` (branch only): paired refit of the production
-  dataset with both engines under the exact saved inputs (stage-2 selected
-  spectra, stage-3 DRT seeds, session knobs, warm-start chain), reporting
-  the G1/G2/G4 verdicts; stdout carries only paths and counts. Integration
-  test on a fabricated sample in `tests/test_fitting_v2_ab.py`.
+- `fitting_v2/ab_harness.py`: paired refit of the production dataset with both
+  engines under the exact saved inputs (stage-2 selected spectra, stage-3 DRT
+  seeds, session knobs, warm-start chain), reporting the G1/G2/G4 verdicts;
+  stdout carries only paths and counts. Integration test on a fabricated
+  sample in `tests/test_fitting_v2_ab.py`.
 
 ## Running
 
@@ -69,4 +70,5 @@ All scripts run from the repository root with the project virtualenv:
 
 ```bash
 .venv/bin/python audit/<script>.py --help
+.venv/bin/python audit/fitting_v2/<script>.py --help
 ```

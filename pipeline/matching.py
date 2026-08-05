@@ -117,7 +117,7 @@ def find_furnace_log(sample_dir: Path, condition_folder: str) -> Path:
             # Start collecting from the first recognized gas token (Ar, O2, N2, H2, H2O, CO2, CO, He)
             if p and p[0].isalpha() and not p.isdigit():
                 # Gas name must be the whole token or followed by a separator
-                # (e.g. 'Ar', 'O2-10'), otherwise sample prefixes like 'CoP03'
+                # (e.g. 'Ar', 'O2-10'), otherwise sample prefixes like 'CoXX01'
                 # would match the 'CO' branch and corrupt the condition key.
                 if p.upper() in ("AR", "O2", "N2", "H2", "CO2", "CO", "HE", "H2O") or re.match(r"^(Ar|O2|N2|H2O|H2|CO2|CO|He)(?![A-Za-z0-9])", p, re.I):
                     collecting = True

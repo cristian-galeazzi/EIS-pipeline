@@ -25,16 +25,16 @@ problem; never attach raw measurement data you cannot share.
 3. Make your changes and run the regression suite:
 
    ```bash
-   pytest tests/test_engine_golden.py
+   pytest tests/
    ```
 
-   All tests must pass.
+   All tests must pass; this is the suite CI runs.
 
 ## The byte-identical engine constraint
 
 The calculation engine (`pipeline/quality.py`, `pipeline/drt.py`,
-`pipeline/fitting.py`) and every non-Metadata `.xlsx` sheet must produce
-byte-identical numeric outputs across refactors. Changes to these modules are
+`pipeline/fitting.py`, `pipeline/model.py`) and every non-Metadata `.xlsx`
+sheet must produce byte-identical numeric outputs across refactors. Changes to these modules are
 limited to guards on degenerate inputs that currently crash; anything that
 alters the numbers needs a dedicated discussion in an issue first.
 

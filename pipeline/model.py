@@ -25,7 +25,9 @@ A final 6-parameter polish, seeded at the VARPRO optimum, yields the covariance
 false minima, prefactors non-negative by construction) and reuses scipy's nnls.
 
 Conventions:
-- conductivities in S/m (same as the stage-4 Arrhenius ln(sigma*T)); pO2 in bar;
+- conductivities in S/m on input, the sigma_Sm_i column; every reported value,
+  the stage-4 Arrhenius ln(sigma*T) and the fitted prefactors included, is
+  converted to S/cm at the reporting boundary. pO2 in bar;
   T_nominal in the input frame is in degrees Celsius (converted to K internally).
 - the prefactor sigma0 has the 1/T mobility factor pulled out: it is the
   intercept exp(ln sigma0) of ln(sigma*T) vs 1/T.

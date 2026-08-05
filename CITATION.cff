@@ -43,7 +43,7 @@ references:
       - family-names: Tsui
         given-names: Lok-kun
     doi: "10.21105/joss.02349"
-    notes: "Zarc equivalent-circuit fitting (J. Open Source Softw. 5(52), 2020)."
+    notes: "Zarc circuit evaluation for the fit overlays, and the v1 reference engine kept in audit/fitting_v2 (J. Open Source Softw. 5(52), 2020)."
   - type: software
     title: "zahner_analysis"
     notes: "Reads Zahner .ism binary spectra."

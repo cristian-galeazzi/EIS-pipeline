@@ -19,7 +19,7 @@ zahner_analysis==1.1.5    # read Zahner .ism binary files
 pyDRTtools==0.2           # BHT quality test + DRT (Tikhonov / mGCV)
 cvxopt==1.3.2             # required by pyDRTtools (not auto-installed)
 scikit-learn==1.8.0       # required by pyDRTtools (not auto-installed)
-impedance==1.7.1          # Zarc fitting (CustomCircuit)
+impedance==1.7.1          # evaluates the fitted Zarc circuit for the plot overlays
 
 # Export
 openpyxl==3.1.5           # .xlsx read/write
@@ -31,7 +31,7 @@ tqdm>=4.0                 # progress bars in NB02 batch KK loop
 
 # Development / testing
 pytest>=8.0               # run with: pytest tests/
-ruff==0.15.17             # lint: ruff check pipeline tests tools (also run in CI)
+ruff==0.15.17             # lint: ruff check pipeline tests tools audit (also run in CI)
 nbstripout>=0.7           # strips notebook outputs on git commit (run: nbstripout --install)
 
 # stdlib (no pip install needed): pathlib, shutil, datetime, re

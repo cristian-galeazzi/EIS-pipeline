@@ -63,7 +63,7 @@ def select_sample(notebook_dir: Path | str, show_list: bool = False) -> str:
     samples have no ``Raw data/`` so they never appear in the list). Empty or
     unknown input re-prompts instead of being silently accepted, so a stray
     Enter can no longer create a session entry with an empty sample_id.
-    One implementation for all five notebooks.
+    One implementation for all six notebooks.
 
     >>> SAMPLE_ID = select_sample(".", show_list=True)  # doctest: +SKIP
     """

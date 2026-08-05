@@ -22,8 +22,10 @@ it to switch.
 - `PARAM_MODE = "lock"` is reproduction mode. Everything loads from
   `session.json` and nothing in the notebook writes back: widgets and Apply
   buttons are view-only, so re-running the notebook always reproduces the
-  saved analysis. Use it once a sample is calibrated, or to hand the analysis
-  to someone else.
+  saved analysis. The two prompts that follow the sample rather than the
+  notebook, the stage-1 lambda-probe question and the stage-3 pellet geometry,
+  are not asked either: both come from `session.json`. Use it once a sample is
+  calibrated, or to hand the analysis to someone else.
 - `PARAM_MODE = "continue"` is build mode. The configuration cell is the
   base: starting values load from `session.json` when present, and every
   edit, whether in the cell, a widget or an Apply button, is saved to
@@ -49,9 +51,17 @@ repeating the deconvolution; a temperature whose stage-2 selection has moved
 since is named and left without a spectrum, because its stored peaks belong to
 the other file.
 
-All notebooks support temperature-by-temperature processing via `FOCUS_T`;
-export cells are merge-aware, so rows for other temperatures are preserved
-when you process one at a time.
+Stages 2 and 3 support temperature-by-temperature processing via `FOCUS_T`;
+their export cells are merge-aware, so rows for other temperatures are
+preserved when you process one at a time. Stages 4 and 5 have no `FOCUS_T`:
+they select temperatures with their own parameters (`BROUWER_TEMPS`,
+`ARRHENIUS_T_MIN`, `MODEL_T_MIN`, `MODEL_T_MAX`) and rewrite their sheets in
+full.
+
+A third switch is recorded once, in stage 1: whether the lambda probe was
+running. With the probe off, stages 2 to 5 hide every pressure and skip the
+$`p_{\text{O}_2}`$ analyses, stage 5 included, since an idle probe still writes
+a column that nothing downstream could otherwise tell from data.
 
 ---
 
@@ -95,13 +105,13 @@ expands to per-file tables when a mismatch is detected (or with
 
 **Code:** `pipeline/quality.py::run_linkk`, `pipeline/quality.py::select_best_replica`, `pipeline/quality.py::compute_frequency_cutoffs`
 
-<!-- img-slot: img/stage2_kk_panel.png -->
-
-Stage 2 reads the `VALID` sheet of `stage1_labeling.xlsx` and resolves each
-spectrum inside `ISM validation/` under the name stage 1 filed it with. Every
-VALID spectrum takes part: the groups are formed by `T_nominal`, the furnace
-temperature measured over the acquisition window, never by the text of a
-filename, which records no quality and no temperature the log has not already
+Stage 2 takes either entry path, and picks the one your sample folder offers: a
+populated `input_spectra/` puts it in CSV mode, otherwise it reads the `VALID`
+sheet of `stage1_labeling.xlsx` and resolves each spectrum inside
+`ISM validation/` under the name stage 1 filed it with. On the furnace-log
+path every VALID spectrum takes part: the groups are formed by `T_nominal`, the
+furnace temperature measured over the acquisition window, never by the text of
+a filename, which records no quality and no temperature the log has not already
 established.
 
 A spectrum is worth fitting only if it describes a causal, linear,
@@ -115,9 +125,13 @@ misfit flags a KK violation (drift, nonlinearity, artifacts). Compliance is
 judged on the magnitude-normalized residuals: a compliant spectrum leaves
 only noise in $`r_\text{re}`$ and $`r_\text{im}`$, so each residual vector is
 tested for normality with the Shapiro-Wilk statistic ($`W`$ approaches 1 for
-structure-free residuals) and `kk_score = (W_re + W_im) / 2`. Classification:
-GREEN (`kk_score` at least 0.97), YELLOW (at least 0.90), RED (excluded
-downstream). A ceramic-aware dual criterion (`KK_USE_W_CRITERIA = True`) is
+structure-free residuals) and `kk_score = (W_re + W_im) / 2`. The class weighs
+that score together with how much of the window the edge cut removed: GREEN
+(`kk_score` at least 0.97 and at most 20% of the window trimmed), YELLOW (at
+least 0.90 and at most 40% trimmed), RED otherwise. RED is a warning, not a
+filter: the best replica of every (condition, T) reaches the `Selected` sheet
+whatever its class, so a spectrum you decide to drop has to be excluded by
+hand. A ceramic-aware dual criterion (`KK_USE_W_CRITERIA = True`) is
 looser on $`Z''`$, which is intrinsically noisier in high-impedance ceramics;
 enable it only when the strict score rejects spectra that look valid by eye.
 
@@ -143,6 +157,7 @@ quality is always judged by the $`W`$ statistics.
 | Parameter | Default | Purpose |
 | --------- | ------- | ------- |
 | `KK_C` | 0.76 | RC-element density $`c`$ in $`M = \text{round}(cN)`$ |
+| `KK_USE_BINARY_M` | False | Automatic $`M`$ selection instead of Percentage |
 | `KK_MU_TARGET` | 0.50 | Sign-change target $`\mu`$ in automatic mode |
 | `KK_F_MIN_HARD` | None | Hard lower frequency cutoff (None = adaptive only) |
 | `KK_F_MAX_HARD` | None | Hard upper frequency cutoff (None = off) |
@@ -176,7 +191,7 @@ The detected peaks then seed a non-linear least-squares fit to a series-Zarc
 circuit ([MATHEMATICS.md](MATHEMATICS.md) section 3.1), in which $`R_i`$ is the
 arc resistance (the diameter of the $`i`$-th depressed semicircle, i.e. the DC
 resistance of process $`i`$), $`\tau_i`$ its relaxation time and
-$`\alpha_i \in (0, 1]`$ the CPE exponent. $`R`$ and $`\tau`$ are bounded to
+$`\alpha_i \in [0.5, 1]`$ the CPE exponent. $`R`$ and $`\tau`$ are bounded to
 `ZARC_R_DEC` / `ZARC_TAU_DEC` decades around their DRT seeds; the optimizer
 works in log space ($`\ln R`$, $`\ln\tau`$, $`\alpha`$) with an analytic Jacobian
 and bounded trust-region least squares, which conditions the decades-spanning
@@ -205,6 +220,7 @@ relative permittivity (section 3.7).
 | `PEAK_MIN_PROM_DECADES` | 0.3 | Log-prominence threshold (0 = off) |
 | `N_PEAKS_CAP` | 4 | Keep at most this many peaks (largest $`R`$ first) |
 | `N_PEAKS_OVERRIDE` | `{}` | Force a peak count for specific (condition, T) |
+| `N_PEAKS_FIXED` | `{}` | Force a peak count for a whole condition (key matched as a substring) |
 | `ZARC_INCLUDE_R0` | False | Include the series resistance $`R_0`$ in the circuit |
 | `ZARC_R0_MAX` | 200 Ω | Upper bound on $`R_0`$ |
 | `ZARC_R_DEC`, `ZARC_TAU_DEC` | 0.70 | Search window around DRT seeds [decades] |
@@ -248,21 +264,25 @@ classification the pipeline applies:
 
 **Code:** `pipeline/plots.py::build_arrhenius_results`, `pipeline/plots.py::fit_transference`
 
-<!-- img-slot: img/stage4_nyquist.png -->
 ![Brouwer diagram of the example bulk process: n branch at low pO2, ionic plateau, p branch at high pO2](img/stage4_brouwer.png)
 
 Stage 4 reads the stage-3 outputs and generates publication figures (PNG and PDF):
 per condition the DRT stack, Nyquist, Bode and a two-by-two Arrhenius panel;
 across conditions the Brouwer $`p_{\text{O}_2}`$ diagram and its
-ionic/electronic decomposition. Nyquist and Bode figures keep only physically
-valid points (rows with $`Z' < 0`$ or $`Z'' < 0`$ are high-frequency instrument
-artifacts; no passive circuit can produce them).
+ionic/electronic decomposition, both of which need at least two atmospheres and
+are skipped for a sample measured at one, or with the probe off. Nyquist and
+Bode figures keep only physically valid points (rows with $`Z' < 0`$ or
+$`Z'' < 0`$ are high-frequency instrument artifacts; no passive circuit can
+produce them).
 
 | Parameter | Default | Purpose |
 | --------- | ------- | ------- |
+| `CONDITION_FILTER` | `[]` | Conditions to plot (`[]` = all) |
+| `USE_STAGE3_SELECTION` | True | Keep only the (condition, T) rows stage 3 marked valid |
 | `DRT_TAU_MAX` | 0.1 s | x-axis upper limit on the DRT stacked plot |
 | `BROUWER_PEAK_ID` | 1 | Peak index for the Brouwer diagram |
 | `BROUWER_TEMPS` | None | Temperatures shown in Brouwer (None = all) |
+| `BROUWER_SLOPES` | -1/4, -1/6, 0, +1/6, +1/4 | Guide slopes drawn on the Brouwer diagram |
 | `ARRHENIUS_T_MIN` | None | Exclude temperatures below this [°C] from Arrhenius fits |
 | `ARRHENIUS_SUM_PEAKS` | None | Peaks summed into the HF-block $`\sigma`$ Arrhenius |
 | `TRANSF_EXPONENT` | 0.25 | Brouwer exponent $`x`$ used by the per-isotherm decomposition |
@@ -361,6 +381,7 @@ data.
 | `MODEL_CONDITIONS` | `[]` | Conditions (pressures) to include (`[]` = all) |
 | `MODEL_T_MIN`, `MODEL_T_MAX` | None | Temperature window for the fit [°C] |
 | `MODEL_CHANNELS` | `["ion","p","n"]` | Channels of the model to fit (subset) |
+| `USE_STAGE3_SELECTION` | True | Keep only the (condition, T) rows stage 3 marked valid |
 
 Which channels exist (`MODEL_CHANNELS`) is an operator decision based on
 defect-chemistry reasoning, not a fit outcome: drop `n` when the measured
@@ -371,8 +392,9 @@ for schema stability) and appears in no figure. A selected channel that NNLS
 drives to $`\sigma_0 = 0`$ is reported as `not active (s0 = 0)` instead of a
 meaningless activation energy, and the conductivity-minimum prediction is
 reported only when both electronic channels are present. Outputs:
-`Results/pO2/stage5_model.xlsx`, the `Stage5_*` figures, and the
-`stage5_params` key of `session.json`.
+`Results/pO2/stage5_model.xlsx`, the `Stage5_*` figures, the
+`Brouwer_transference_Peak*` figures redrawn from the global parameter set,
+and the `stage5_params` key of `session.json`.
 
 ---
 

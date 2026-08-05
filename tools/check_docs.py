@@ -26,7 +26,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ENGINE = sorted((ROOT / "pipeline").glob("*.py"))
 DOCS = ["README.md", "CONTRIBUTING.md", "docs/MATHEMATICS.md",
-        "docs/PHYSICS.md", "docs/STAGES.md", "docs/INPUT_FORMAT.md"]
+        "docs/STAGES.md", "docs/INPUT_FORMAT.md", "audit/README.md",
+        "audit/fitting_v2/README.md", "audit/fitting_v2/design.md",
+        "sample_template/input_spectra/README.md"]
 
 REF = re.compile(r"`(pipeline/[\w/]+\.py)?::(\w+)`")
 CONST = re.compile(r"`([A-Z][A-Z0-9_]+)`\s*=\s*([-\w.]+)")

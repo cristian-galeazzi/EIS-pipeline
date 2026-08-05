@@ -635,7 +635,7 @@ def test_matching_converts_tz_aware_timestamps():
 
 
 def test_find_furnace_log_strips_gas_like_sample_prefix(tmp_path):
-    """Sample IDs starting with a gas name (e.g. 'CoP03' vs CO) must not
+    """Sample IDs starting with a gas name (e.g. 'CoXX01' vs CO) must not
     corrupt the condition key extracted from the folder name."""
     from pipeline.matching import find_furnace_log
 
@@ -644,7 +644,7 @@ def test_find_furnace_log_strips_gas_like_sample_prefix(tmp_path):
     log = oven / "Ar-100_O2-10_600_400_25.txt"
     log.write_text("dummy")
 
-    found = find_furnace_log(tmp_path, "CoP03_Ar-100_O2-10_600_400_25")
+    found = find_furnace_log(tmp_path, "CoXX01_Ar-100_O2-10_600_400_25")
     assert found == log
 
 

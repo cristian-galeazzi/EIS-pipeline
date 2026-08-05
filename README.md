@@ -57,8 +57,9 @@ full Brouwer diagram: the p-type branch at high $`p_{\text{O}_2}`$, the ionic
 plateau, and the n-type branch at low $`p_{\text{O}_2}`$. It uses the CSV
 entry path, so start from
 `stage2_kk.ipynb`, type `EXAMPLE_SAMPLE` at the sample prompt, and continue
-through stage 5. Any plausible pellet geometry works (thickness 1.4 mm,
-diameter 10 mm).
+through stage 5. Enter thickness 1.4 mm and diameter 10 mm at the stage-3
+geometry prompt: the spectra were built with that geometry, and any other value
+rescales every conductivity away from the synthetic truth.
 
 Each configuration cell has a `PARAM_MODE` switch (lock, continue, reset) that
 controls whether edits are saved to `session.json`; the modes and per-stage
@@ -71,7 +72,7 @@ parameters are documented in [docs/STAGES.md](docs/STAGES.md).
 - Tikhonov DRT deconvolution (pyDRTtools) with peak detection and area
   integration over $`d(\ln\tau)`$.
 - Zarc equivalent-circuit fit in log space with an analytic Jacobian,
-  deterministic multi-start, and `C_eff` $`= \tau/R`$ exactly.
+  deterministic multi-start, and $`C_\text{eff} = \tau/R`$ exactly.
 - Per-isotherm ionic/electronic decomposition (NNLS) and Arrhenius energies.
 - Global MIEC model: one fit of $`\sigma(p_{\text{O}_2}, T)`$ per process over
   every condition at once, solved by variable projection. Two parameters per
@@ -89,9 +90,12 @@ parameters are documented in [docs/STAGES.md](docs/STAGES.md).
 ## Requirements
 
 Python 3.11 or newer and the pinned `requirements.txt`: `zahner_analysis` (.ism
-reader), `pyDRTtools` (DRT), `impedance` (circuit fit), `scipy`/`numpy`,
+reader), `pyDRTtools` (DRT) with `cvxopt` and `scikit-learn`, which it needs but
+does not install itself, `scipy` (the Zarc and MIEC fits) with `numpy`,
+`impedance` (evaluates the fitted circuit for the figure overlays),
 `pandas`/`openpyxl` (Excel I/O), `matplotlib`, `ipywidgets` (interactive
-panels).
+panels), `tqdm` (progress bars). The file also pins the development tools:
+`pytest`, `ruff`, `nbstripout` and `ipykernel`.
 
 ## Reproducibility and privacy
 

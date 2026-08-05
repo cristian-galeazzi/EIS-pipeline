@@ -60,11 +60,11 @@ fraction
 runs from about 0 (underfit) to about 1 (overfit). The automatic mode scans $`M`$
 upward from 3 and stops at the smallest $`M`$ whose $`\mu`$ is at least 0.50
 (`_find_optimal_M(mu_target=0.50)`); the scan is linear because $`\mu(M)`$ is not
-monotonic, so bisection could skip valid $`M`$. The fixed mode uses
+monotonic, so bisection could skip valid $`M`$. The Percentage mode uses
 $`M = \text{round}(c N)`$ with the density $`c`$ (`KK_C` in the stage-2
 notebook) calibrated once per instrument/dataset class. When no $`M`$ in
-$`[3, N-1]`$ reaches $`\mu \geq`$ `mu_target`, the scan falls back to the fixed
-mode at the configured density rather than failing, so a spectrum that never
+$`[3, N-1]`$ reaches $`\mu \geq`$ `mu_target`, the scan falls back to the
+Percentage mode at the configured density rather than failing, so a spectrum that never
 reaches the target is still scored instead of being dropped silently.
 
 **Pass criterion.** A KK-consistent spectrum leaves residuals that are pure
@@ -201,8 +201,9 @@ proportional residuals, i.e. a dimensionless relative misfit.
 R_k \in \left[R_{\text{approx},k}\,10^{-d_{R,k}},\; R_{\text{approx},k}\,10^{+d_{R,k}}\right], \quad \tau_k \in \left[\tau_{\text{seed},k}\,10^{-d_{\tau,k}},\; \tau_{\text{seed},k}\,10^{+d_{\tau,k}}\right], \quad \alpha_k \in [\alpha_\text{min}, \alpha_\text{max}]
 ```
 
-where $`d_{R,k}`$ and $`d_{\tau,k}`$ are half-widths **in decades** (`R_dec`, `tau_dec`,
-default 0.7). A window is a statement of trust in that peak's DRT seed, not
+where $`d_{R,k}`$ and $`d_{\tau,k}`$ are half-widths **in decades**
+(`ZARC_R_DEC`, `ZARC_TAU_DEC`, 0.70 in the notebooks; the `R_dec` and `tau_dec`
+arguments of `fit_zarc`). A window is a statement of trust in that peak's DRT seed, not
 a physical prior on the parameter, which is why the half-widths may differ
 per peak: `resolve_peak_windows` resolves them per `peak_id` from
 session-stored maps (sample-wide default, then per-condition override),
@@ -273,11 +274,12 @@ each process resistance maps to a conductivity
 \sigma_k = \frac{L}{R_k A} \quad [\text{S/m}]
 ```
 
-stored in that unit as `sigma_Sm_i` and reported in
-$`\text{S cm}^{-1}`$ by every figure and table,
-and $`C_{\text{eff},k} = \tau_k / R_k`$ (3.2) is the quantity compared across
-temperatures to check that a peak keeps its character along the series. The
-same geometry turns that capacitance into a relative permittivity
+kept in that unit in the `sigma_Sm_i` column every later stage reads, and
+converted to S/cm at the reporting boundary, so every figure and every derived
+table is in S/cm. The effective capacitance $`C_{\text{eff},k} = \tau_k / R_k`$
+(3.2) is the quantity compared across temperatures to check that a peak keeps
+its character along the series. The same geometry turns that capacitance into
+a relative permittivity
 
 ```math
 \varepsilon_{\text{r},k} = \frac{C_{\text{eff},k}\, L}{\varepsilon_0 A}
@@ -386,12 +388,13 @@ three parallel, Arrhenius-activated channels with mobility $`\propto 1/T`$:
 \sigma(p_{\text{O}_2}, T) = \frac{\sigma_0^{\text{ion}}}{T} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T}\right) + \frac{\sigma_0^{p\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{+x} + \frac{\sigma_0^{n\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{-x}
 ```
 
-Six parameters: three prefactors $`\sigma_0`$ (with the $`1/T`$ pulled out),
-reported in $`\text{S K cm}^{-1}`$, and three activation energies. One parameter set must fit **all** points at once;
-that constancy across the surface is the physical-validity test of the
-defect-chemical picture. Which channels are included (`MODEL_CHANNELS`) is
-an operator decision from defect chemistry, never a fit outcome: an excluded
-channel is stored as $`\sigma_0 = 0`$, $`E_\text{a} = \text{NaN}`$.
+Six parameters: three prefactors $`\sigma_0`$ (with the $`1/T`$ pulled out,
+reported in $`\text{S K cm}^{-1}`$) and three activation energies. One parameter
+set must fit **all** points at once; that constancy across the surface is the
+physical-validity test of the defect-chemical picture. Which channels are
+included (`MODEL_CHANNELS`) is an operator decision from defect chemistry,
+never a fit outcome: an excluded channel is stored as $`\sigma_0 = 0`$,
+$`E_\text{a} = \text{NaN}`$.
 
 ### 6.2 Variable projection (VARPRO)
 
@@ -487,6 +490,8 @@ p_{\text{O}_2}^\text{min}(T) = \left[\frac{\sigma_0^{n\text{-type}}}{\sigma_0^{p
 ---
 
 ## 7. Determinism and reproducibility
+
+**Code:** `pipeline/fitting.py::fit_condition_batch`, `pipeline/session.py::update_sample`
 
 Every stochastic element of the chain is seeded deterministically:
 
