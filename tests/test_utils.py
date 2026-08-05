@@ -6,9 +6,10 @@ because none of these rules is obvious from the code alone.
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
-from pipeline.utils import condition_label, condition_pO2_map
+from pipeline.utils import condition_label, condition_pO2_map, stage2_pool_names
 
 # --------------------------------------------------------------------------
 # condition_pO2_map: the probe-off switch
@@ -103,3 +104,65 @@ def test_condition_equal_to_the_sample_id_yields_an_empty_label() -> None:
 
 def test_a_two_letter_gas_is_not_mistaken_for_a_bank_letter() -> None:
     assert condition_label("S1_H2_600_400_25", "S1") == "H2 | 400-600C"
+
+
+# --------------------------------------------------------------------------
+# stage2_pool_names: which filename stage 2 resolves
+#
+# Stage 1 copies each VALID spectrum into ISM validation/ under its auto_label,
+# which differs from the raw filename whenever that name carried no temperature.
+# Stage 2 resolves paths against that directory, so it needs the right column.
+#
+# The second property matters more: every VALID row is returned. Which spectra
+# enter the analysis is settled by the furnace log, not by the filename, so a
+# spectrum cannot be dropped for having been named sequentially.
+# --------------------------------------------------------------------------
+
+
+def test_acquisition_labeled_names_are_returned_unchanged() -> None:
+    df = pd.DataFrame({
+        "file":       ["s_400C.ism", "s_400C_2.ism", "s_425C.ism"],
+        "auto_label": ["s_400C.ism", "s_400C_2.ism", "s_425C.ism"],
+    })
+    assert list(stage2_pool_names(df)) == ["s_400C.ism", "s_400C_2.ism", "s_425C.ism"]
+
+
+def test_sequential_names_resolve_through_auto_label() -> None:
+    df = pd.DataFrame({
+        "file":       ["s_017.ism", "s_018.ism"],
+        "auto_label": ["s_400C.ism", "s_400C_2.ism"],
+    })
+    assert list(stage2_pool_names(df)) == ["s_400C.ism", "s_400C_2.ism"]
+
+
+def test_a_sequentially_named_spectrum_is_never_dropped() -> None:
+    # the defect this replaces: a filename filter kept only the first row,
+    # excluding a valid spectrum because of how the operator named it
+    df = pd.DataFrame({
+        "file":       ["s_400C.ism", "s_017.ism"],
+        "auto_label": ["s_400C.ism", "s_425C.ism"],
+    })
+    assert list(stage2_pool_names(df)) == ["s_400C.ism", "s_425C.ism"]
+
+
+def test_missing_auto_label_falls_back_to_the_raw_name() -> None:
+    df = pd.DataFrame({"file": ["s_017.ism", "s_400C.ism"],
+                       "auto_label": [None, None]})
+    assert list(stage2_pool_names(df)) == ["s_017.ism", "s_400C.ism"]
+
+
+def test_no_auto_label_column_at_all() -> None:
+    df = pd.DataFrame({"file": ["s_400C.ism"]})
+    assert list(stage2_pool_names(df)) == ["s_400C.ism"]
+
+
+def test_index_is_preserved_so_the_caller_can_align_rows() -> None:
+    df = pd.DataFrame({"file": ["s_017.ism", "s_018.ism"],
+                       "auto_label": ["s_400C.ism", "s_400C_2.ism"]},
+                      index=[7, 9])
+    assert list(stage2_pool_names(df).index) == [7, 9]
+
+
+def test_an_empty_valid_sheet_yields_an_empty_pool() -> None:
+    df = pd.DataFrame({"file": [], "auto_label": []})
+    assert list(stage2_pool_names(df)) == []

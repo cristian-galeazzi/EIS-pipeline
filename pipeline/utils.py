@@ -4,6 +4,7 @@ Two responsibilities:
 - merge_sheet_by_T : safe per-temperature update of a sheet inside an Excel file
 - build_metadata_sheet : standardised 2-column DataFrame recording fixed parameters
 - condition_label : one naming rule for every condition shown to the user
+- stage2_pool_names : which filename stage 2 resolves inside ISM validation/
 
 These helpers exist so that NB02 and NB03 export logic stays identical and the
 Metadata schema is uniform across all stages (NB01, NB02, NB03).
@@ -239,6 +240,30 @@ def build_metadata_sheet(
     rows.extend((str(k), v) for k, v in params.items())
     rows.extend(_library_versions())
     return pd.DataFrame(rows, columns=["parameter", "value"])
+
+
+def stage2_pool_names(df: pd.DataFrame) -> pd.Series:
+    """Filenames stage 2 must resolve inside ``ISM validation/``, one per VALID row.
+
+    Stage 1 copies each VALID spectrum into ``ISM validation/`` under its
+    ``auto_label``, which equals ``file`` only when the raw filename already
+    carried a temperature. Stage 2 resolves paths against that directory, so the
+    name to use is ``auto_label`` wherever stage 1 supplied one.
+
+    Every VALID row is returned. Which spectra enter the analysis is decided by
+    the furnace log, through the ``T_nominal`` stage 1 measured over the
+    acquisition window, never by what the operator happened to type in a
+    filename: a name records no quality and no temperature that the log has not
+    already established.
+
+    >>> df = pd.DataFrame({"file": ["s_017.ism", "s_400C.ism"],
+    ...                    "auto_label": ["s_400C_2.ism", None]})
+    >>> list(stage2_pool_names(df))
+    ['s_400C_2.ism', 's_400C.ism']
+    """
+    if "auto_label" in df.columns:
+        return df["auto_label"].fillna(df["file"]).astype(str)
+    return df["file"].astype(str)
 
 
 _GAS_RE = re.compile(r"^(Ar|O2|N2|H2|Air)(?![A-Za-z0-9])", re.IGNORECASE)

@@ -58,9 +58,13 @@ Stage 0 parses the furnace logs and plots temperature against time with
 plateau annotations, so schedule mistakes are caught before any analysis.
 Stage 1 matches each `.ism` file to its furnace window, verifies the
 temperature was stable while the spectrum was measured, assigns the
-temperature label and copies valid files to `ISM validation/`. Gas-flow
+temperature label and copies valid files to `ISM validation/`, renaming those
+whose raw filename carried no temperature to their `auto_label`. Gas-flow
 numbers in folder names are valve setpoints; the actual $`p_{\text{O}_2}`$ is
-always read from the lambda-probe signal in the furnace log.
+read from the lambda-probe signal in the furnace log. Answering `n` to the
+probe prompt records that the probe was off, so every later stage hides the
+pressure and skips the $`p_{\text{O}_2}`$ analyses: an idle probe still writes
+a drifting column that nothing downstream could otherwise tell from data.
 
 | Parameter | Default | Purpose |
 | --------- | ------- | ------- |
@@ -83,6 +87,13 @@ expands to per-file tables when a mismatch is detected (or with
 **Code:** `pipeline/quality.py::run_linkk`, `pipeline/quality.py::select_best_replica`, `pipeline/quality.py::compute_frequency_cutoffs`
 
 <!-- img-slot: img/stage2_kk_panel.png -->
+
+Stage 2 reads the `VALID` sheet of `stage1_labeling.xlsx` and resolves each
+spectrum inside `ISM validation/` under the name stage 1 filed it with. Every
+VALID spectrum takes part: the groups are formed by `T_nominal`, the furnace
+temperature measured over the acquisition window, never by the text of a
+filename, which records no quality and no temperature the log has not already
+established.
 
 A spectrum is worth fitting only if it describes a causal, linear,
 time-invariant system. The Lin-KK test (Schönleber et al. 2014) checks this
