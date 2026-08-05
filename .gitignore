@@ -40,6 +40,12 @@ session.json.bak
 session.json*.tmp
 session*.json
 
+# Local tooling: one-off migration and verification scripts kept on this machine,
+# useful only to whoever maintains an existing analysis, plus what they write
+tools/local_*.py
+tests/test_local_*.py
+artefact_baseline.json
+
 # Knowledge graph; generated locally, never commit
 graphify-out/
 
@@ -81,3 +87,6 @@ audit/output/
 # Collaboration scaffolding (specs, plans, handoffs written while working with the
 # assistant): working files, not project content, never committed
 docs/superpowers/
+
+# Private working notes on pending fixes, never committed
+fixes-EIS-program.md
