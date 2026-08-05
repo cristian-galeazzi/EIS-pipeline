@@ -40,6 +40,15 @@ A colored banner under each configuration cell states which mode is active
 in continue/reset mode is: configuration cell first, then any
 per-(condition, temperature) override you apply from a tuning panel.
 
+`SKIP_EXISTING`, in stages 2 and 3, is a different switch: it decides whether a
+condition that already has its stage output is recomputed, and `True` is what
+protects a finished analysis. `False` warns before overwriting. In stage 3,
+`True` also reloads that condition from its stored table together with the
+spectrum behind it, so the Zarc fit and the interactive explorer run without
+repeating the deconvolution; a temperature whose stage-2 selection has moved
+since is named and left without a spectrum, because its stored peaks belong to
+the other file.
+
 All notebooks support temperature-by-temperature processing via `FOCUS_T`;
 export cells are merge-aware, so rows for other temperatures are preserved
 when you process one at a time.
