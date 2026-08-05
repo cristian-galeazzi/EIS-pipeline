@@ -332,6 +332,8 @@ the Brouwer exponent fixed by `MODEL_EXPONENT`. The model is written out in
 
 Those parameters are material constants over the whole
 ($`p_{\text{O}_2}`$, $`T`$) surface; that constancy is itself the validity test.
+The fit needs at least two atmospheres, since the channels are told apart by
+their $`p_{\text{O}_2}`$ exponent and one pressure cannot resolve them.
 The fit is solved by variable projection: at fixed activation energies the
 model is linear in the prefactors (exact NNLS, inner problem), so only the
 activation energies are optimized non-linearly (outer problem), and a final

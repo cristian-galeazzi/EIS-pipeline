@@ -1025,6 +1025,12 @@ def plot_brouwer(
             f"Brouwer: no plottable rows for peak_id={peak_id} "
             f"(check pO2_mean/sigma values and temps_to_plot)"
         )
+    if sub["pO2_mean"].nunique() < 2:
+        # one pressure leaves one point per temperature: an axis, not a diagram
+        raise ValueError(
+            f"Brouwer: peak_id={peak_id} has {sub['pO2_mean'].nunique()} distinct "
+            f"pO2 value(s); the diagram needs at least 2 conditions"
+        )
 
     # raw Figure, never pyplot-registered: this function runs inside the
     # stage-4 replot widget callback, where a pyplot figure would be

@@ -19,7 +19,7 @@ is the physical-validity test.
 Fit method (variable projection, VARPRO):
 - at fixed activation energies the model is LINEAR in the three prefactors, so
   they are solved exactly and non-negatively with weighted NNLS (inner problem);
-- only the three activation energies are optimised non-linearly (outer problem).
+- only the three activation energies are optimized non-linearly (outer problem).
 A final 6-parameter polish, seeded at the VARPRO optimum, yields the covariance
 (parameter uncertainties). This is more robust than a blind 6-parameter fit (no
 false minima, prefactors non-negative by construction) and reuses scipy's nnls.
@@ -45,6 +45,11 @@ KB_EV: float = 8.617333e-5  # Boltzmann constant (eV/K), single source for the r
 # Minimum distinct (pO2, T) points required to constrain the fit. The model has
 # up to 6 free parameters, so we ask for a clear margin above that.
 MIN_POINTS: int = 8
+
+# Distinct pressure levels required. The channels differ only in their pO2
+# exponent, so one level makes them indistinguishable: the fit still converges
+# and reports a perfect R2 for a decomposition the data cannot contain.
+MIN_PO2_LEVELS: int = 2
 
 # Canonical channel order and Brouwer-exponent sign of each channel. Channel
 # selection is an operator decision driven by defect chemistry (e.g. drop "n"
@@ -244,7 +249,7 @@ def fit_global_conductivity(
     Raises
     ------
     ValueError if required columns are missing, if too few usable points remain,
-    if ``channels`` or ``seed`` are invalid, or if the optimiser fails.
+    if ``channels`` or ``seed`` are invalid, or if the optimizer fails.
     """
     chans = _canonical_channels(channels)
     n_ch = len(chans)
@@ -269,6 +274,14 @@ def fit_global_conductivity(
         raise ValueError(
             f"fit_global_conductivity: only {n_points} usable (pO2, T) points after "
             f"filtering (need >= {MIN_POINTS}); widen the temperature/condition selection."
+        )
+
+    n_levels = int(np.unique(pO2).size)
+    if n_levels < MIN_PO2_LEVELS:
+        raise ValueError(
+            f"fit_global_conductivity: {n_levels} distinct pO2 value(s) after "
+            f"filtering (need >= {MIN_PO2_LEVELS}); the channels are separated by "
+            f"their pressure exponent, which one pressure cannot resolve."
         )
 
     T_K = Tc + 273.15
