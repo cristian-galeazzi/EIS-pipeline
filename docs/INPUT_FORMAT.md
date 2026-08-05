@@ -39,7 +39,8 @@ column are required for Arrhenius analysis (at least three temperatures);
 Nyquist, Bode, DRT and the Zarc fit work without them.
 An optional `pO2` column [bar] enables the Brouwer $`p_{\text{O}_2}`$, transference and
 stage 5 analyses without an oven log; without it (or stage 0-1 lambda-probe
-data) those $`p_{\text{O}_2}`$ steps are skipped.
+data) those $`p_{\text{O}_2}`$ steps are skipped, as they are for a run recorded
+with the probe off.
 
 ---
 
@@ -59,20 +60,20 @@ EIS-pipeline/
 │   ├── interactive.py      ← ipywidgets helpers (UI only, no physics)
 │   ├── session.py          ← session.json persistence (atomic, merge-safe)
 │   ├── _worker.py          ← process-pool init (caps BLAS threads)
-│   └── utils.py            ← Excel helpers
+│   └── utils.py            ← Excel, p(O2) label and condition-name helpers
 │
 ├── stage0_oven.ipynb … stage5_model.ipynb   ← the six pipeline stages
 │
 ├── audit/                  ← runnable calibration procedures (see below)
 ├── tests/                  ← golden-master + known-answer test suites
-├── tools/                  ← synthetic example-sample generator
+├── tools/                  ← example-sample generator, documentation checks
 ├── EXAMPLE_SAMPLE/         ← bundled synthetic sample (CSV entry path)
 ├── sample_template/        ← copy and rename to {SAMPLE_ID}/ to start
 │
 └── {SAMPLE_ID}/            ← your data, never committed
     ├── Raw data/           ← never modified
     ├── Raw oven/           ← never modified
-    ├── ISM validation/     ← created by stage 1
+    ├── ISM validation/     ← copies made by stage 1, renamed to _{T}C when needed
     └── Results/
         ├── {condition}/    ← stage1_labeling / stage2_kk / stage3_drt /
         │                     stage3_fit .xlsx + DRT, Nyquist-Bode,

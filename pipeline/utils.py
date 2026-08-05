@@ -117,6 +117,8 @@ _PO2_SOURCES: tuple[tuple[str, str], ...] = (
 def condition_pO2_map(
     sample_dir: Path | str,
     conditions: list[str],
+    *,
+    enabled: bool = True,
 ) -> dict[str, float | None]:
     """Representative oxygen partial pressure [bar] per condition.
 
@@ -128,9 +130,16 @@ def condition_pO2_map(
     p(O2) (the non-Zahner CSV path), so callers can fall back to the folder
     name unchanged.
 
+    ``enabled=False`` reports no pressure at all: the run's lambda probe was
+    off, so the stored column holds idle-probe readings rather than data.
+
     >>> condition_pO2_map("does_not_exist", ["Ar"])
     {'Ar': None}
+    >>> condition_pO2_map("any_dir", ["Ar"], enabled=False)
+    {'Ar': None}
     """
+    if not enabled:
+        return dict.fromkeys(conditions)
     base = Path(sample_dir)
     out: dict[str, float | None] = {}
     for cond in conditions:

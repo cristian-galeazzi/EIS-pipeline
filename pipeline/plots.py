@@ -207,6 +207,8 @@ def plot_drt_stacked(
     exclude_temps: list[int] | None = None,
     save:          bool        = True,
     df_peaks:      pd.DataFrame | None = None,
+    label:         str         = "",
+    show_pO2:      bool        = True,
 ) -> plt.Figure:
     """
     Stacked DRT plot - normalised γ(τ) with vertical offset per temperature.
@@ -229,6 +231,8 @@ def plot_drt_stacked(
                     it carries pO2_mean, the median p(O2) is shown as a
                     suptitle, same value the condition selector and the
                     Arrhenius figures use.
+    label         : condition label for the suptitle ("" = pressure only)
+    show_pO2      : False for a run whose lambda probe was off
 
     >>> fig = plot_drt_stacked(df_spectra, "Ar_100", "Results/Ar_100/plots",
     ...                        exclude_temps=[400])  # doctest: +SKIP
@@ -286,9 +290,9 @@ def plot_drt_stacked(
     ax.spines["right"].set_visible(False)
 
     if df_peaks is not None:
-        _pO2_title = _condition_pO2_suptitle(df_peaks)
-        if _pO2_title:
-            fig.suptitle(_pO2_title, fontsize=11)
+        _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
+        if _title:
+            fig.suptitle(_title, fontsize=11)
 
     if save:
         _save(fig, save_dir, f"DRT_{condition}_Stacked")
@@ -309,6 +313,8 @@ def plot_nyquist_multipanel(
     hf_inset:   bool = True,
     save:       bool = True,
     df_peaks:   pd.DataFrame | None = None,
+    label:      str = "",
+    show_pO2:   bool = True,
 ) -> plt.Figure:
     """
     Nyquist plot with all temperatures overlaid on a single panel.
@@ -421,9 +427,9 @@ def plot_nyquist_multipanel(
         axin.tick_params(labelsize=7)
 
     if df_peaks is not None:
-        _pO2_title = _condition_pO2_suptitle(df_peaks)
-        if _pO2_title:
-            fig.suptitle(_pO2_title, fontsize=11)
+        _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
+        if _title:
+            fig.suptitle(_title, fontsize=11)
 
     if save:
         _save(fig, save_dir, f"Nyquist_{condition}")
@@ -445,6 +451,8 @@ def plot_bode(
     save:       bool = True,
     model_label: str | None = None,
     df_peaks:   pd.DataFrame | None = None,
+    label:      str = "",
+    show_pO2:   bool = True,
 ) -> plt.Figure:
     """
     Bode plot: |Z| [kΩ] (loglog) and phase [°] (semilog) for all temperatures.
@@ -541,9 +549,9 @@ def plot_bode(
         ax_ph.set_ylim(bottom=phase_lim[0], top=phase_lim[1])
 
     if df_peaks is not None:
-        _pO2_title = _condition_pO2_suptitle(df_peaks)
-        if _pO2_title:
-            fig.suptitle(_pO2_title, fontsize=11)
+        _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
+        if _title:
+            fig.suptitle(_title, fontsize=11)
 
     if save:
         _save(fig, save_dir, f"Bode_{condition}")
@@ -724,18 +732,33 @@ def _draw_arrhenius_panel(
 # 5. Arrhenius 2×2 panel
 # ---------------------------------------------------------------------------
 
-def _condition_pO2_suptitle(df_peaks: pd.DataFrame) -> str:
-    """Median p(O2) [bar] over a condition's Peaks rows as a functional title,
-    or "" when the column is absent (non-Zahner path). Same median the
-    condition selector shows, so the figure and the selector never disagree.
+def _condition_suptitle(df_peaks: pd.DataFrame, label: str = "", *,
+                        show_pO2: bool = True) -> str:
+    """Figure suptitle: the condition label, and the median p(O2) when there is one.
+
+    This module defines no ``set_title``, so the suptitle is the only text on a
+    figure that identifies the measurement; it therefore falls back to the label
+    rather than to nothing. The median is the one the condition selector shows,
+    so the figure and the selector never disagree.
+
+    ``show_pO2=False`` is for a run whose lambda probe was off: the recorded
+    pressures are readings of an idle probe, not measurements.
+
+    >>> _condition_suptitle(pd.DataFrame({"pO2_mean": [0.21]}), "Air")
+    'Air,  $p$(O$_2$) = 0.21 bar'
+    >>> _condition_suptitle(pd.DataFrame({"pO2_mean": [8715.0]}), "Air", show_pO2=False)
+    'Air'
     """
-    if "pO2_mean" not in df_peaks.columns:
-        return ""
-    s = pd.to_numeric(df_peaks["pO2_mean"], errors="coerce").dropna()
-    s = s[s > 0]
-    if s.empty:
-        return ""
-    return f"$p$(O$_2$) = {format_pO2_value(s.median())} bar"
+    value = ""
+    if show_pO2 and "pO2_mean" in df_peaks.columns:
+        s = pd.to_numeric(df_peaks["pO2_mean"], errors="coerce").dropna()
+        s = s[s > 0]
+        if not s.empty:
+            value = format_pO2_value(s.median())
+    if not value:
+        return label
+    pressure = f"$p$(O$_2$) = {value} bar"
+    return f"{label},  {pressure}" if label else pressure
 
 
 def plot_arrhenius_panel(
@@ -745,6 +768,8 @@ def plot_arrhenius_panel(
     condition:    str,
     save_dir:     Path | str,
     t_min:        float | None = None,
+    label:        str = "",
+    show_pO2:     bool = True,
 ) -> tuple[plt.Figure, list[dict]]:
     """
     2×2 Arrhenius panel: ln(σT), ln(τ), ln(C), log₁₀(εᵣ).
@@ -780,9 +805,9 @@ def plot_arrhenius_panel(
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 9), dpi=150, layout="constrained")
 
-    _pO2_title = _condition_pO2_suptitle(df_peaks)
-    if _pO2_title:
-        fig.suptitle(_pO2_title, fontsize=11)
+    _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
+    if _title:
+        fig.suptitle(_title, fontsize=11)
 
     # The figure must declare its own fit range when low-T points are excluded
     if t_min is not None:
@@ -831,6 +856,8 @@ def plot_arrhenius_sigma(
     save_dir:     Path | str,
     t_min:        float | None = None,
     sum_peak_ids: list[int] | None = None,
+    label:        str = "",
+    show_pO2:     bool = True,
 ) -> plt.Figure | None:
     """
     Single-panel conductivity Arrhenius for the HF block: ln(σT) vs 1000/T.
@@ -868,9 +895,9 @@ def plot_arrhenius_sigma(
 
     fig, ax = plt.subplots(figsize=(6.5, 5), dpi=150, layout="constrained")
 
-    _pO2_title = _condition_pO2_suptitle(df_peaks)
-    if _pO2_title:
-        fig.suptitle(_pO2_title, fontsize=11)
+    _title = _condition_suptitle(df_peaks, label, show_pO2=show_pO2)
+    if _title:
+        fig.suptitle(_title, fontsize=11)
 
     # branches: validated range only
     branch_results = build_arrhenius_results(sub, L_m, D_m, t_min=t_min)
