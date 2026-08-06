@@ -33,6 +33,7 @@ STAGE3_NOTEBOOK = ROOT / "stage3_drt.ipynb"
 PANEL_CELL = 12        # stage 2: the Lin-KK tuning panel
 BATCH_CELL = 8         # stage 3: Step 1, batch DRT
 FIT_CELL = 12          # stage 3: Step 2, batch Zarc fit
+DRT_PANEL_CELL = 10    # stage 3: Step 1b, the DRT tuning panel
 
 
 def _cell(notebook: Path, index: int, must_contain: str) -> str:
@@ -367,3 +368,26 @@ def test_a_refused_write_leaves_the_parameters_where_they_were() -> None:
     assert (scope["KK_IQR_FENCE"], scope["KK_IQR_WINDOW"]) == (2.0, 5)
     assert scope["_w_fence"].value == 2.0
     assert "session.json was not written" in said[-1]
+
+
+# --------------------------------------------------------------------------
+# stage 3: the panel must show "prominence off" as the batch understands it
+#
+# The slider was built with `PEAK_MIN_PROM_DECADES or 0.05`, so a saved None
+# came back as 0.05: the panel preview filtered peaks that the batch, reading
+# the same None correctly, was keeping.
+# --------------------------------------------------------------------------
+
+
+def test_the_prominence_slider_shows_off_as_zero() -> None:
+    src = _cell(STAGE3_NOTEBOOK, DRT_PANEL_CELL, "s_prom = W.FloatSlider")
+    assert "PEAK_MIN_PROM_DECADES or" not in src
+    assert "0.0 if PEAK_MIN_PROM_DECADES is None" in src
+
+
+def test_the_batch_and_the_panel_agree_on_what_off_means() -> None:
+    # batch: `PEAK_MIN_PROM_DECADES or None`; panel: `> 0 else None`
+    panel = _cell(STAGE3_NOTEBOOK, DRT_PANEL_CELL, "s_prom = W.FloatSlider")
+    batch = _cell(STAGE3_NOTEBOOK, BATCH_CELL, "find_drt_peaks(")
+    assert "min_prom_decades = PEAK_MIN_PROM_DECADES or None" in batch
+    assert "if s_prom.value > 0 else None" in panel
