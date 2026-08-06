@@ -11,7 +11,7 @@ public notebook defaults.
 
 Notation used throughout: a spectrum is a set of complex impedances
 $`Z(\omega_i) = Z'(\omega_i) + j Z''(\omega_i)`$ measured at angular frequencies
-$`\omega_i = 2\pi f_i`$, $`i = 1 \dots N`$. Boltzmann's constant is written $`k_B`$
+$`\omega_i = 2\pi f_i`$, $`i = 1 \dots N`$. Boltzmann's constant is written $`k_\text{B}`$
 throughout, since a bare $`k`$ already indexes channels and RC elements below.
 The pipeline stores $`Z''`$ positive in the capacitive region, the convention
 required of CSV input ([docs/INPUT_FORMAT.md](INPUT_FORMAT.md)), and flips the
@@ -297,11 +297,11 @@ capacitance magnitude alone.
 **Code:** `pipeline/plots.py::build_arrhenius_results`
 
 Thermally activated transport with mobility $`\propto 1/T`$ follows
-$`\sigma T = A \exp\left(-E_\text{a}/k_B T\right)`$, so the pipeline fits
+$`\sigma T = A \exp\left(-E_\text{a}/k_\text{B} T\right)`$, so the pipeline fits
 straight lines by ordinary least squares in the linearized coordinates:
 
 ```math
-\ln(\sigma_k T) = \ln A - \frac{E_\text{a}^\text{cond}}{k_B}\cdot\frac{1}{T} \quad \text{(conduction)}, \qquad \ln(\tau_k) = \text{const} + \frac{E_\text{a}^\text{pol}}{k_B}\cdot\frac{1}{T} \quad \text{(relaxation)}
+\ln(\sigma_k T) = \ln A - \frac{E_\text{a}^\text{cond}}{k_\text{B}}\cdot\frac{1}{T} \quad \text{(conduction)}, \qquad \ln(\tau_k) = \text{const} + \frac{E_\text{a}^\text{pol}}{k_\text{B}}\cdot\frac{1}{T} \quad \text{(relaxation)}
 ```
 
 with the slope errors propagated to $`\pm\Delta E_\text{a}`$ and the $`R^2`$ of each
@@ -385,7 +385,7 @@ The whole surface $`\sigma(p_{\text{O}_2}, T)`$ of one process is described by
 three parallel, Arrhenius-activated channels with mobility $`\propto 1/T`$:
 
 ```math
-\sigma(p_{\text{O}_2}, T) = \frac{\sigma_0^{\text{ion}}}{T} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T}\right) + \frac{\sigma_0^{p\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{+x} + \frac{\sigma_0^{n\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T}\right) p_{\text{O}_2}^{-x}
+\sigma(p_{\text{O}_2}, T) = \frac{\sigma_0^{\text{ion}}}{T} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_\text{B} T}\right) + \frac{\sigma_0^{p\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_\text{B} T}\right) p_{\text{O}_2}^{+x} + \frac{\sigma_0^{n\text{-type}}}{T} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_\text{B} T}\right) p_{\text{O}_2}^{-x}
 ```
 
 Six parameters: three prefactors $`\sigma_0`$ (with the $`1/T`$ pulled out,
@@ -405,19 +405,19 @@ columns, the design matrix is
 ```math
 A(E_\text{a}) =
 \begin{bmatrix}
-\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T_1}\right) &
-\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T_1}\right) p_1^{+x} &
-\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T_1}\right) p_1^{-x} \\
+\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_\text{B} T_1}\right) &
+\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_\text{B} T_1}\right) p_1^{+x} &
+\frac{1}{T_1} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_\text{B} T_1}\right) p_1^{-x} \\
 \vdots & \vdots & \vdots \\
-\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_B T_N}\right) &
-\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_B T_N}\right) p_N^{+x} &
-\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_B T_N}\right) p_N^{-x}
+\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{\text{ion}}}{k_\text{B} T_N}\right) &
+\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{p\text{-type}}}{k_\text{B} T_N}\right) p_N^{+x} &
+\frac{1}{T_N} \exp\left(-\frac{E_\text{a}^{n\text{-type}}}{k_\text{B} T_N}\right) p_N^{-x}
 \end{bmatrix}
 \in \mathbb{R}^{N \times n_\text{ch}}
 ```
 
 that is
-$`A_{ic}(E_\text{a}) = T_i^{-1} \exp(-E_{\text{a},c}/k_B T_i)\, p_i^{e_c x}`$
+$`A_{ic}(E_\text{a}) = T_i^{-1} \exp(-E_{\text{a},c}/k_\text{B} T_i)\, p_i^{e_c x}`$
 with $`e_c = 0`$ (ionic), $`+1`$ (p-type), $`-1`$ (n-type), so
 $`\boldsymbol{\sigma}^\text{model} = A(E_\text{a})\,\mathbf{s}_0`$ with
 $`\mathbf{s}_0`$ the prefactor vector. The fit is weighted by $`w_i = 1/\sigma_i`$
@@ -477,7 +477,7 @@ meaningless.
   electronic channels are present:
 
 ```math
-p_{\text{O}_2}^\text{min}(T) = \left[\frac{\sigma_0^{n\text{-type}}}{\sigma_0^{p\text{-type}}} \exp\left(\frac{E_\text{a}^{p\text{-type}} - E_\text{a}^{n\text{-type}}}{k_B T}\right)\right]^{1/2x}
+p_{\text{O}_2}^\text{min}(T) = \left[\frac{\sigma_0^{n\text{-type}}}{\sigma_0^{p\text{-type}}} \exp\left(\frac{E_\text{a}^{p\text{-type}} - E_\text{a}^{n\text{-type}}}{k_\text{B} T}\right)\right]^{1/2x}
 ```
 
   from setting the p and n terms equal
