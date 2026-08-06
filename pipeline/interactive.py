@@ -24,6 +24,30 @@ from typing import Callable, Sequence
 from pipeline.utils import format_pO2_value
 
 
+def dialed(value: float, decimals: int | None = None) -> float:
+    """Clean a number a person dialed into a widget, before it is saved.
+
+    A widget step lands on binary noise (0.76 + 0.01 gives 0.7700000000000001),
+    and that noise then reaches session.json and every metadata sheet exported
+    afterwards. With ``decimals`` the value is rounded to what the widget shows;
+    without it, every digit a person could have typed survives and only the
+    noise is dropped, which is what a log slider needs.
+
+    Numbers the program computed must never pass through here: their digits are
+    a result, not typing.
+
+    >>> dialed(0.76 + 0.01)
+    0.77
+    >>> dialed(2.9000000000000004, 1)
+    2.9
+    >>> dialed(1e-06)
+    1e-06
+    """
+    if decimals is not None:
+        return round(float(value), decimals)
+    return float(f"{float(value):.12g}")
+
+
 def pre_html(text: str) -> str:
     """Escaped monospace block for a widgets.HTML value (replaced on each
     update, so it never doubles).

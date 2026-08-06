@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 
 from pipeline.drt import clip_spectrum
+from pipeline.interactive import dialed
 from pipeline.ingest import load_csv_spectrum, load_ism
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -326,6 +327,7 @@ def _fence_scope(save, mode: str = "continue") -> tuple:
         "_w_fence": _Mirror(flag, 2.0),
         "_w_window": _Mirror(flag, 5),
         "_say": said.append,
+        "dialed": dialed,
     }
     exec(compile(_save_fw_source(), "<fence>", "exec"), scope)
     return scope, said
