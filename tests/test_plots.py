@@ -8,12 +8,17 @@ stored column stays S/m and only the read converts.
 Neither section touches a computed number. They pin what is printed.
 """
 
+import ast
+import re
+from pathlib import Path
+
 import matplotlib
 import numpy as np
 import pandas as pd
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib import mathtext  # noqa: E402
 
 from pipeline.plots import (  # noqa: E402
     KB, _condition_suptitle, build_arrhenius_results, plot_arrhenius_sigma,
@@ -39,12 +44,12 @@ def _df(p: float | None = 2.1e-3) -> pd.DataFrame:
 
 
 def test_default_call_is_unchanged_from_today() -> None:
-    assert _condition_suptitle(_df()) == r"$p$(O$_2$) = 2.1e-03 bar"
+    assert _condition_suptitle(_df()) == r"$p(\mathrm{O_2})$ = 2.1e-03 bar"
 
 
 def test_label_precedes_the_pressure() -> None:
     assert _condition_suptitle(_df(), "Ar-100 O2-20 | 400-600C") == (
-        r"Ar-100 O2-20 | 400-600C,  $p$(O$_2$) = 2.1e-03 bar")
+        r"Ar-100 O2-20 | 400-600C,  $p(\mathrm{O_2})$ = 2.1e-03 bar")
 
 
 def test_probe_off_shows_the_label_alone() -> None:
@@ -69,7 +74,7 @@ def test_nonpositive_pressures_are_ignored_as_before() -> None:
 
 def test_the_median_is_used_not_the_first_row() -> None:
     df = pd.DataFrame({"pO2_mean": [0.20, 0.21, 0.22]})
-    assert _condition_suptitle(df) == r"$p$(O$_2$) = 0.21 bar"
+    assert _condition_suptitle(df) == r"$p(\mathrm{O_2})$ = 0.21 bar"
 
 
 # --------------------------------------------------------------------------
@@ -219,3 +224,60 @@ def test_the_temperature_labels_stay_inside_a_narrowed_frame() -> None:
     assert [t for t in fig.axes[0].texts] != []
     assert all(lo <= t.get_position()[0] <= hi for t in fig.axes[0].texts)
     plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# Typography of the mathtext the module prints
+#
+# IUPAC (Green Book, quantity symbols) and ISO 80000-1: a script is italic only
+# when it is itself a quantity or a running index, and upright when it is
+# descriptive. So "cond", "pol", "ion" and the "a" of an activation energy are
+# upright, while the index i and the carrier type p stay italic. Italic
+# multi-letter scripts are not a style preference: set in italic they read as a
+# product of that many quantities.
+#
+# The axis labels already followed this. The legends and the annotations did
+# not, which is what these two tests pin.
+# --------------------------------------------------------------------------
+
+PLOTS_SRC = Path(__file__).resolve().parents[1] / "pipeline" / "plots.py"
+
+# a script of two or more letters, or the bare "a" of an activation energy,
+# with no \mathrm or \text in front of it
+ITALIC_SCRIPT = re.compile(r"[_^]\{?(a|[A-Za-z]{2,})\}?")
+# a span that is nothing but a word: italic letters with multiplication spacing
+BARE_WORD = re.compile(r"^[A-Za-z]{2,}$")
+
+
+def _math_spans() -> list[str]:
+    """Every complete ``$...$`` span in plots.py, from the string literals.
+
+    A literal with an odd number of ``$`` is half of a concatenation, so its
+    spans are not readable on their own and it is skipped. So is a span holding
+    a doubled backslash: that is a doctest quoting a returned string, not a
+    label matplotlib will ever be asked to draw.
+
+    >>> len(_math_spans()) > 20
+    True
+    """
+    spans = []
+    for node in ast.walk(ast.parse(PLOTS_SRC.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            parts = node.value.split("$")
+            if len(parts) % 2:
+                spans += [p for p in parts[1::2] if p.strip() and "\\\\" not in p]
+    return spans
+
+
+def test_every_descriptive_script_is_upright() -> None:
+    offenders = [s for s in _math_spans()
+                 if ITALIC_SCRIPT.search(s) or BARE_WORD.match(s.strip())]
+    assert offenders == []
+
+
+def test_every_math_span_still_parses() -> None:
+    # \mathrm{} is easy to unbalance by hand, and a broken span raises only
+    # when the figure is drawn, which no test of a label string would reach
+    parser = mathtext.MathTextParser("path")
+    for span in _math_spans():
+        parser.parse(f"${span}$")

@@ -70,3 +70,15 @@ GitHub does not accept.
 
 The backtick form is a GitHub extension. Jupyter does not implement it, so
 notebook markdown keeps bare `$...$` and is not checked.
+
+## Figure labels
+
+A subscript or superscript is italic only when it is itself a quantity or a
+running index, and upright otherwise (IUPAC Green Book, ISO 80000-1). So
+`E_\mathrm{a}`, `\sigma_\mathrm{ion}` and `k_\mathrm{B}` are upright, while
+`x_i`, `\tau_k` and the `p` of `p`-type stay italic: a multi-letter italic
+script reads as a product of that many quantities. A word never goes inside
+math, where it sets as a product of italic letters.
+
+Two tests in `tests/test_plots.py` collect every `$...$` span from
+`pipeline/plots.py` and hold this.

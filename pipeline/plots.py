@@ -725,7 +725,12 @@ def _draw_arrhenius_panel(
     ea_label:    str,
     ylabel:      str,
 ) -> None:
-    """Draw one Arrhenius sub-panel onto ax (internal helper)."""
+    """Draw one Arrhenius sub-panel onto ax (internal helper).
+
+    ``ea_label`` carries its own ``$`` delimiters so that the whole legend
+    symbol is readable at the call site, which is where its typography is
+    checked.
+    """
     for r in results:
         if np.isnan(r[ea_key]):
             continue
@@ -734,7 +739,7 @@ def _draw_arrhenius_panel(
             r["inv_T"][valid], r[y_key][valid],
             r["marker"], color=r["color"],
             markersize=7, markeredgecolor="black", markeredgewidth=0.5,
-            label=f"{r['Peak']}: ${ea_label}$ = {r[ea_key]:.2f} eV",
+            label=f"{r['Peak']}: {ea_label} = {r[ea_key]:.2f} eV",
         )
         fit_x = np.linspace(r["inv_T"].min() - 0.02, r["inv_T"].max() + 0.02, 100)
         # axis shows 1000/T while the regression was done on 1/T,
@@ -784,7 +789,7 @@ def _condition_suptitle(df_peaks: pd.DataFrame, label: str = "", *,
     pressures are readings of an idle probe, not measurements.
 
     >>> _condition_suptitle(pd.DataFrame({"pO2_mean": [0.21]}), "Air")
-    'Air,  $p$(O$_2$) = 0.21 bar'
+    'Air,  $p(\\\\mathrm{O_2})$ = 0.21 bar'
     >>> _condition_suptitle(pd.DataFrame({"pO2_mean": [8715.0]}), "Air", show_pO2=False)
     'Air'
     """
@@ -796,7 +801,9 @@ def _condition_suptitle(df_peaks: pd.DataFrame, label: str = "", *,
             value = format_pO2_value(s.median())
     if not value:
         return label
-    pressure = f"$p$(O$_2$) = {value} bar"
+    # one math span, not math and text alternating: the axis labels write the
+    # same pressure as p(O2) inside a single span and the two must match
+    pressure = rf"$p(\mathrm{{O_2}})$ = {value} bar"
     return f"{label},  {pressure}" if label else pressure
 
 
@@ -857,15 +864,17 @@ def plot_arrhenius_panel(
 
     _draw_arrhenius_panel(
         axes[0, 0], results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
-        r"E_a^{cond}", r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$")
+        r"$E_\mathrm{a}^\mathrm{cond}$",
+        r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$")
 
     _draw_arrhenius_panel(
         axes[0, 1], results, "ln_tau", "slope_pol", "int_pol", "Ea_pol",
-        r"E_a^{pol}", r"$\ln[\tau\:/\:\mathrm{s}]$")
+        r"$E_\mathrm{a}^\mathrm{pol}$", r"$\ln[\tau\:/\:\mathrm{s}]$")
 
     _draw_arrhenius_panel(
         axes[1, 0], results, "ln_C", "slope_C", "int_C", "Ea_C",
-        r"E_a^{C}", r"$\ln[C\:/\:\mathrm{F}]$")
+        # the C of Ea_C is the capacitance, a quantity: it stays italic
+        r"$E_\mathrm{a}^{C}$", r"$\ln[C\:/\:\mathrm{F}]$")
 
     # Panel [1,1]: log₁₀(εᵣ) - diagnostic, no fit line
     ax4 = axes[1, 1]
@@ -946,7 +955,8 @@ def plot_arrhenius_sigma(
     branch_results = build_arrhenius_results(sub, L_m, D_m, t_min=t_min)
     _draw_arrhenius_panel(
         ax, branch_results, "ln_sigmaT", "slope_cond", "int_cond", "Ea_cond",
-        r"E_a", r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$")
+        r"$E_\mathrm{a}$",
+        r"$\ln\!\left[\sigma T\:/\:\mathrm{(S\,K\,cm^{-1})}\right]$")
 
     # series sum: full range, only at T where every block peak was fitted
     wide = sub.pivot_table(index="T_nominal", columns="peak_id",
@@ -963,7 +973,7 @@ def plot_arrhenius_sigma(
         ids_lab = "+".join(f"P{int(p)}" for p in sorted(sum_peak_ids))
         ax.plot(inv_T, ln_sT, "D", color="#333333", markersize=6,
                 markeredgecolor="black", markeredgewidth=0.5,
-                label=f"{ids_lab} (series sum): $E_a$ = {Ea:.2f} eV")
+                label=f"{ids_lab} (series sum): $E_\\mathrm{{a}}$ = {Ea:.2f} eV")
         fit_x = np.linspace(inv_T.min() - 0.02, inv_T.max() + 0.02, 100)
         ax.plot(fit_x, intercept + slope * (fit_x / 1000), "--",
                 color="#333333", linewidth=1.0, alpha=0.8)
@@ -1124,7 +1134,9 @@ def plot_brouwer(
             x0, x1, yc, sl, side = _guides[name]
             grey = name.endswith("1/6")
             _slope_line(ax, x0, x1, yc, slope=sl,
-                        label=r"$plateau$" if name == "0" else rf"${name}$",
+                        # a word inside math sets as a product of italic
+                        # letters, so this one label is plain text
+                        label="plateau" if name == "0" else rf"${name}$",
                         label_side=side,
                         label_pad=(0.15, -0.10 if grey else 0.0),
                         color="#888888" if grey else "black",
@@ -1334,7 +1346,7 @@ def plot_brouwer_transference(
     # everywhere (no line was drawn), so a reduced model shows no phantom entry.
     if (df_t["sigma_ion"] > 0).any():
         _handles.append(plt.Line2D([], [], color="gray", lw=0.8, ls="--", alpha=0.7))
-        _labels.append(r"$\sigma_{ion}$ (fit)")
+        _labels.append(r"$\sigma_\mathrm{ion}$ (fit)")
     fig.legend(_handles, _labels, loc="outside upper center", frameon=True,
                fontsize=9, ncol=min(len(_labels), 7), handlelength=1.3,
                columnspacing=0.8)
@@ -1394,12 +1406,13 @@ def plot_brouwer_transference(
             if _totmax <= 0 or _cmax / _totmax < 1e-3:
                 # selected but the fit zeroed it: a real result (no such
                 # carriers in the measured pO2 window), not an absence.
-                cells.append(rf"$\sigma_{{{_sym}}} \approx 0$ ($p$O$_2$ window)")
+                cells.append(rf"$\sigma_{{{_sym}}} \approx 0$ "
+                             r"($p(\mathrm{O_2})$ window)")
                 continue
             _err = (perr or {}).get(f"Ea_{_ch}")
             _pm = (rf" \pm {_err:.2f}"
                    if _err is not None and np.isfinite(_err) else "")
-            cells.append(rf"$E_{{a,{_sym}}} = {_ea:.2f}{_pm}$ eV")
+            cells.append(rf"$E_{{\mathrm{{a}},{_sym}}} = {_ea:.2f}{_pm}$ eV")
         # Two-column grid, filled row by row so an omitted channel leaves no
         # hole. Columns are space-separated (mathtext, not pixel-aligned).
         _rows = [cells[i:i + 2] for i in range(0, len(cells), 2)]
@@ -1467,8 +1480,10 @@ def plot_transference_arrhenius(
     T_K = per_T.index.to_numpy(dtype=float) + 273.15
 
     channels = [
-        ("sigma_ion", r"$\sigma_{ion}$", "#0072B2", "o"),
-        ("sigma_p",   r"$\sigma_{p}$",   "#D55E00", "s"),
+        # ion is descriptive and upright; the p of p-type is the carrier and
+        # stays italic, as in the model written in the documentation
+        ("sigma_ion", r"$\sigma_\mathrm{ion}$", "#0072B2", "o"),
+        ("sigma_p",   r"$\sigma_{p}$",          "#D55E00", "s"),
     ]
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=150, layout="constrained")
@@ -1483,7 +1498,7 @@ def plot_transference_arrhenius(
         ln = np.log(sigma_Scm[mask] * T_K[mask])
         if mask.sum() >= 3:
             Ea, Ea_err, r2, slope, intercept = _arrhenius_linreg(1.0 / T_K[mask], ln)
-            label = (f"{lab}: $E_a$ = {Ea:.2f} ± {Ea_err:.2f} eV"
+            label = (f"{lab}: $E_\\mathrm{{a}}$ = {Ea:.2f} ± {Ea_err:.2f} eV"
                      f"  (R²={r2:.3f}, n={int(mask.sum())})")
             fit_x = np.linspace(x.min() - 0.02, x.max() + 0.02, 100)
             ax.plot(fit_x, intercept + slope * (fit_x / 1000), "-",
