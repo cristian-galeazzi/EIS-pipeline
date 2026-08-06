@@ -12,7 +12,7 @@ documented, tested, and reproducible.
 
 ![Stage 5 global fit: the σ(p(O₂), T) conductivity surface with the measured points on it](docs/img/stage5_surface3d.png)
 
-From raw spectra to a global conductivity model. The per-stage figures that lead here are in [docs/STAGES.md](docs/STAGES.md).
+From raw spectra to a global conductivity model.
 
 | Stage | Notebook | What it does |
 | ----- | -------- | ------------ |
@@ -24,13 +24,9 @@ From raw spectra to a global conductivity model. The per-stage figures that lead
 | 5 | `stage5_model.ipynb` | Global MIEC model: one fit of $`\sigma(p_{\text{O}_2}, T)`$ per process, across every condition at once |
 
 Stages 0 and 1 are the optional Zahner furnace-log front-end. If you bring CSV
-spectra from any other instrument, you start at stage 2. Full per-stage detail
-and every parameter are in [docs/STAGES.md](docs/STAGES.md).
-
-Stage 5 fits the whole conductivity surface of each process at once. The
-surface shown at the top of this page is the bundled synthetic sample: a mixed
-conductor with an n-type branch at low $`p_{\text{O}_2}`$, an ionic plateau, and a
-p-type branch at high $`p_{\text{O}_2}`$.
+spectra from any other instrument, you start at stage 2. Full per-stage detail,
+every parameter and the figures each stage draws are in
+[docs/STAGES.md](docs/STAGES.md).
 
 ## Quickstart
 
@@ -52,7 +48,8 @@ left off. Conditions and temperatures are discovered from the folder names.
 sample (eight $`p_{\text{O}_2}`$ conditions from 1 bar down to $`10^{-12}`$
 bar, five temperatures, two-Zarc spectra of a mixed n + ionic + p-type bulk
 and a pure-ionic grain boundary, with realistic noise, regenerable with
-`python tools/generate_example_sample.py`). The wide pressure span draws the
+`python tools/generate_example_sample.py`). The surface at the top of this page
+is that sample. The wide pressure span draws the
 full Brouwer diagram: the p-type branch at high $`p_{\text{O}_2}`$, the ionic
 plateau, and the n-type branch at low $`p_{\text{O}_2}`$. It uses the CSV
 entry path, so start from
@@ -62,8 +59,7 @@ geometry prompt: the spectra were built with that geometry, and any other value
 rescales every conductivity away from the synthetic truth.
 
 Each configuration cell has a `PARAM_MODE` switch (lock, continue, reset) that
-controls whether edits are saved to `session.json`; the modes and per-stage
-parameters are documented in [docs/STAGES.md](docs/STAGES.md).
+controls whether edits are saved to `session.json`.
 
 ## Features
 

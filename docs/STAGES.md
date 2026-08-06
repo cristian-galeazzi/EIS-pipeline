@@ -5,8 +5,7 @@ Full detail for each stage, including every configuration parameter. The
 mathematics behind each engine step is in [MATHEMATICS.md](MATHEMATICS.md).
 
 Most users enter through the CSV path at Stage 2 (see
-[INPUT_FORMAT.md](INPUT_FORMAT.md)). Stages 0 and 1 are the optional Zahner
-furnace-log front-end.
+[INPUT_FORMAT.md](INPUT_FORMAT.md)).
 
 ---
 
@@ -81,9 +80,7 @@ temperature label and copies valid files to `ISM validation/`, renaming those
 whose raw filename carried no temperature to their `auto_label`. Gas-flow
 numbers in folder names are valve setpoints; the actual $`p_{\text{O}_2}`$ is
 read from the lambda-probe signal in the furnace log. Answering `n` to the
-probe prompt records that the probe was off, so every later stage hides the
-pressure and skips the $`p_{\text{O}_2}`$ analyses: an idle probe still writes
-a drifting column that nothing downstream could otherwise tell from data.
+probe prompt records that the probe was off.
 
 | Parameter | Default | Purpose |
 | --------- | ------- | ------- |
