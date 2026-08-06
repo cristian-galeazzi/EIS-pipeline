@@ -49,7 +49,7 @@ protects a finished analysis. `False` warns before overwriting. In stage 3,
 spectrum behind it, so the Zarc fit and the interactive explorer run without
 repeating the deconvolution; a temperature whose stage-2 selection has moved
 since is named and left without a spectrum, because its stored peaks belong to
-the other file.
+the other file. Both notebooks ship with `False`.
 
 Stages 2 and 3 support temperature-by-temperature processing via `FOCUS_T`;
 their export cells are merge-aware, so rows for other temperatures are

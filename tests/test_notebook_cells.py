@@ -260,3 +260,108 @@ def test_the_skip_branch_carries_the_stored_gamma_curve() -> None:
 def test_a_stale_stage2_selection_is_refused() -> None:
     src = _cell(STAGE3_NOTEBOOK, BATCH_CELL, "_drt_results")
     assert 'elif fname and _sel.iloc[0]["file"] != fname:' in src
+
+
+# --------------------------------------------------------------------------
+# stage 2: the button that saves the fence and window parameters
+#
+# The panel used to write those two globals from its sliders on every preview
+# and never reach `session.json`: the next batch then ran with values the
+# configuration cell and the exported Metadata sheet both denied. The button
+# replaced that silent write, so what it owes is a single guarantee: memory and
+# `session.json` move together, or neither moves.
+# --------------------------------------------------------------------------
+
+
+def _save_fw_source() -> str:
+    """Return the dedented source of _on_save_fence_window from the panel cell.
+
+    >>> "def _on_save_fence_window" in _save_fw_source()
+    True
+    """
+    src = _cell(STAGE2_NOTEBOOK, PANEL_CELL, "def _on_save_fence_window")
+    start = src.index("        def _on_save_fence_window(_btn):")
+    end = src.index("        _w_save_fw.on_click(_on_save_fence_window)")
+    return textwrap.dedent(src[start:end])
+
+
+class _Mirror:
+    """A configuration-cell widget that records the suspend flag on write.
+
+    >>> flag = [False]
+    >>> w = _Mirror(flag, 2.0)
+    >>> flag[0] = True
+    >>> w.value = 1.4
+    >>> w.suspended
+    True
+    """
+
+    def __init__(self, flag: list, value) -> None:
+        self._flag, self._value, self.suspended = flag, value, None
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, new) -> None:
+        self.suspended = self._flag[0]
+        self._value = new
+
+
+def _fence_scope(save, mode: str = "continue") -> tuple:
+    """Load the callback against stubs; return its scope and the messages said."""
+    said: list[str] = []
+    flag = [False]
+    # a slider step of 0.1 lands on binary noise, which must not reach the file
+    scope = {
+        "wfence": types.SimpleNamespace(value=2.9000000000000004),
+        "wwin": types.SimpleNamespace(value=9),
+        "KK_IQR_FENCE": 2.0,
+        "KK_IQR_WINDOW": 5,
+        "PARAM_MODE": mode,
+        "_LOCKED_MSG": "locked",
+        "_save_params": save,
+        "_wp_suspend": flag,
+        "_w_fence": _Mirror(flag, 2.0),
+        "_w_window": _Mirror(flag, 5),
+        "_say": said.append,
+    }
+    exec(compile(_save_fw_source(), "<fence>", "exec"), scope)
+    return scope, said
+
+
+def test_saving_moves_memory_and_the_configuration_cell_together() -> None:
+    saves: list = []
+    scope, _ = _fence_scope(lambda: saves.append(1))
+    scope["_on_save_fence_window"](None)
+    assert (scope["KK_IQR_FENCE"], scope["KK_IQR_WINDOW"]) == (2.9, 9)
+    assert len(saves) == 1
+    assert (scope["_w_fence"].value, scope["_w_window"].value) == (2.9, 9)
+
+
+def test_the_mirror_cannot_trigger_a_second_save() -> None:
+    scope, _ = _fence_scope(lambda: None)
+    scope["_on_save_fence_window"](None)
+    assert scope["_w_fence"].suspended is True
+    assert scope["_w_window"].suspended is True
+    assert scope["_wp_suspend"][0] is False
+
+
+def test_lock_mode_writes_nothing() -> None:
+    saves: list = []
+    scope, said = _fence_scope(lambda: saves.append(1), mode="lock")
+    scope["_on_save_fence_window"](None)
+    assert (scope["KK_IQR_FENCE"], scope["KK_IQR_WINDOW"]) == (2.0, 5)
+    assert saves == [] and said == ["locked"]
+
+
+def test_a_refused_write_leaves_the_parameters_where_they_were() -> None:
+    def _refuse() -> None:
+        raise OSError("session.json is locked")
+
+    scope, said = _fence_scope(_refuse)
+    scope["_on_save_fence_window"](None)
+    assert (scope["KK_IQR_FENCE"], scope["KK_IQR_WINDOW"]) == (2.0, 5)
+    assert scope["_w_fence"].value == 2.0
+    assert "session.json was not written" in said[-1]
