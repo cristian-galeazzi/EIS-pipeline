@@ -29,11 +29,13 @@ from pipeline.ingest import load_csv_spectrum, load_ism
 ROOT = Path(__file__).resolve().parents[1]
 STAGE2_NOTEBOOK = ROOT / "stage2_kk.ipynb"
 STAGE3_NOTEBOOK = ROOT / "stage3_drt.ipynb"
+STAGE4_NOTEBOOK = ROOT / "stage4_plots.ipynb"
 
 PANEL_CELL = 12        # stage 2: the Lin-KK tuning panel
 BATCH_CELL = 8         # stage 3: Step 1, batch DRT
 FIT_CELL = 12          # stage 3: Step 2, batch Zarc fit
 DRT_PANEL_CELL = 10    # stage 3: Step 1b, the DRT tuning panel
+TAU_WINDOW_CELL = 8    # stage 4: Step 1b, the DRT tau window panel
 
 
 def _cell(notebook: Path, index: int, must_contain: str) -> str:
@@ -391,3 +393,59 @@ def test_the_batch_and_the_panel_agree_on_what_off_means() -> None:
     batch = _cell(STAGE3_NOTEBOOK, BATCH_CELL, "find_drt_peaks(")
     assert "min_prom_decades = PEAK_MIN_PROM_DECADES or None" in batch
     assert "if s_prom.value > 0 else None" in panel
+
+
+# --------------------------------------------------------------------------
+# stage 4: the tau window panel
+#
+# The window is two numbers a person types, so the one thing the panel owes is
+# that it refuses a window that is not an interval instead of writing it to
+# session.json and leaving a figure that cannot be drawn.
+# --------------------------------------------------------------------------
+
+
+def _tau_window_scope() -> tuple:
+    """Load the window callbacks against stubs; return the scope and messages."""
+    src = _cell(STAGE4_NOTEBOOK, TAU_WINDOW_CELL, "def _on_drt_save")
+    start = src.index("    def _drt_window() -> tuple:")
+    end = src.index("    _display_drt(")
+    said: list[str] = []
+    saved: list[dict] = []
+
+    class _Button:
+        def on_click(self, _cb) -> None:
+            pass
+
+    scope = {
+        "_w_tmin": types.SimpleNamespace(value=1e-5),
+        "_w_tmax": types.SimpleNamespace(value=1e-1),
+        "_w_dgo": _Button(),
+        "_w_dsave": _Button(),
+        "_dmsg": types.SimpleNamespace(value=""),
+        "_pre_drt": lambda m: said.append(m) or m,
+        "_update_session": lambda **kw: saved.append(kw) or True,
+        "_stage4_params": lambda: {"DRT_TAU_MIN": None},
+        "dialed": dialed,
+        "DRT_TAU_MIN": None,
+        "DRT_TAU_MAX": 0.1,
+    }
+    exec(compile(textwrap.dedent(src[start:end]), "<tau>", "exec"), scope)
+    return scope, said, saved
+
+
+def test_a_valid_window_is_saved() -> None:
+    scope, said, saved = _tau_window_scope()
+    scope["_on_drt_save"](None)
+    assert (scope["DRT_TAU_MIN"], scope["DRT_TAU_MAX"]) == (1e-5, 1e-1)
+    assert len(saved) == 1
+    assert "Re-run Step 1" in said[-1]
+
+
+def test_an_inverted_window_is_refused() -> None:
+    scope, said, saved = _tau_window_scope()
+    scope["_w_tmin"].value = 1e-1
+    scope["_w_tmax"].value = 1e-5
+    scope["_on_drt_save"](None)
+    assert saved == []
+    assert (scope["DRT_TAU_MIN"], scope["DRT_TAU_MAX"]) == (None, 0.1)
+    assert "nothing saved" in said[-1]

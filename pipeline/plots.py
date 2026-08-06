@@ -204,6 +204,7 @@ def plot_drt_stacked(
     condition:     str,
     save_dir:      Path | str,
     tau_max:       float       = 1.0,
+    tau_min:       float | None = None,
     offset_step:   float       = 1.2,
     label_tau:     float | None = None,
     exclude_temps: list[int] | None = None,
@@ -224,9 +225,17 @@ def plot_drt_stacked(
                     (from stage3_drt.xlsx sheet "DRT_Spectra")
     condition     : condition name used for the figure title and filename
     save_dir      : directory where PNG + PDF are written
-    tau_max       : x-axis upper limit [s] (default 1.0)
+    tau_max       : x-axis upper limit [s] (default 1.0). Points above it are
+                    dropped before each trace is normalized, so it also decides
+                    what each maximum is taken over.
+    tau_min       : x-axis lower limit [s]. Framing only: no point is dropped
+                    and no trace is renormalized, so a window narrowed from the
+                    left shows the same curves at the same heights. None keeps
+                    the label-driven edge this plot has always used.
     offset_step   : vertical spacing between traces (default 1.2)
-    label_tau     : τ position for the T-label text (auto-set to 5e-8 if None)
+    label_tau     : τ position for the T-label text. None puts the labels at
+                    ``tau_min`` when that is set, at 5e-8 otherwise, so they
+                    never fall outside a narrowed window.
     exclude_temps : list of T_nominal [°C] to skip
     save          : when False, do not write PNG/PDF (diagnostic preview only).
     df_peaks      : optional stage3_fit.xlsx "Peaks" DataFrame; when given and
@@ -249,6 +258,12 @@ def plot_drt_stacked(
 
     fig, ax = plt.subplots(figsize=(4, 4), dpi=200, layout="constrained")
 
+    # The labels ride the left edge of the view: pinned to 5e-8, a window
+    # narrowed from the left would leave them outside it.
+    lbl_x = label_tau if label_tau is not None else (
+        tau_min if tau_min is not None else 5e-8)
+    x_lo  = tau_min if tau_min is not None else lbl_x * 0.8
+
     for i, T in enumerate(temps):
         sub     = df_spectra[df_spectra["T_nominal"] == T].sort_values("tau")
         mask    = sub["tau"].values < tau_max
@@ -268,14 +283,12 @@ def plot_drt_stacked(
         ax.fill_between(tau_f, baseline, gamma_norm + baseline,
                         color=color, alpha=0.2, zorder=5)
 
-        lbl_x = label_tau if label_tau is not None else 5e-8
         ax.text(lbl_x, baseline + 0.5, f"{T} °C",
                 fontsize=8, va="center", ha="left", color="black")
 
     ax.set_xscale("log")
     ax.set_xlabel(r"$\tau\:/\:\mathrm{s}$", fontsize=8, labelpad=10)
-    lbl_x = label_tau if label_tau is not None else 5e-8
-    ax.set_xlim([lbl_x * 0.8, tau_max])
+    ax.set_xlim([x_lo, tau_max])
     ax.set_ylabel(r"$\gamma(\ln\tau)\:/\:\gamma_\mathrm{max}$", fontsize=8, labelpad=10)
     y_max = (len(temps) - 1) * offset_step + 1.5
     ax.set_ylim([-0.3, y_max])

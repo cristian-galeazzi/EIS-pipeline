@@ -279,7 +279,8 @@ produce them).
 | --------- | ------- | ------- |
 | `CONDITION_FILTER` | `[]` | Conditions to plot (`[]` = all) |
 | `USE_STAGE3_SELECTION` | True | Keep only the (condition, T) rows stage 3 marked valid |
-| `DRT_TAU_MAX` | 0.1 s | x-axis upper limit on the DRT stacked plot |
+| `DRT_TAU_MAX` | 0.1 s | x-axis upper limit on the DRT stacked plot; points above it are dropped before each trace is normalized |
+| `DRT_TAU_MIN` | None | x-axis lower limit on the same plot, framing only (None = 4e-08 s, the historical edge) |
 | `BROUWER_PEAK_ID` | 1 | Peak index for the Brouwer diagram |
 | `BROUWER_TEMPS` | None | Temperatures shown in Brouwer (None = all) |
 | `BROUWER_SLOPES` | -1/4, -1/6, 0, +1/6, +1/4 | Guide slopes drawn on the Brouwer diagram |

@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 from pipeline.plots import (  # noqa: E402
     KB, _condition_suptitle, build_arrhenius_results, plot_arrhenius_sigma,
+    plot_drt_stacked,
 )
 
 # --------------------------------------------------------------------------
@@ -160,3 +161,61 @@ def test_the_intercept_carries_the_whole_change() -> None:
     old = build_arrhenius_results(df_old, L_M, D_M)[0]
     assert abs((float(old["int_cond"]) - float(new["int_cond"])) - np.log(100.0)) < 1e-12
     assert abs(float(old["slope_cond"]) - float(new["slope_cond"])) < 1e-9
+
+
+# --------------------------------------------------------------------------
+# plot_drt_stacked: the tau window
+#
+# tau_max has always dropped the points above it before each trace is
+# normalized, so it decides both the frame and the heights. tau_min was added
+# for a sample measured to lower frequencies and does neither of those two
+# jobs at once: it frames, and nothing else. These tests pin that split, and
+# that a call without tau_min draws exactly what it drew before.
+# --------------------------------------------------------------------------
+
+
+def _drt_spectra() -> pd.DataFrame:
+    """Two temperatures over six decades of tau, one peak each."""
+    tau = np.logspace(-8, -2, 200)
+    rows = []
+    for T, centre in ((600, 1e-6), (500, 1e-4)):
+        gamma = np.exp(-((np.log10(tau) - np.log10(centre)) ** 2) / 0.05)
+        rows.append(pd.DataFrame({"T_nominal": T, "tau": tau, "gamma": gamma}))
+    return pd.concat(rows, ignore_index=True)
+
+
+def _drawn(fig: plt.Figure) -> int:
+    return sum(len(line.get_xdata()) for line in fig.axes[0].lines)
+
+
+def test_without_tau_min_the_frame_is_the_one_drawn_before() -> None:
+    fig = plot_drt_stacked(_drt_spectra(), "C", ".", tau_max=1e-2, save=False)
+    assert fig.axes[0].get_xlim() == (5e-8 * 0.8, 1e-2)
+    plt.close(fig)
+
+
+def test_tau_min_moves_the_frame_to_exactly_what_was_asked() -> None:
+    fig = plot_drt_stacked(_drt_spectra(), "C", ".", tau_max=1e-2,
+                           tau_min=1e-5, save=False)
+    assert fig.axes[0].get_xlim() == (1e-5, 1e-2)
+    plt.close(fig)
+
+
+def test_tau_min_drops_no_data() -> None:
+    # the guarantee that separates it from tau_max: narrowing the frame from
+    # the left must not remove a point, so no trace is renormalized
+    df = _drt_spectra()
+    wide = plot_drt_stacked(df, "C", ".", tau_max=1e-2, save=False)
+    narrow = plot_drt_stacked(df, "C", ".", tau_max=1e-2, tau_min=1e-5, save=False)
+    assert _drawn(narrow) == _drawn(wide)
+    plt.close(wide)
+    plt.close(narrow)
+
+
+def test_the_temperature_labels_stay_inside_a_narrowed_frame() -> None:
+    fig = plot_drt_stacked(_drt_spectra(), "C", ".", tau_max=1e-2,
+                           tau_min=1e-5, save=False)
+    lo, hi = fig.axes[0].get_xlim()
+    assert [t for t in fig.axes[0].texts] != []
+    assert all(lo <= t.get_position()[0] <= hi for t in fig.axes[0].texts)
+    plt.close(fig)
