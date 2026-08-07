@@ -106,7 +106,7 @@ def total_conductivity(pO2: ArrayLike, T_K: ArrayLike, p: ModelParams) -> NDArra
     >>> p = ModelParams(sigma0_ion=1e5, Ea_ion=1.0, sigma0_p=0.0, Ea_p=float("nan"),
     ...                 sigma0_n=0.0, Ea_n=float("nan"))
     >>> round(float(total_conductivity(0.21, 973.15, p)), 6)
-    0.00068
+    0.000681
     >>> bool(np.isclose(total_conductivity(0.21, 973.15, p),
     ...                 total_conductivity(1e-4, 973.15, p)))  # ion-only: pO2-independent
     True
