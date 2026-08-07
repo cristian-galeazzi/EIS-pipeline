@@ -82,3 +82,19 @@ math, where it sets as a product of italic letters.
 
 Two tests in `tests/test_plots.py` collect every `$...$` span from
 `pipeline/plots.py` and hold this.
+
+A number below `1e-2` is written as a mantissa times a power of ten, never as
+`1.0e-03`: on a figure that is a programming language's notation, and its `e`
+is already the base of the natural logarithm. `format_sci` in
+`pipeline/utils.py` holds the single rule, in the two renderings a label can
+need: a mathtext fragment for matplotlib, and Unicode superscripts for an
+ipywidgets description, which is HTML and never sets math.
+
+A value is separated from its unit by a space, `600 °C` and never `600°C`. The
+separator inside math is `\:`, the one every axis label already uses around its
+solidus.
+
+The furnace figures in `pipeline/matching.py` are drawn in sans-serif rather
+than in the publication style, so they pin `mathtext.fontset` to their own
+family: `apply_pub_style` sets STIX globally, and a serif label on a sans
+figure is visible. `tests/test_matching_labels.py` holds their labels.
