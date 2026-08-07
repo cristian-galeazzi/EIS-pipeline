@@ -746,7 +746,10 @@ def plot_oven(parsed: dict, save_path: Optional[Path] = None, show: bool = True)
     fig_w   = max(14, n_hours * 0.22)
 
     with plt.rc_context({
-        "font.family": "sans-serif", "font.size": 11,
+        # the math font is pinned to the figure's own family: apply_pub_style
+        # sets STIX globally, and a serif label on a sans figure is visible
+        "font.family": "sans-serif", "mathtext.fontset": "dejavusans",
+        "font.size": 11,
         "axes.linewidth": 0.8, "lines.linewidth": 1.0,
         "axes.grid": True, "grid.linestyle": "-",
         "grid.color": "#cccccc", "grid.alpha": 1.0,
@@ -762,8 +765,8 @@ def plot_oven(parsed: dict, save_path: Optional[Path] = None, show: bool = True)
         ax.set_xticks(ticks)
         ax.set_xticklabels(tick_labels, rotation=90, ha="center", fontsize=8)
         ax.yaxis.set_major_locator(ticker.MultipleLocator(Y_STEP))
-        ax.set_xlabel("Time", fontsize=12)
-        ax.set_ylabel("T / °C", fontsize=12)
+        ax.set_xlabel(r"$t$  (D:HH:MM:SS)", fontsize=12)
+        ax.set_ylabel(r"$T\:/\:^\circ\!\mathrm{C}$", fontsize=12)
         ax.set_title("")
         ax.legend(loc="upper right", framealpha=1.0, edgecolor="black",
                   fontsize=11, handlelength=1.5)
@@ -858,7 +861,9 @@ def plot_ism_selection(
     fig_w   = max(12, n_hours * 0.28)
 
     with plt.rc_context({
+        # same reason as plot_oven: the math font follows the figure's family
         "font.family":      "sans-serif",
+        "mathtext.fontset": "dejavusans",
         "font.size":        10,
         "axes.linewidth":   1.0,
         "lines.linewidth":  1.5,
@@ -909,8 +914,8 @@ def plot_ism_selection(
         ax.set_xticks(ticks)
         ax.set_xticklabels(tick_labels, rotation=90, ha="center", fontsize=7)
         ax.yaxis.set_major_locator(ticker.MultipleLocator(Y_STEP))
-        ax.set_xlabel("Time  (D:HH:MM:SS)", fontsize=11)
-        ax.set_ylabel("T / °C", fontsize=11)
+        ax.set_xlabel(r"$t$  (D:HH:MM:SS)", fontsize=11)
+        ax.set_ylabel(r"$T\:/\:^\circ\!\mathrm{C}$", fontsize=11)
         ax.tick_params(which="major", direction="in", top=False, right=False, length=4)
 
         legend_items = [
@@ -930,7 +935,7 @@ def plot_ism_selection(
             if r.status == "VALID" and r.T_nominal is not None:
                 per_T[r.T_nominal] = per_T.get(r.T_nominal, 0) + 1
         summary = "  ".join(
-            f"{int(T)}°C×{n}" for T, n in sorted(per_T.items(), reverse=True)
+            f"{int(T)} °C × {n}" for T, n in sorted(per_T.items(), reverse=True)
         )
         n_nt  = sum(1 for r in records if r.status == "NEAR_TRANSITION")
         n_un  = sum(1 for r in records if r.status == "UNSTABLE")
