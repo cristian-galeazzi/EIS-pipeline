@@ -535,3 +535,52 @@ def test_the_conductivity_minimum_states_a_temperature_and_a_pressure() -> None:
     src = _cell(STAGE5_NOTEBOOK, 6, "conductivity minimum")
     assert "} C:" not in src
     assert "{_pmin:.2e}" not in src
+
+
+# --------------------------------------------------------------------------
+# stage 3: a peak annotation stays inside the frame
+#
+# The labels grew when "tau=1.0e-06s" became "tau = 1.0 x 10^-6 s", and the
+# first DRT peak sits within a decade of the left edge. Centred on it, the
+# wider label ran off the axes and over a tick label. The check is on the drawn
+# extent, not on the alignment the code picks: that is what actually failed.
+# --------------------------------------------------------------------------
+
+
+def _drt_figure_fn() -> object:
+    """The cell's own _drt_figure, loaded against stubs.
+
+    >>> callable(_drt_figure_fn())
+    True
+    """
+    from matplotlib.figure import Figure
+
+    from pipeline.utils import format_sci
+
+    src = _cell(STAGE3_NOTEBOOK, DRT_PANEL_CELL, "def _drt_figure(")
+    start = src.index("_SWEEP_LABEL = {")
+    end = src.index("\n", src.index("    return fig"))
+    scope: dict = {"Figure": Figure, "np": np, "format_sci": format_sci}
+    exec(compile(textwrap.dedent(src[start:end]), "<cell>", "exec"), scope)
+    return scope["_drt_figure"]
+
+
+def test_every_peak_annotation_is_drawn_inside_the_axes() -> None:
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    tau = np.logspace(-6.5, 1.5, 400)
+    gamma = np.exp(-((np.log10(tau) + 6.0) ** 2) / 0.02) * 3000
+    entry = types.SimpleNamespace(out_tau_vec=tau, gamma=gamma)
+    # one peak against each edge and one in the middle
+    peaks = [{"peak_id": 1, "tau": 1.0e-6, "gamma_peak": 3000.0},
+             {"peak_id": 2, "tau": 1.0e-3, "gamma_peak": 2000.0},
+             {"peak_id": 3, "tau": 2.0e1, "gamma_peak": 1000.0}]
+    fig = _drt_figure_fn()(entry, peaks, [], "#c0392b", 6.5e-6)
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    frame = fig.axes[0].get_window_extent()
+    for text in fig.axes[0].texts:
+        box = text.get_window_extent(canvas.get_renderer())
+        assert box.x0 >= frame.x0 - 1 and box.x1 <= frame.x1 + 1, (
+            f"{text.get_text()!r} runs off the frame: "
+            f"{box.x0:.0f}-{box.x1:.0f} against {frame.x0:.0f}-{frame.x1:.0f}")
