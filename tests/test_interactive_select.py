@@ -88,3 +88,13 @@ def test_a_typed_value_survives_untouched() -> None:
     assert dialed(31.6) == 31.6
     assert dialed(0.76) == 0.76
     assert dialed(1200.0) == 1200.0
+
+
+def test_the_selector_shows_the_same_power_of_ten_as_the_figure() -> None:
+    # an ipywidgets description is HTML text, never mathtext, so the exponent
+    # is carried by Unicode superscripts rather than by a math span
+    from pipeline.interactive import format_pO2
+
+    assert format_pO2(3.42e-18) == "3.4×10⁻¹⁸ bar"
+    assert format_pO2(0.21) == "0.21 bar"
+    assert format_pO2(None) == ""

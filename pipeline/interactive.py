@@ -236,14 +236,15 @@ def discover_conditions_from_session(cfg: dict) -> list[str]:
 
 
 def format_pO2(x: float | None) -> str:
-    """p(O2) label with unit, e.g. "0.21 bar" or "1.0e-03 bar", "" when absent.
-    Delegates the number to ``format_pO2_value`` (decimal down to 0.01, scientific
-    below), so labels and figure titles share one formatting rule.
+    """p(O2) label with unit, e.g. "0.21 bar" or "1.0×10⁻³ bar", "" when absent.
+    Delegates the number to ``format_pO2_value`` (decimal down to 0.01, a power
+    of ten below), so labels and figure titles share one formatting rule. The
+    exponent is Unicode here because a widget description is HTML, not mathtext.
 
     >>> format_pO2(0.21)
     '0.21 bar'
     >>> format_pO2(3.42e-18)
-    '3.4e-18 bar'
+    '3.4×10⁻¹⁸ bar'
     >>> format_pO2(None)
     ''
     """
