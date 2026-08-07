@@ -5,7 +5,8 @@ Export:
 - build_metadata_sheet : standardized 2-column DataFrame recording fixed parameters
 
 Presentation and input resolution:
-- format_pO2_value, condition_pO2_map : one formatting rule for every p(O2) label
+- format_sci, format_pO2_value, condition_pO2_map : one formatting rule for
+  every number and every p(O2) label a figure prints
 - condition_label : one naming rule for every condition shown to the user
 - stage2_pool_names : which filename stage 2 resolves inside ISM validation/
 
@@ -15,6 +16,7 @@ Metadata schema, the p(O2) labels, the condition names and the input pool.
 from __future__ import annotations
 
 import datetime as _dt
+import math
 import os
 import re
 import warnings
@@ -96,22 +98,54 @@ def check_replica_overrides(
 # Where the per-spectrum pO2_mean column can be read, most processed first.
 # Same column everywhere (born at matching, stage 1), so any source gives the
 # same value; the list just makes the helper work from stage 2 onward.
-def format_pO2_value(x: float | None) -> str:
+#: Digits and the minus sign as Unicode superscripts, for the one place a power
+#: of ten has to survive outside mathtext: an ipywidgets description, which is
+#: HTML and never sets math.
+_SUPERSCRIPT = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def format_sci(x: float, *, digits: int = 1, mathtext: bool = False) -> str:
+    """Mantissa and power of ten, in the two renderings the program can draw.
+
+    ``mathtext=True`` returns a matplotlib math fragment, for a figure; the
+    default returns Unicode superscripts, for text matplotlib never sets.
+    ``"1.0e-03"`` is a programming language's notation: on a figure it reads as
+    unfinished output, and its ``e`` is already the base of the natural
+    logarithm. Non-finite input returns "".
+
+    >>> format_sci(2.1e-3)
+    '2.1×10⁻³'
+    >>> format_sci(2.1e-3, mathtext=True)
+    '2.1\\\\times10^{-3}'
+    """
+    if not math.isfinite(x):
+        return ""
+    mantissa, exponent = f"{x:.{digits}e}".split("e")
+    e = int(exponent)
+    if mathtext:
+        return rf"{mantissa}\times10^{{{e}}}"
+    return f"{mantissa}×10{str(e).translate(_SUPERSCRIPT)}"
+
+
+def format_pO2_value(x: float | None, *, mathtext: bool = False) -> str:
     """Number-only p(O2) string [bar implied]: two significant figures, decimal
-    down to 0.01 and scientific below 1e-2 (so 0.21, 0.01, then 1.0e-03). "" when
-    the value is absent, NaN or nonpositive. Single source of the p(O2) number so
-    the selector labels and the figure titles never disagree.
+    down to 0.01 and a power of ten below 1e-2 (so 0.21, 0.01, then 1.0×10⁻³).
+    "" when the value is absent, NaN or nonpositive. Single source of the p(O2)
+    number so the selector labels and the figure titles never disagree.
+
+    ``mathtext=True`` renders the power of ten for matplotlib; see
+    ``format_sci``.
 
     >>> format_pO2_value(0.21)
     '0.21'
     >>> format_pO2_value(1e-3)
-    '1.0e-03'
+    '1.0×10⁻³'
     >>> format_pO2_value(None)
     ''
     """
     if x is None or x != x or x <= 0:  # None, NaN, or nonpositive
         return ""
-    return f"{x:.2g}" if x >= 1e-2 else f"{x:.1e}"
+    return f"{x:.2g}" if x >= 1e-2 else format_sci(x, mathtext=mathtext)
 
 
 _PO2_SOURCES: tuple[tuple[str, str], ...] = (

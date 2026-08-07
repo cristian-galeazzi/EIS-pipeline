@@ -9,7 +9,65 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from pipeline.utils import condition_label, condition_pO2_map, stage2_pool_names
+from pipeline.utils import (
+    condition_label,
+    condition_pO2_map,
+    format_pO2_value,
+    format_sci,
+    stage2_pool_names,
+)
+
+# --------------------------------------------------------------------------
+# format_sci / format_pO2_value: the power of ten
+#
+# "1.0e-03" is a programming language's notation, not a printed one. A figure
+# carrying it reads as unfinished output, and its "e" is already the base of
+# the natural logarithm. IUPAC Green Book: a value is a mantissa times a power
+# of ten.
+# --------------------------------------------------------------------------
+
+
+def test_the_mathtext_form_is_a_power_of_ten() -> None:
+    assert format_sci(2.1e-3, mathtext=True) == r"2.1\times10^{-3}"
+
+
+def test_the_plain_form_uses_unicode_superscripts() -> None:
+    assert format_sci(2.1e-3) == "2.1×10⁻³"
+
+
+def test_a_positive_exponent_carries_no_plus_sign() -> None:
+    assert format_sci(4.2e5, mathtext=True) == r"4.2\times10^{5}"
+    assert format_sci(4.2e5) == "4.2×10⁵"
+
+
+def test_digits_controls_the_mantissa_only() -> None:
+    assert format_sci(1.234e-7, digits=2) == "1.23×10⁻⁷"
+
+
+def test_a_non_finite_value_formats_to_nothing() -> None:
+    assert format_sci(float("nan")) == ""
+    assert format_sci(float("inf"), mathtext=True) == ""
+
+
+def test_the_decimal_range_of_pO2_is_unchanged() -> None:
+    # the threshold is not what this change touches: 0.21 bar stays decimal
+    assert format_pO2_value(0.21) == "0.21"
+    assert format_pO2_value(0.21, mathtext=True) == "0.21"
+    assert format_pO2_value(0.01) == "0.01"
+
+
+def test_a_low_pressure_is_a_power_of_ten_in_both_renderings() -> None:
+    assert format_pO2_value(2.1e-3) == "2.1×10⁻³"
+    assert format_pO2_value(2.1e-3, mathtext=True) == r"2.1\times10^{-3}"
+
+
+def test_an_absent_pressure_is_still_the_empty_string() -> None:
+    # the guard the suptitle relies on to avoid printing "p(O2) =  bar"
+    for bad in (None, float("nan"), 0.0, -1.0):
+        assert format_pO2_value(bad) == ""
+        assert format_pO2_value(bad, mathtext=True) == ""
+
+
 
 # --------------------------------------------------------------------------
 # condition_pO2_map: the probe-off switch
