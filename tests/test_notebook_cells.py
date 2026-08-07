@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STAGE2_NOTEBOOK = ROOT / "stage2_kk.ipynb"
 STAGE3_NOTEBOOK = ROOT / "stage3_drt.ipynb"
 STAGE4_NOTEBOOK = ROOT / "stage4_plots.ipynb"
+STAGE5_NOTEBOOK = ROOT / "stage5_model.ipynb"
 
 PANEL_CELL = 12        # stage 2: the Lin-KK tuning panel
 BATCH_CELL = 8         # stage 3: Step 1, batch DRT
@@ -526,3 +527,11 @@ def test_the_zarc_readout_states_its_result_in_the_figures_notation() -> None:
     src = _cell(STAGE3_NOTEBOOK, 15, "Zarc")
     assert ":.1e}s" not in src
     assert "format_sci(pk['tau'])" in src
+
+
+def test_the_conductivity_minimum_states_a_temperature_and_a_pressure() -> None:
+    # "600 C" is not a unit symbol, and the stoichiometric minimum is a result
+    # of the global fit, not a line of the tuning log
+    src = _cell(STAGE5_NOTEBOOK, 6, "conductivity minimum")
+    assert "} C:" not in src
+    assert "{_pmin:.2e}" not in src
