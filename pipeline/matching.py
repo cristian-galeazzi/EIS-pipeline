@@ -897,12 +897,12 @@ def plot_ism_selection(
             ax.axvline(x0, color=color, linewidth=1.2, alpha=0.8, zorder=3)
             ax.axvline(x1, color=color, linewidth=1.2, alpha=0.8, zorder=3)
 
-            # T_nominal label inside VALID windows (e.g. "400°C", "400°C_1")
+            # T_nominal label inside VALID windows (e.g. "400 °C", "400 °C_1")
             if rec.status == "VALID" and rec.T_nominal is not None:
                 xmid = (x0 + x1) / 2
                 T = int(rec.T_nominal)
                 rep = rec.replica if rec.replica is not None else 1
-                label = f"{T}°C" if rep == 1 else f"{T}°C_{rep-1}"
+                label = f"{T} °C" if rep == 1 else f"{T} °C_{rep-1}"
                 ax.text(
                     xmid, Y_MIN + 10, label,
                     ha="center", va="bottom", fontsize=7, color="black",

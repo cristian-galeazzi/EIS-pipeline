@@ -518,3 +518,11 @@ def test_the_stage3_grid_title_spaces_its_unit() -> None:
     src = _cell(STAGE3_NOTEBOOK, GRID_FIGURE_CELL, "_condition_suptitle")
     assert 'f"{T}°C' not in src
     assert 'f"{T} °C' in src
+
+
+def test_the_zarc_readout_states_its_result_in_the_figures_notation() -> None:
+    # the readout sits beside the fit panel and states a measured tau, so it
+    # follows the figure rather than the tuning log two cells above it
+    src = _cell(STAGE3_NOTEBOOK, 15, "Zarc")
+    assert ":.1e}s" not in src
+    assert "format_sci(pk['tau'])" in src
