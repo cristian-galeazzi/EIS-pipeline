@@ -449,3 +449,31 @@ def test_an_inverted_window_is_refused() -> None:
     assert saved == []
     assert (scope["DRT_TAU_MIN"], scope["DRT_TAU_MAX"]) == (None, 0.1)
     assert "nothing saved" in said[-1]
+
+
+# --------------------------------------------------------------------------
+# Figure typography inside the stage 3 notebook
+#
+# pipeline/plots.py is held by tests/test_plots.py. The stage 3 panels draw
+# their own figures and were written before the rule: they printed
+# "tau=1.3e-05s", with the quantity symbol upright, no space before the unit,
+# and the exponent in a programming language's notation.
+# --------------------------------------------------------------------------
+
+DRT_FIGURE_CELL = 10   # stage 3: Step 1b, the DRT tuning panel (same as above)
+GRID_FIGURE_CELL = 18  # stage 3: Step 3, the per-condition overview grid
+
+
+def test_no_stage3_figure_text_carries_e_notation() -> None:
+    for index, marker in ((DRT_FIGURE_CELL, "_drt_figure"),
+                          (GRID_FIGURE_CELL, "_condition_suptitle")):
+        src = _cell(STAGE3_NOTEBOOK, index, marker)
+        drawn = [ln for ln in src.split("\n")
+                 if "annotate(" in ln or "set_title(" in ln or "label=f" in ln]
+        assert [ln for ln in drawn if ":.1e}" in ln] == []
+
+
+def test_the_stage3_grid_title_spaces_its_unit() -> None:
+    src = _cell(STAGE3_NOTEBOOK, GRID_FIGURE_CELL, "_condition_suptitle")
+    assert 'f"{T}°C' not in src
+    assert 'f"{T} °C' in src
