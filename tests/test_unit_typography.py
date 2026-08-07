@@ -36,20 +36,27 @@ def _string_literals(src: str) -> list[str]:
 
     An f-string is returned as its source segment rather than as its parts: the
     defect lives exactly at the seam between an interpolation and the text after
-    it, which ``ast`` would otherwise hand over already split.
+    it, which ``ast`` would otherwise hand over already split. Its own fragments
+    are therefore dropped, or the seam would be reported twice and the second
+    report would name a literal nobody wrote.
 
     >>> _string_literals('x = f"{T}°C"')
     ['f"{T}°C"']
     >>> _string_literals('x = "plain"')
     ['plain']
     """
+    tree = ast.parse(MAGIC.sub("pass  #", src))
+    fragments = {id(part)
+                 for node in ast.walk(tree) if isinstance(node, ast.JoinedStr)
+                 for part in ast.walk(node) if isinstance(part, ast.Constant)}
     out: list[str] = []
-    for node in ast.walk(ast.parse(MAGIC.sub("pass  #", src))):
+    for node in ast.walk(tree):
         if isinstance(node, ast.JoinedStr):
             seg = ast.get_source_segment(src, node)
             if seg:
                 out.append(seg)
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+        elif (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                and id(node) not in fragments):
             out.append(node.value)
     return out
 
