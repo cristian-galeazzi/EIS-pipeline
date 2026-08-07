@@ -14,8 +14,21 @@ from pathlib import Path
 from matplotlib import mathtext
 
 MATCHING_SRC = Path(__file__).resolve().parents[1] / "pipeline" / "matching.py"
-# a quantity symbol stated outside math, followed by its solidus
-PLAIN_QUANTITY = re.compile(r"^\s*[A-Za-z]\s*/")
+# what a label may never set outside a math span: the solidus that separates a
+# quantity from its unit, and the degree sign. Checking the leftovers rather
+# than the label catches "Time / s" as well as a bare "T / °C"
+OUTSIDE_MATH = re.compile(r"[/°]")
+
+
+def _outside_math(label: str) -> str:
+    """The parts of a label matplotlib sets in the text font.
+
+    >>> _outside_math(r"$t$  (D:HH:MM:SS)")
+    '  (D:HH:MM:SS)'
+    >>> _outside_math("T / °C")
+    'T / °C'
+    """
+    return "".join(label.split("$")[::2])
 
 
 def _label_literals() -> list[str]:
@@ -36,7 +49,9 @@ def _label_literals() -> list[str]:
 
 
 def test_no_axis_label_states_a_quantity_in_plain_text() -> None:
-    assert [s for s in _label_literals() if PLAIN_QUANTITY.match(s)] == []
+    offenders = [s for s in _label_literals()
+                 if OUTSIDE_MATH.search(_outside_math(s))]
+    assert offenders == []
 
 
 def test_every_axis_label_parses_as_mathtext() -> None:

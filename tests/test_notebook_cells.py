@@ -14,7 +14,9 @@ constants below silently moves the target, so the extraction helpers assert on
 a marker in the source rather than trusting the index alone.
 """
 
+import ast
 import json
+import re
 import textwrap
 import types
 from pathlib import Path
@@ -460,17 +462,56 @@ def test_an_inverted_window_is_refused() -> None:
 # and the exponent in a programming language's notation.
 # --------------------------------------------------------------------------
 
-DRT_FIGURE_CELL = 10   # stage 3: Step 1b, the DRT tuning panel (same as above)
 GRID_FIGURE_CELL = 18  # stage 3: Step 3, the per-condition overview grid
+
+# matplotlib calls that put text on a figure, directly or through a label=
+DRAWING_CALLS = frozenset({
+    "annotate", "set_title", "set_xlabel", "set_ylabel", "suptitle", "text",
+    "plot", "semilogx", "semilogy", "loglog", "errorbar", "scatter", "axhline",
+})
+E_FORMAT = re.compile(r":\.\d+e\}")
+
+
+def _drawn_text(src: str) -> list[str]:
+    """Source of every drawing call in a cell, and of every label it composes.
+
+    Whole calls, not lines: an annotation split across three lines carries its
+    interpolation on a continuation line that names no call at all. The
+    ``*_lbl`` assignments are included because this notebook builds its titles
+    and legends there and hands them to the call as a name.
+
+    >>> "set_title" in "".join(_drawn_text(_cell(
+    ...     STAGE3_NOTEBOOK, GRID_FIGURE_CELL, "_condition_suptitle")))
+    True
+    """
+    tree = ast.parse(src)
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in DRAWING_CALLS):
+            out.append(ast.get_source_segment(src, node) or "")
+        elif isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id.endswith("_lbl")
+                for t in node.targets):
+            out.append(ast.get_source_segment(src, node) or "")
+    return out
 
 
 def test_no_stage3_figure_text_carries_e_notation() -> None:
-    for index, marker in ((DRT_FIGURE_CELL, "_drt_figure"),
+    # the console prints and the widget HTML of the same cells keep theirs:
+    # only what matplotlib draws is held to the figures' notation
+    for index, marker in ((DRT_PANEL_CELL, "_drt_figure"),
                           (GRID_FIGURE_CELL, "_condition_suptitle")):
-        src = _cell(STAGE3_NOTEBOOK, index, marker)
-        drawn = [ln for ln in src.split("\n")
-                 if "annotate(" in ln or "set_title(" in ln or "label=f" in ln]
-        assert [ln for ln in drawn if ":.1e}" in ln] == []
+        drawn = _drawn_text(_cell(STAGE3_NOTEBOOK, index, marker))
+        assert [seg for seg in drawn if E_FORMAT.search(seg)] == []
+
+
+def test_no_stage3_figure_text_closes_a_unit_against_its_value() -> None:
+    for index, marker in ((DRT_PANEL_CELL, "_drt_figure"),
+                          (GRID_FIGURE_CELL, "_condition_suptitle")):
+        drawn = _drawn_text(_cell(STAGE3_NOTEBOOK, index, marker))
+        assert [seg for seg in drawn if "}°C" in seg or "}s" in seg] == []
 
 
 def test_the_stage3_grid_title_spaces_its_unit() -> None:

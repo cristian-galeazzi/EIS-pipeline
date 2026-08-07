@@ -111,7 +111,8 @@ def format_sci(x: float, *, digits: int = 1, mathtext: bool = False) -> str:
     default returns Unicode superscripts, for text matplotlib never sets.
     ``"1.0e-03"`` is a programming language's notation: on a figure it reads as
     unfinished output, and its ``e`` is already the base of the natural
-    logarithm. Non-finite input returns "".
+    logarithm. Non-finite input returns "", and zero returns "0": it has no
+    magnitude, and ``f"{0.0:.1e}"`` would otherwise print ``0.0×10⁰``.
 
     >>> format_sci(2.1e-3)
     '2.1×10⁻³'
@@ -120,6 +121,8 @@ def format_sci(x: float, *, digits: int = 1, mathtext: bool = False) -> str:
     """
     if not math.isfinite(x):
         return ""
+    if x == 0:
+        return "0"
     mantissa, exponent = f"{x:.{digits}e}".split("e")
     e = int(exponent)
     if mathtext:
@@ -129,9 +132,15 @@ def format_sci(x: float, *, digits: int = 1, mathtext: bool = False) -> str:
 
 def format_pO2_value(x: float | None, *, mathtext: bool = False) -> str:
     """Number-only p(O2) string [bar implied]: two significant figures, decimal
-    down to 0.01 and a power of ten below 1e-2 (so 0.21, 0.01, then 1.0×10⁻³).
-    "" when the value is absent, NaN or nonpositive. Single source of the p(O2)
-    number so the selector labels and the figure titles never disagree.
+    between 0.01 and 100, a power of ten outside that window (so 0.21, 0.01,
+    then 1.0×10⁻³). "" when the value is absent, NaN or nonpositive. Single
+    source of the p(O2) number so the selector labels and the figure titles
+    never disagree.
+
+    The upper bound is read off ``.2g`` rather than guessed: it switches to
+    ``1e+02`` once two significant figures round to 100, so 99.9 already leaves
+    the decimal window. No physical p(O2) reaches it, an idle lambda probe's
+    reading does, and that string on a figure is what this function prevents.
 
     ``mathtext=True`` renders the power of ten for matplotlib; see
     ``format_sci``.
@@ -145,7 +154,10 @@ def format_pO2_value(x: float | None, *, mathtext: bool = False) -> str:
     """
     if x is None or x != x or x <= 0:  # None, NaN, or nonpositive
         return ""
-    return f"{x:.2g}" if x >= 1e-2 else format_sci(x, mathtext=mathtext)
+    if x < 1e-2:
+        return format_sci(x, mathtext=mathtext)
+    decimal = f"{x:.2g}"
+    return decimal if "e" not in decimal else format_sci(x, mathtext=mathtext)
 
 
 _PO2_SOURCES: tuple[tuple[str, str], ...] = (

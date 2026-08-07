@@ -49,6 +49,13 @@ def test_a_non_finite_value_formats_to_nothing() -> None:
     assert format_sci(float("inf"), mathtext=True) == ""
 
 
+def test_zero_has_no_power_of_ten() -> None:
+    # the value is finite, so the guard above lets it through: without a case
+    # of its own it would print "0.0×10⁰"
+    assert format_sci(0.0) == "0"
+    assert format_sci(0.0, mathtext=True) == "0"
+
+
 def test_the_decimal_range_of_pO2_is_unchanged() -> None:
     # the threshold is not what this change touches: 0.21 bar stays decimal
     assert format_pO2_value(0.21) == "0.21"
@@ -61,12 +68,21 @@ def test_a_low_pressure_is_a_power_of_ten_in_both_renderings() -> None:
     assert format_pO2_value(2.1e-3, mathtext=True) == r"2.1\times10^{-3}"
 
 
+def test_a_reading_above_the_decimal_window_is_a_power_of_ten_too() -> None:
+    # .2g switches to "1e+02" on its own at 100, and that string inside the
+    # suptitle's math span sets an italic e and a spaced binary plus. No
+    # physical p(O2) reaches 100 bar; an idle lambda probe's reading does.
+    assert format_pO2_value(99.0) == "99"
+    assert format_pO2_value(99.9, mathtext=True) == r"1.0\times10^{2}"
+    assert format_pO2_value(8715.0, mathtext=True) == r"8.7\times10^{3}"
+    assert format_pO2_value(8715.0) == "8.7×10³"
+
+
 def test_an_absent_pressure_is_still_the_empty_string() -> None:
     # the guard the suptitle relies on to avoid printing "p(O2) =  bar"
     for bad in (None, float("nan"), 0.0, -1.0):
         assert format_pO2_value(bad) == ""
         assert format_pO2_value(bad, mathtext=True) == ""
-
 
 
 # --------------------------------------------------------------------------
