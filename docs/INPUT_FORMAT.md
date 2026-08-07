@@ -61,7 +61,7 @@ EIS-pipeline/
 │   ├── interactive.py      ← ipywidgets helpers (UI only, no physics)
 │   ├── session.py          ← session.json persistence (atomic, merge-safe)
 │   ├── _worker.py          ← process-pool init (caps BLAS threads)
-│   └── utils.py            ← Excel, p(O2) label and condition-name helpers
+│   └── utils.py            ← Excel, number and p(O2) formatting, condition names
 │
 ├── stage0_oven.ipynb … stage5_model.ipynb   ← the six pipeline stages
 │

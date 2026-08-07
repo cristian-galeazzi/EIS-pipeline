@@ -71,7 +71,7 @@ GitHub does not accept.
 The backtick form is a GitHub extension. Jupyter does not implement it, so
 notebook markdown keeps bare `$...$` and is not checked.
 
-## Figure labels
+## Figure and readout typography
 
 A subscript or superscript is italic only when it is itself a quantity or a
 running index, and upright otherwise (IUPAC Green Book, ISO 80000-1). So
@@ -98,3 +98,15 @@ The furnace figures in `pipeline/matching.py` are drawn in sans-serif rather
 than in the publication style, so they pin `mathtext.fontset` to their own
 family: `apply_pub_style` sets STIX globally, and a serif label on a sans
 figure is visible. `tests/test_matching_labels.py` holds their labels.
+
+The rule reaches past the figures: any value the program shows a reader carries
+the space, and a measured result is a power of ten wherever it is displayed,
+an ipywidgets readout included. Two things are deliberately outside it. A
+console line that echoes a dimensionless tuning parameter keeps the notation a
+terminal reads best, and it keeps it whole: converting the `tau` list of the
+DRT status line while `lambda=` beside it stayed in `e`-notation would add the
+inconsistency this rule removes. The three engine files are frozen, so their
+log lines are left alone; the sweep finds no offender in them either way.
+
+`tests/test_unit_typography.py` walks `pipeline/`, `tools/` and every stage
+notebook for a value closed against its unit, and needs no exception list.
