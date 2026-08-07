@@ -43,13 +43,17 @@ def _df(p: float | None = 2.1e-3) -> pd.DataFrame:
     return pd.DataFrame({"pO2_mean": [] if p is None else [p, p]})
 
 
-def test_default_call_is_unchanged_from_today() -> None:
-    assert _condition_suptitle(_df()) == r"$p(\mathrm{O_2})$ = 2.1e-03 bar"
+def test_default_call_is_a_single_math_expression() -> None:
+    # math and text alternating gives the "=" and the space before the unit two
+    # different widths, one set by mathtext and one by the text font
+    assert _condition_suptitle(_df()) == (
+        r"$p(\mathrm{O_2}) = 2.1\times10^{-3}\:\mathrm{bar}$")
 
 
 def test_label_precedes_the_pressure() -> None:
     assert _condition_suptitle(_df(), "Ar-100 O2-20 | 400-600C") == (
-        r"Ar-100 O2-20 | 400-600C,  $p(\mathrm{O_2})$ = 2.1e-03 bar")
+        r"Ar-100 O2-20 | 400-600C,  "
+        r"$p(\mathrm{O_2}) = 2.1\times10^{-3}\:\mathrm{bar}$")
 
 
 def test_probe_off_shows_the_label_alone() -> None:
@@ -74,7 +78,7 @@ def test_nonpositive_pressures_are_ignored_as_before() -> None:
 
 def test_the_median_is_used_not_the_first_row() -> None:
     df = pd.DataFrame({"pO2_mean": [0.20, 0.21, 0.22]})
-    assert _condition_suptitle(df) == r"$p(\mathrm{O_2})$ = 0.21 bar"
+    assert _condition_suptitle(df) == r"$p(\mathrm{O_2}) = 0.21\:\mathrm{bar}$"
 
 
 # --------------------------------------------------------------------------
@@ -281,3 +285,11 @@ def test_every_math_span_still_parses() -> None:
     parser = mathtext.MathTextParser("path")
     for span in _math_spans():
         parser.parse(f"${span}$")
+
+
+def test_the_suptitle_parses_as_mathtext() -> None:
+    # the suptitle is assembled at runtime, so _math_spans never sees it: the
+    # failure to catch is a literal backslash printed on the figure
+    parser = mathtext.MathTextParser("path")
+    parser.parse(_condition_suptitle(_df()))
+    parser.parse(_condition_suptitle(_df(0.21)))

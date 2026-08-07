@@ -789,7 +789,7 @@ def _condition_suptitle(df_peaks: pd.DataFrame, label: str = "", *,
     pressures are readings of an idle probe, not measurements.
 
     >>> _condition_suptitle(pd.DataFrame({"pO2_mean": [0.21]}), "Air")
-    'Air,  $p(\\\\mathrm{O_2})$ = 0.21 bar'
+    'Air,  $p(\\\\mathrm{O_2}) = 0.21\\\\:\\\\mathrm{bar}$'
     >>> _condition_suptitle(pd.DataFrame({"pO2_mean": [8715.0]}), "Air", show_pO2=False)
     'Air'
     """
@@ -798,12 +798,13 @@ def _condition_suptitle(df_peaks: pd.DataFrame, label: str = "", *,
         s = pd.to_numeric(df_peaks["pO2_mean"], errors="coerce").dropna()
         s = s[s > 0]
         if not s.empty:
-            value = format_pO2_value(s.median())
+            value = format_pO2_value(s.median(), mathtext=True)
     if not value:
         return label
     # one math span, not math and text alternating: the axis labels write the
-    # same pressure as p(O2) inside a single span and the two must match
-    pressure = rf"$p(\mathrm{{O_2}})$ = {value} bar"
+    # same pressure as p(O2) inside a single span and the two must match.
+    # \: for the value-unit space, the separator every axis label already uses
+    pressure = rf"$p(\mathrm{{O_2}}) = {value}\:\mathrm{{bar}}$"
     return f"{label},  {pressure}" if label else pressure
 
 
