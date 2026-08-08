@@ -23,7 +23,16 @@ ROOT = Path(__file__).resolve().parents[1]
 # A unit closed against the brace that ends an interpolation. Multi-letter and
 # non-letter units are unambiguous. A single letter takes the lookahead, so a
 # plural ("{n} files") is not read as a second.
-GLUED_UNIT = re.compile(r"\}(°C|%|Ω|bar|eV|Hz)|\}[sFKVA](?![A-Za-z0-9])")
+# Bare C gets a branch of its own: a temperature written without its degree
+# sign is the form that slipped past an earlier version of this sweep
+# ("400-600C" reached a figure suptitle through condition_label), but it also
+# spells the file-naming convention, "{prefix}_{T}C_{replica}.ism", where no
+# degree sign can go. What follows the C separates the two: a filename
+# continues into "_", "." or the "[" of a documented optional segment, whereas
+# a label ends there or runs into prose.
+GLUED_UNIT = re.compile(r"\}(°C|%|Ω|bar|eV|Hz)"
+                        r"|\}[sFKVA](?![A-Za-z0-9])"
+                        r"|\}C(?![A-Za-z0-9_.\[])")
 # Jupyter line magics are not Python; ast cannot parse a cell that opens with one
 MAGIC = re.compile(r"^\s*[%!]", re.M)
 
@@ -101,5 +110,12 @@ def test_the_sweep_can_see_the_defect_it_guards_against() -> None:
     # a regex that matches nothing would pass the test above for ever
     assert GLUED_UNIT.search('f"{T}°C"')
     assert GLUED_UNIT.search('f"{t:.0f}s"')
+    assert GLUED_UNIT.search('f"{lo}-{hi}C"')
+    assert GLUED_UNIT.search('f"(FOCUS_T={T}C)"')
     assert not GLUED_UNIT.search('f"{T} °C"')
     assert not GLUED_UNIT.search('f"{n} files"')
+    assert not GLUED_UNIT.search('f"{c}Cond"')
+    # the file-naming convention, which cannot carry a degree sign
+    assert not GLUED_UNIT.search('f"{prefix}_{T}C.ism"')
+    assert not GLUED_UNIT.search('f"{prefix}_{T}C_{replica}.ism"')
+    assert not GLUED_UNIT.search('auto_label = {prefix}_{T}C[_k].ism')

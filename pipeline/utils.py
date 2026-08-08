@@ -332,9 +332,9 @@ def condition_label(condition: str, sample_id: str) -> str:
     naming convention in ``docs/INPUT_FORMAT.md``.
 
     >>> condition_label("S1_B_Ar-80_O2-20_600_400_25", "S1")
-    'Ar-80 O2-20 | 400-600C'
+    'Ar-80 O2-20 | 400-600 °C'
     >>> condition_label("S1_B_Air_600_400_25", "S1_Tvar")
-    'Air | 400-600C'
+    'Air | 400-600 °C'
     """
     if condition.startswith(sample_id):
         stripped = condition[len(sample_id):].lstrip("_")
@@ -350,5 +350,5 @@ def condition_label(condition: str, sample_id: str) -> str:
 
     parts = stripped.split("_")
     if len(parts) >= 4 and parts[-3].isdigit() and parts[-2].isdigit():
-        return f"{' '.join(parts[:-3])} | {parts[-2]}-{parts[-3]}C"
+        return f"{' '.join(parts[:-3])} | {parts[-2]}-{parts[-3]} °C"
     return stripped
