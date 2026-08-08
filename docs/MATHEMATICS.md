@@ -41,6 +41,12 @@ consistent model of this form cannot reproduce the data, the residual that
 remains is the KK-violating part of the measurement (drift, nonlinearity,
 instrument artifacts).
 
+**Preconditioning.** The basis above is causal by construction, so points that
+no passive circuit can produce would be charged to the fit rather than to the
+measurement. `pipeline/quality.py::strip_inductive` therefore drops every point
+with $`Z'' < 0`$ (the inductive tail, given the sign convention above) or
+$`Z' < 0`$ before the fit runs, and reports how many it removed.
+
 Residuals are magnitude-normalized so that both arcs of very different
 size count equally:
 

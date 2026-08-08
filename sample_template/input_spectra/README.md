@@ -11,7 +11,7 @@ The folder name becomes the condition label in all outputs.
 input_spectra/
   condition_name/
     anyname_500C.csv
-    anyname_500C_1.csv    <- second replica at 500 C
+    anyname_500C_1.csv    <- second replica at 500 °C
     anyname_550C.csv
     anyname_600C.txt      <- .txt is accepted too
 ```
@@ -36,8 +36,8 @@ freq,Z_re,Z_im,temperature
 ...
 ```
 
-An optional `pO2` column in bar adds the Brouwer and transference analyses; the
-full contract is in `docs/INPUT_FORMAT.md`.
+An optional `pO2` column in bar is read as well; the full contract is in
+`docs/INPUT_FORMAT.md`.
 
 Separator can be comma, semicolon, or tab. Decimal separator must be a dot.
 
@@ -62,6 +62,8 @@ Files without the temperature pattern in the name are ignored.
 - Always: Nyquist, Bode, DRT stacked, Zarc fit
 - With temperature column: Arrhenius plots
 - With an optional `pO2` column in bar: Brouwer diagram and transference
-- Without it, and with a single condition: both are skipped
+- Both are skipped when that column is absent, and skipped again when the
+  sample has only one condition: a Brouwer diagram needs at least two
+  atmospheres
 
 Start from stage2_kk.ipynb. Stage 0 and Stage 1 are not needed.

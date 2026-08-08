@@ -83,12 +83,14 @@ math, where it sets as a product of italic letters.
 Two tests in `tests/test_plots.py` collect every `$...$` span from
 `pipeline/plots.py` and hold this.
 
-A number below `1e-2` is written as a mantissa times a power of ten, never as
+A number presented as a result is a mantissa times a power of ten, never
 `1.0e-03`: on a figure that is a programming language's notation, and its `e`
 is already the base of the natural logarithm. `format_sci` in
-`pipeline/utils.py` holds the single rule, in the two renderings a label can
-need: a mathtext fragment for matplotlib, and Unicode superscripts for an
-ipywidgets description, which is HTML and never sets math.
+`pipeline/utils.py` holds the rendering, in the two forms a label can need: a
+mathtext fragment for matplotlib, and Unicode superscripts for an ipywidgets
+description, which is HTML and never sets math. `format_pO2_value` adds the one
+exception a pressure needs, a plain decimal between 0.01 and 100, and reads
+that upper bound off the formatted string rather than assuming it.
 
 A value is separated from its unit by a space, `600 °C` and never `600°C`. The
 separator inside math is `\:`, the one every axis label already uses around its
@@ -99,14 +101,17 @@ than in the publication style, so they pin `mathtext.fontset` to their own
 family: `apply_pub_style` sets STIX globally, and a serif label on a sans
 figure is visible. `tests/test_matching_labels.py` holds their labels.
 
-The rule reaches past the figures: any value the program shows a reader carries
-the space, and a measured result is a power of ten wherever it is displayed,
-an ipywidgets readout included. Two things are deliberately outside it. A
-console line that echoes a dimensionless tuning parameter keeps the notation a
-terminal reads best, and it keeps it whole: converting the `tau` list of the
-DRT status line while `lambda=` beside it stayed in `e`-notation would add the
-inconsistency this rule removes. The three engine files are frozen, so their
-log lines are left alone; the sweep finds no offender in them either way.
+The rule reaches past the figures: a value the program shows a reader carries
+the space, and a result presented in a figure, a widget label or a printed
+summary is a power of ten. It stops at diagnostic text, the console lines of
+the batch runs and the reports a tuning panel prints beside its own sliders,
+which stay in `e`-notation and stay whole: converting the `tau` of a status
+line while the `lambda=` next to it stayed would add the inconsistency this
+rule removes. The four engine files are frozen, so their log lines are left
+alone; the sweep finds no offender in them either way.
 
 `tests/test_unit_typography.py` walks `pipeline/`, `tools/` and every stage
-notebook for a value closed against its unit, and needs no exception list.
+notebook for a value closed against its unit, and needs no exception list. It
+holds the spacing only. Whether a number should be a power of ten depends on
+whether a reader reads it as a result, which no sweep can decide, so that half
+of the rule is held for the figures alone, by `tests/test_notebook_cells.py`.

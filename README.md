@@ -40,9 +40,12 @@ jupyter lab          # or open the folder in VS Code
 
 Copy `sample_template/` to `{SAMPLE_ID}/`, drop your data into `Raw data/`
 and `Raw oven/`, then run the notebooks in order. The first cell of each
-notebook shows a numbered sample list, prompts for settings via `input()` and
-saves them to `session.json`, so later stages pick up where the previous one
-left off. Conditions and temperatures are discovered from the folder names.
+notebook shows a numbered sample list and saves your choice to `session.json`,
+so later stages pick up where the previous one left off. Two settings belong to
+the sample rather than to a notebook and are prompted the same way, the
+lambda-probe question in stage 1 and the pellet geometry in stage 3; every
+other setting lives in a configuration cell or a panel. Conditions and
+temperatures are discovered from the folder names.
 
 **Try it without data:** the repository bundles `EXAMPLE_SAMPLE/`, a synthetic
 sample (eight $`p_{\text{O}_2}`$ conditions from 1 bar down to $`10^{-12}`$
@@ -99,8 +102,10 @@ Fits are deterministic: restart guesses use a fixed per-(condition, T) seed,
 and parallelism does not change the numbers. Dependencies are pinned, and
 every `.xlsx` output carries a `Metadata` sheet with all parameter values and
 installed library versions, so any result traces back to the configuration
-that produced it. The shipped notebook defaults were each set by a documented
-calibration procedure in [`audit/`](audit/README.md), not guessed.
+that produced it. The defaults that carry methodological weight, the DRT
+regularization and peak cap, the Zarc search windows and the KK settings, were
+set by documented calibration procedures in [`audit/`](audit/README.md), not
+guessed.
 
 This repository contains code only. No measurement data, fitted parameters or
 sample identifiers are committed. Sample names are entered at runtime and kept

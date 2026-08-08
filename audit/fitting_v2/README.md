@@ -30,7 +30,7 @@ number was produced**:
 | gate | statement | where tested |
 |---|---|---|
 | G1 | fit quality (rmse) never worse than v1 | `ab_harness.py` (user data) |
-| G2 | parameters within v1's 68% CI on clean fits | `ab_harness.py` (user data) |
+| G2 | parameters within v1's 68 % CI on clean fits | `ab_harness.py` (user data) |
 | G3 | synthetic ground-truth recovery not worse at any noise level | `synthetic_gate.py` (this repo) |
 | G4 | number of bound-pinned fits does not increase | `ab_harness.py` (user data) |
 | G5 | no new dependencies | by construction (numpy + scipy only) |
@@ -41,7 +41,7 @@ Synthetic data is the only place where accuracy is measurable absolutely:
 spectra are generated from known parameters, so recovery error is a fact.
 The gate covers 1 to 4 Zarc elements with decade-spread parameters, two
 overlapping-tau stress cases (0.8 and 0.5 decades of separation), three
-multiplicative noise levels (0.1%, 0.5%, 2%), five seeded replicates,
+multiplicative noise levels (0.1 %, 0.5 %, 2 %), five seeded replicates,
 DRT-like seed displacement (up to +-0.3 decades), and the standard
 production knobs a user actually runs (R_dec = tau_dec = 0.7,
 alpha in [0.5, 1], five restarts). Both engines see identical spectra and
@@ -52,8 +52,8 @@ Committed outcome (also reproducible in seconds, see below):
 (case, noise, replicate, engine).
 
 * Median recovery error per noise level: statistically indistinguishable
-  (differences of 1e-6 to 1e-5 on medians of 1e-3 to 2e-2, i.e. well
-  inside a 1% equivalence band).
+  (differences of 10⁻⁶ to 10⁻⁵ on medians of 10⁻³ to 2×10⁻², i.e. well
+  inside a 1 % equivalence band).
 * On the objective both engines minimize, v2 is never worse (0 of 90
   paired fits).
 * v2 recovers three catastrophic v1 local minima in the overlapping-tau
@@ -64,7 +64,7 @@ Committed outcome (also reproducible in seconds, see below):
 The literal G3 criterion ("median v2 <= v1 at every noise level") fails by
 these epsilon margins at two noise levels; the recorded, operator-approved
 reading (design.md, section 4b, dated before the migration decision) is
-paired non-inferiority within a 1% band, which passes. The script prints
+paired non-inferiority within a 1 % band, which passes. The script prints
 both verdicts so nothing is hidden.
 
 ## G1/G2/G4: the real-data A/B harness

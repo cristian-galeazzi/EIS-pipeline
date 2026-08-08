@@ -24,8 +24,11 @@ with the expected structure is in `sample_template/input_spectra/`.
 The condition folder follows the same naming convention as `Raw data/`
 (`{prefix}_{gas_flows}_{T_max}_{T_min}_{T_step}`; the furnace-log matcher
 recognizes the gas section from the first `Ar`, `O2`, `N2`, `H2`, `CO2`, `CO`,
-`He` or `H2O` token, while the label formatter also accepts `Air`). The file prefix before
-`_{T}C` is free. CSV format, separator comma/semicolon/tab:
+`He` or `H2O` token; the label formatter recognizes a narrower set, `Ar`, `O2`,
+`N2`, `H2` and `Air`, and leaves a folder whose first gas token falls outside it
+unshortened). The file prefix before `_{T}C` is free and the extension may be
+`.csv` or `.txt`. Separator comma, semicolon or tab; the decimal separator must
+be a dot:
 
 ```
 freq,Z_re,Z_im,temperature,pO2

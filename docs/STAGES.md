@@ -37,9 +37,10 @@ it to switch.
   reset (see each notebook's Configuration cell for the exact scope).
 
 A colored banner under each configuration cell states which mode is active
-(green for lock, amber for continue, red for reset). The parameter priority
-in continue/reset mode is: configuration cell first, then any
-per-(condition, temperature) override you apply from a tuning panel.
+(green for lock, amber for continue, red for reset). In continue/reset mode a
+value resolves from the most specific source down: an override applied from a
+tuning panel for one (condition, temperature) wins over a per-condition one,
+which wins over the configuration cell.
 
 `SKIP_EXISTING`, in stages 2 and 3, is a different switch: it decides whether a
 condition that already has its stage output is recomputed, and `True` is what
@@ -124,8 +125,8 @@ only noise in $`r_\text{re}`$ and $`r_\text{im}`$, so each residual vector is
 tested for normality with the Shapiro-Wilk statistic ($`W`$ approaches 1 for
 structure-free residuals) and `kk_score = (W_re + W_im) / 2`. The class weighs
 that score together with how much of the window the edge cut removed: GREEN
-(`kk_score` at least 0.97 and at most 20% of the window trimmed), YELLOW (at
-least 0.90 and at most 40% trimmed), RED otherwise. RED is a warning, not a
+(`kk_score` at least 0.97 and at most 20 % of the window trimmed), YELLOW (at
+least 0.90 and at most 40 % trimmed), RED otherwise. RED is a warning, not a
 filter: the best replica of every (condition, T) reaches the `Selected` sheet
 whatever its class, so a spectrum you decide to drop has to be excluded by
 hand. A ceramic-aware dual criterion (`KK_USE_W_CRITERIA = True`) is
@@ -170,8 +171,6 @@ quality is always judged by the $`W`$ statistics.
 **Code:** `pipeline/drt.py::compute_drt`, `pipeline/drt.py::find_drt_peaks`, `pipeline/fitting.py::fit_zarc`, `pipeline/fitting.py::fit_condition_batch`
 
 ![Stage 3 DRT panel: an example spectrum deconvolved into two clean peaks](img/stage3_drt_panel.png)
-![Stage 3 Zarc fit controls: per-element R and tau search windows](img/stage3_fit_panel.png)
-![Nyquist with the fitted Zarc circuit and relative residuals](img/stage3_fit_nyquist.png)
 
 The distribution of relaxation times decomposes the impedance response into a
 continuous superposition of ideal RC relaxations and recovers the
@@ -224,24 +223,41 @@ relative permittivity (section 3.7).
 | `ZARC_ALPHA_INIT` | 0.70 | Initial $`\alpha`$ per Zarc |
 | `ZARC_HF_WEIGHT` | 0 | Extra high-frequency weighting (0 = off) |
 | `ZARC_FIX_PARAMS` | `{}` | Pin individual $`R`$, $`\tau`$, $`\alpha`$ values per (condition, T) |
-| `ZARC_N_RESTARTS` | 4 | Random restarts until `ZARC_RMSE_TOL` (0.02) |
+| `ZARC_N_RESTARTS` | 4 | Random restarts until `ZARC_RMSE_TOL` is reached |
+| `ZARC_RMSE_TOL` | 0.02 | Relative RMSE that stops the restarts early |
 | `ZARC_N_JOBS` | 0 | Parallel fit processes (0 = one per core) |
+
+Stage 3 ships a DRT explorer, a panel that tries these settings on one
+(condition, T) before they are committed: its `prom`, `height` and `dist`
+sliders are `PEAK_MIN_PROM_DECADES`, `PEAK_HEIGHT_FRAC` and
+`PEAK_MIN_DIST_DECADES`, and **Apply to batch** writes the current
+$`\lambda`$ and the three peak settings to `session.json` with `DRT_CV_TYPE`
+forced to `custom`. Step 1 has to be re-run for them to reach every spectrum.
 
 The live panel sizes the $`R`$/$`\tau`$ search windows **per Zarc element**: one
 slider pair per detected DRT peak, built automatically for any peak count
 and keyed by `peak_id`, so a window follows its process when the number of
 peaks changes along the temperature series. A window states how much you
 trust that peak's DRT seed, so it is legitimately peak-dependent: size only
-the window of the process the bound check flags as pinned. **Re-fit** is a
-pure preview (it replicates the batch warm-start chain, saves nothing);
-**Apply: this condition** persists the windows plus $`\alpha`$/HF for every
-temperature of the condition; **Apply: all conditions** persists them as
-the sample-wide default. Windows are deliberately never varied
-temperature-by-temperature: that would sculpt the very Arrhenius trends the
-fit measures. Everything persists in `session.json` (`zarc_peak_windows`,
+the window of the process the bound check flags as pinned.
+
+![Stage 3 Zarc fit controls: one R and tau slider pair per detected peak](img/stage3_fit_panel.png)
+
+**Preview this spectrum** replicates the batch warm-start chain and saves
+nothing. **Save** persists the windows plus $`\alpha`$ and the
+high-frequency weight at the scope chosen in **Apply to:**, either for every
+temperature of the current condition or as the sample-wide default, and
+**Delete saved override** removes them again. Windows are deliberately never
+varied temperature-by-temperature: that would sculpt the very Arrhenius trends
+the fit measures. Everything persists in `session.json` (`zarc_peak_windows`,
 `condition_params`; legacy `zarc_peak_bounds` entries from older versions
-are honored until an Apply replaces them) and is re-applied by the batch
+are honored until a Save replaces them) and is re-applied by the batch
 fit, so a fresh kernel reproduces the exported sheets exactly.
+
+The preview draws the Nyquist against the fitted circuit next to the relative
+residuals of $`Z'`$ and $`Z''`$, both over frequency.
+
+![Nyquist with the fitted Zarc circuit and relative residuals](img/stage3_fit_nyquist.png)
 
 **Process identification** is never automatic. Use the $`C_\text{eff}`$
 magnitude plot and the Arrhenius behavior; the thresholds below are the
