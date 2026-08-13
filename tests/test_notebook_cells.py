@@ -627,3 +627,35 @@ def test_the_exported_table_records_the_selection_it_was_fitted_with() -> None:
     step3 = _stage4_cell("fit_transference(df_all_peaks")
     assert '_ch_tag' in step3
     assert 'df_transference["channels"] = _ch_tag' in step3
+
+
+def test_the_transference_panel_refits_with_the_selection_and_saves_it() -> None:
+    panel = _stage4_cell("Transference channel selector")
+    # The call, not the name: the design-rule comment says "NO W.Output" itself
+    assert "W.Output(" not in panel                 # same design rule as Step 2b
+    assert "channels=_sel_ch" in panel              # the choice reaches the fit
+    assert "_update_session(stage4_params=_stage4_params())" in panel
+    assert "global TRANSF_CHANNELS" in panel        # the batch cell sees the choice
+
+
+def test_the_transference_panel_refuses_an_empty_selection() -> None:
+    """Zero channels is not a model; the panel must say so instead of raising."""
+    assert "select at least one channel" in _stage4_cell("Transference channel selector")
+
+
+def test_the_transference_panel_clears_both_images_before_a_refit() -> None:
+    """A value-replaced W.Image keeps the previous peak on screen after an early return."""
+    panel = _stage4_cell("Transference channel selector")
+    assert 'img_tr.value = img_ta.value = b""' in panel
+
+
+def test_the_transference_panel_starts_from_the_batch_temperatures() -> None:
+    """A panel opening on every temperature silently widens the exported table."""
+    panel = _stage4_cell("Transference channel selector")
+    assert "BROUWER_TEMPS" in panel
+
+
+def test_the_transference_panel_redraws_every_figure_it_invalidates() -> None:
+    """The table is rewritten for all peaks; stale figures would contradict it."""
+    panel = _stage4_cell("Transference channel selector")
+    assert "for _pid in _fig_pids:" in panel
