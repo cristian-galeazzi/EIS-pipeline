@@ -584,3 +584,46 @@ def test_every_peak_annotation_is_drawn_inside_the_axes() -> None:
         assert box.x0 >= frame.x0 - 1 and box.x1 <= frame.x1 + 1, (
             f"{text.get_text()!r} runs off the frame: "
             f"{box.x0:.0f}-{box.x1:.0f} against {frame.x0:.0f}-{frame.x1:.0f}")
+
+
+# --------------------------------------------------------------------------
+# stage 4: the channel selection of the transference fit
+#
+# Addressed by marker rather than by index: these two cells sit at the end of
+# the notebook, where a later panel can be inserted between them. The helper
+# fails loudly when no cell carries the marker, which is the same protection
+# _cell() gives an index.
+# --------------------------------------------------------------------------
+
+
+def _stage4_cell(marker: str) -> str:
+    """Source of the first stage 4 cell containing marker.
+
+    >>> "TRANSF_CHANNELS" in _stage4_cell("TRANSF_EXPONENT")
+    True
+    """
+    for cell in json.loads(STAGE4_NOTEBOOK.read_text(encoding="utf-8"))["cells"]:
+        src = "".join(cell["source"])
+        if marker in src:
+            return src
+    raise AssertionError(f"stage 4: no cell contains {marker!r}")
+
+
+def test_the_channel_selection_loads_and_is_saved_back() -> None:
+    """A selection that does not survive a kernel restart is not a calibration."""
+    cfg = _stage4_cell("TRANSF_EXPONENT")
+    assert re.search(r'TRANSF_CHANNELS\s*=\s*_p4\.get\("TRANSF_CHANNELS"', cfg)
+    assert re.search(r'"TRANSF_CHANNELS":\s+TRANSF_CHANNELS', cfg)
+
+
+def test_both_the_table_and_the_figure_honour_the_selection() -> None:
+    """Two call sites: a figure drawn from a model the table does not use is a trap."""
+    step3 = _stage4_cell("fit_transference(df_all_peaks")
+    assert step3.count("channels=tuple(TRANSF_CHANNELS)") == 2
+
+
+def test_the_exported_table_records_the_selection_it_was_fitted_with() -> None:
+    """A zero from an excluded channel and a zero from NNLS look the same."""
+    step3 = _stage4_cell("fit_transference(df_all_peaks")
+    assert '_ch_tag' in step3
+    assert 'df_transference["channels"] = _ch_tag' in step3
