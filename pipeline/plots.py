@@ -41,6 +41,10 @@ from pipeline.utils import format_pO2_value
 # Physical constants
 # ---------------------------------------------------------------------------
 from pipeline.model import KB_EV as KB  # Boltzmann constant [eV/K], shared
+# Channel names and Brouwer-exponent signs, shared with the stage 5 model: one
+# vocabulary for both stages, so a selection means the same thing in each.
+from pipeline.model import CHANNELS as _CHANNELS
+from pipeline.model import _EXPO_SIGN, _canonical_channels
 EPS_0 = 8.854e-12  # vacuum permittivity [F/m]
 
 # ---------------------------------------------------------------------------
@@ -1165,6 +1169,7 @@ def fit_transference(
     peak_id:  int = 1,
     exponent: float = 0.25,
     temps:    list[int] | None = None,
+    channels: tuple[str, ...] | list[str] = _CHANNELS,
 ) -> pd.DataFrame:
     """
     Decompose σ(pO₂) of one process into ionic and electronic partial
@@ -1174,7 +1179,7 @@ def fit_transference(
 
         σ(pO₂) = σ_ion + σ_p · pO₂^(+x) + σ_n · pO₂^(−x)      x = ``exponent``
 
-    The model is linear in the three coefficients, so each temperature is
+    The model is linear in the channel coefficients, so each temperature is
     solved with non-negative least squares (σᵢ ≥ 0, no initial guesses).
     The local Brouwer slope then satisfies d(log σ)/d(log pO₂) = x·(t_p − t_n):
     a plateau is purely ionic, a +x slope is purely p-type electronic
@@ -1189,12 +1194,22 @@ def fit_transference(
     peak_id  : process to decompose
     exponent : Brouwer exponent x (0.25 in the dilute regime; 1/6 elsewhere)
     temps    : restrict to these temperatures [°C] (None = all)
+    channels : channels the solve may use, a subset of ("ion", "p", "n") in
+               any order. Which channels exist is a defect-chemistry decision
+               taken before the fit, the same one stage 5 takes with
+               MODEL_CHANNELS: an electronic channel the measured pO₂ window
+               cannot populate still takes conductivity from the ionic one
+               when it is left in. An excluded channel is reported as 0.0.
 
     Returns
     -------
     Tidy DataFrame, one row per (T, pO₂): peak_id, T_nominal, pO2,
     sigma_Scm, sigma_ion, sigma_p, sigma_n [S/cm], R2 (per-T fit),
-    t_ion, t_el. Temperatures with fewer than 4 pO₂ points are skipped.
+    t_ion, t_el. Temperatures with fewer than 4 pO₂ points are skipped,
+    whatever the selection: the threshold does not follow the number of
+    unknowns, so narrowing the model never changes which isotherms enter
+    a result. The column set never changes either, so a table from
+    model.global_transference_table stays interchangeable with this one.
 
     >>> p = [1e-4, 1e-2, 1.0, 1e2]
     >>> df = pd.DataFrame({"peak_id": 1, "T_nominal": 600, "pO2_mean": p,
@@ -1202,6 +1217,9 @@ def fit_transference(
     >>> out = fit_transference(df, peak_id=1)
     >>> round(float(out["sigma_ion"].iloc[0]), 6), round(float(out["sigma_p"].iloc[0]), 6)
     (1.0, 2.0)
+    >>> out2 = fit_transference(df, peak_id=1, channels=("ion", "p"))
+    >>> round(float(out2["sigma_ion"].iloc[0]), 6), float(out2["sigma_n"].iloc[0])
+    (1.0, 0.0)
     """
     sub = df_all[df_all["peak_id"] == peak_id].copy()
     sub["sigma_Scm"] = pd.to_numeric(sub["sigma_Sm_i"], errors="coerce") / 100.0
@@ -1209,6 +1227,8 @@ def fit_transference(
     sub  = sub[(_pO2 > 0) & (sub["sigma_Scm"] > 0)]
     if temps is not None:
         sub = sub[sub["T_nominal"].isin(temps)]
+
+    chans = _canonical_channels(channels)
 
     rows: list[dict] = []
     for T in sorted(sub["T_nominal"].unique()):
@@ -1219,14 +1239,21 @@ def fit_transference(
             warnings.warn(f"transference peak {peak_id} T={T}: "
                           f"only {len(p)} pO2 point(s), skipped", stacklevel=2)
             continue
-        A = np.column_stack([np.ones_like(p), p ** exponent, p ** (-exponent)])
+        # One column per selected channel. The ionic sign is 0, and p ** 0.0 is
+        # exactly 1.0 for every p > 0, so the default selection rebuilds the
+        # historical [ones, p**+x, p**-x] matrix bit for bit.
+        A = np.column_stack([p ** (_EXPO_SIGN[ch] * exponent) for ch in chans])
         try:
             coef, _ = optimize.nnls(A, y)
         except Exception as exc:
             warnings.warn(f"transference peak {peak_id} T={T}: NNLS failed "
                           f"({type(exc).__name__}: {exc})", stacklevel=2)
             continue
-        s_ion, s_p, s_n = (float(c) for c in coef)
+        # A channel the operator excluded is absent by decision, not by fit
+        fitted = dict(zip(chans, (float(c) for c in coef)))
+        s_ion = fitted.get("ion", 0.0)
+        s_p   = fitted.get("p",   0.0)
+        s_n   = fitted.get("n",   0.0)
         y_fit  = A @ coef
         ss_tot = float(np.sum((y - y.mean()) ** 2))
         r2     = 1.0 - float(np.sum((y - y_fit) ** 2)) / ss_tot if ss_tot > 0 else np.nan
