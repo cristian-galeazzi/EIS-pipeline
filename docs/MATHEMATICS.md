@@ -329,7 +329,7 @@ decomposes the measured conductivity of one process along the $`p_{\text{O}_2}`$
 \sigma(p_{\text{O}_2}) = \sigma_{\text{ion}} + \sigma_{p\text{-type}}\, p_{\text{O}_2}^{+x} + \sigma_{n\text{-type}}\, p_{\text{O}_2}^{-x}
 ```
 
-with $`x`$ the Brouwer exponent. The three coefficients enter **linearly**, so
+with $`x`$ the Brouwer exponent. The channel coefficients enter **linearly**, so
 over the $`N`$ measured pressures $`p_1 \dots p_N`$ of the isotherm the design
 matrix and the unknown vector are
 
@@ -340,7 +340,7 @@ A =
 \vdots & \vdots   & \vdots   \\
 1      & p_N^{+x} & p_N^{-x}
 \end{bmatrix}
-\in \mathbb{R}^{N \times 3},
+\in \mathbb{R}^{N \times m},
 \qquad
 \mathbf{s} =
 \begin{bmatrix}
@@ -350,8 +350,9 @@ A =
 \end{bmatrix}
 ```
 
-the three columns being the ionic, p-type and n-type channels. The
-coefficients solve the non-negative least squares problem
+the $`m \leq 3`$ columns being the selected channels in canonical order, written
+above for the full model. The coefficients solve the non-negative least squares
+problem
 
 ```math
 \mathbf{s} = \arg\min_{\mathbf{s} \geq 0} \lVert A\mathbf{s} - \boldsymbol{\sigma}^\text{meas} \rVert^2
@@ -370,8 +371,18 @@ t_{\text{ion}}(p_{\text{O}_2}) = \frac{\sigma_{\text{ion}}}{\sigma(p_{\text{O}_2
 and the local Brouwer slope obeys
 $`d\log\sigma / d\log p_{\text{O}_2} = x\,(t_{p\text{-type}} - t_{n\text{-type}})`$:
 a plateau is purely ionic, a $`+x`$ slope purely p-type. Isotherms with fewer
-than 4 $`p_{\text{O}_2}`$ points are skipped (3 unknowns need redundancy for a
-meaningful $`R^2`$). The per-isotherm $`\sigma_{\text{ion}}(T)`$ and
+than 4 $`p_{\text{O}_2}`$ points are skipped whatever the selection: the
+threshold is fixed at the full model, so narrowing $`m`$ never changes which
+isotherms enter a result.
+
+Which columns of $`A`$ exist is the operator's decision, taken from the defect
+chemistry before the solve: `TRANSF_CHANNELS` in the notebook, the keyword
+`channels` on the function. Dropping a channel removes its column, so the same
+NNLS problem is solved in fewer unknowns and the remaining prefactors can no
+longer trade conductivity with it. The model is not re-derived: an excluded
+channel states $`\sigma_k = 0`$, imposed rather than fitted.
+
+The per-isotherm $`\sigma_{\text{ion}}(T)`$ and
 $`\sigma_{p\text{-type}}(T)`$ then feed an Arrhenius plot
 (`plot_transference_arrhenius`) whose slopes are the **first estimates** of
 the channel activation energies; they motivate and initialize the global

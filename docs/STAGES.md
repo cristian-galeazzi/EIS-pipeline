@@ -301,6 +301,7 @@ produce them).
 | `ARRHENIUS_SUM_PEAKS` | None | Peaks summed into the HF-block $`\sigma`$ Arrhenius |
 | `TRANSF_EXPONENT` | 0.25 | Brouwer exponent $`x`$ used by the per-isotherm decomposition |
 | `TRANSF_PEAK_IDS` | None | Peaks shown in transference figures (None = all) |
+| `TRANSF_CHANNELS` | `["ion", "p", "n"]` | Channels the per-isotherm decomposition may use; the stage 4 counterpart of `MODEL_CHANNELS` |
 | `PLOT_WINDOWS` | `{}` | Per-condition axis crop, kept in `session.json` |
 
 ### Arrhenius analysis
@@ -322,7 +323,7 @@ ionic (oxygen vacancies, $`p_{\text{O}_2}`$-independent), p-type (holes or
 small polarons, increasing with $`p_{\text{O}_2}`$) and n-type (reduction
 electrons, increasing as $`p_{\text{O}_2}`$ falls). In the dilute defect regime
 mass action fixes the slopes, so at each temperature the conductivity is
-**linear** in the three unknown partial conductivities, with the Brouwer
+**linear** in the unknown partial conductivities, with the Brouwer
 exponent $`x`$ set by `TRANSF_EXPONENT` ([MATHEMATICS.md](MATHEMATICS.md)
 section 5).
 
@@ -348,6 +349,22 @@ Transference figures are drawn only for transport processes
 (`TRANSF_PEAK_IDS`): $`t_\text{ion}`$ is meaningful for bulk and grain
 boundary, not for electrode arcs whose $`p_{\text{O}_2}`$ dependence comes from
 oxygen-exchange kinetics at the interface.
+
+Which of the three channels the solve may use is `TRANSF_CHANNELS`, a subset of
+`["ion", "p", "n"]` decided from the defect chemistry before the fit runs, as
+`MODEL_CHANNELS` is in stage 5. A channel left in the model that the measured
+$`p_{\text{O}_2}`$ window cannot populate is not harmless: NNLS gives it a
+non-zero prefactor wherever that lowers the residual, and the conductivity it
+takes comes out of $`\sigma_\text{ion}`$, which then scatters from isotherm to
+isotherm. An excluded channel is reported as $`0`$, indistinguishable in the
+table from a channel NNLS itself drove to zero, so the exported xlsx carries a
+`channels` column recording the selection each row was fitted with.
+
+The batch value lives in the configuration cell. The Step 3b panel refits every
+peak with a different selection, redraws the figures the new table invalidates,
+rewrites the xlsx whole and saves the choice back to `session.json`, so the next
+batch run of Step 3 reproduces its channels. The panel's temperature window is
+not saved: the batch keeps using `BROUWER_TEMPS`.
 
 ### HF-block sum (`ARRHENIUS_SUM_PEAKS`)
 
