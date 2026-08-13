@@ -1278,6 +1278,7 @@ def plot_brouwer_transference(
     df_t:          pd.DataFrame | None = None,
     params         = None,
     perr:          dict | None = None,
+    channels:      tuple[str, ...] | list[str] = _CHANNELS,
 ) -> plt.Figure:
     """
     Two-panel ionic/electronic decomposition of the Brouwer diagram.
@@ -1295,6 +1296,11 @@ def plot_brouwer_transference(
     global model (``model.global_transference_table``). Default behaviour
     (Stage 4) is unchanged.
 
+    ``channels``: subset of ("ion", "p", "n") handed to fit_transference()
+    when ``df_t`` is not given, see that function for what the choice means.
+    Ignored when ``df_t`` is supplied, because that table already carries the
+    decomposition it was built with.
+
     ``params`` / ``perr``: optional ``ModelParams`` and error dict from
     ``model.fit_global_conductivity``. When given, the sigma panel gets a
     summary box with the pO2 exponent x and the activation energy of each
@@ -1309,7 +1315,7 @@ def plot_brouwer_transference(
     """
     if df_t is None:
         df_t = fit_transference(df_all, peak_id=peak_id, exponent=exponent,
-                                temps=temps_to_plot)
+                                temps=temps_to_plot, channels=channels)
     elif "peak_id" in df_t.columns:
         df_t = df_t[df_t["peak_id"] == peak_id]
     if df_t.empty:

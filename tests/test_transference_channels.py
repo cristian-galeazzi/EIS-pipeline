@@ -81,3 +81,28 @@ def test_an_empty_selection_is_refused():
     """Zero channels is not a reduced model, it is no model."""
     with pytest.raises(ValueError, match="at least one channel"):
         fit_transference(_synthetic(1.0, 2.0, 0.5), channels=())
+
+
+def test_the_figure_decomposes_with_the_selection_it_was_given(tmp_path, monkeypatch):
+    """The figure must not quietly draw a three-channel fit under a reduced model."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from pipeline import plots
+
+    seen: list[tuple] = []
+    real = plots.fit_transference
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("channels"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(plots, "fit_transference", spy)
+    df = _synthetic(1.0, 2.0, 0.0)
+    plt.close(plots.plot_brouwer_transference(
+        df, save_dir=tmp_path, sample_name="synthetic", peak_id=1,
+        channels=("ion", "p")))
+    plt.close(plots.plot_brouwer_transference(
+        df, save_dir=tmp_path, sample_name="synthetic", peak_id=1))
+    assert seen == [("ion", "p"), ("ion", "p", "n")]
