@@ -1131,15 +1131,29 @@ def plot_brouwer(
 
     if add_slopes and slopes:
         y_ref = y_hi + 0.22
+        # The fan is placed as a fraction of the frame, not at absolute
+        # decades: on a sample measured over a wide pressure range the tuned
+        # positions would all fall in the right corner, over no data. The
+        # fractions reproduce the tuned decades exactly on a six-decade frame.
+        #
+        # Only the placement scales. Each guide keeps its length, because that
+        # is what sets how far a slope travels in y, and the headroom above the
+        # data is fixed: a guide stretched with the frame would leave the axes.
+        _w = (x_hi - x_lo) / 6.0
+        _neg = x_lo + 2.2 * _w    # centre of the negative-slope pair
+        _flat = x_lo + 3.8 * _w   # centre of the plateau guide
+        _pos = x_lo + 5.0 * _w    # centre of the positive-slope pair
+        _pad = (0.15 * _w, 0.0)   # same visual gap to the label on any frame
+
         # the 1/6 guides share the fan origin of the 1/4 ones (right end
         # for negative, left end for positive slopes) so the two candidate
         # Brouwer exponents can be compared by eye
         _guides = {  # name: (x0, x1, y_center, slope, label_side)
-            "-1/4": (-3.6, -3.0, y_ref,         -1 / 4, "left"),
-            "-1/6": (-3.6, -3.0, y_ref - 0.025, -1 / 6, "left"),
-            "0":    (-2.0, -1.4, y_ref,          0.0,   "left"),
-            "+1/6": (-0.8, -0.2, y_ref - 0.025,  1 / 6, "right"),
-            "+1/4": (-0.8, -0.2, y_ref,          1 / 4, "right"),
+            "-1/4": (_neg - 0.3, _neg + 0.3, y_ref,         -1 / 4, "left"),
+            "-1/6": (_neg - 0.3, _neg + 0.3, y_ref - 0.025, -1 / 6, "left"),
+            "0":    (_flat - 0.3, _flat + 0.3, y_ref,        0.0,   "left"),
+            "+1/6": (_pos - 0.3, _pos + 0.3, y_ref - 0.025,  1 / 6, "right"),
+            "+1/4": (_pos - 0.3, _pos + 0.3, y_ref,          1 / 4, "right"),
         }
         _bad = [s for s in slopes if s not in _guides]
         if _bad:
@@ -1154,7 +1168,7 @@ def plot_brouwer(
                         # letters, so this one label is plain text
                         label="plateau" if name == "0" else rf"${name}$",
                         label_side=side,
-                        label_pad=(0.15, -0.10 if grey else 0.0),
+                        label_pad=(_pad[0], -0.10 if grey else 0.0),
                         color="#888888" if grey else "black",
                         lw=1.0, ls="--", zorder=3)
 

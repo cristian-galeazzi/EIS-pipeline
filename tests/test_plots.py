@@ -15,6 +15,7 @@ from pathlib import Path
 import matplotlib
 import numpy as np
 import pandas as pd
+import pytest
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -354,3 +355,61 @@ def test_the_slope_guides_stay_inside_a_widened_frame(tmp_path) -> None:
               for x in line.get_xdata()]
     assert guides, "no slope guides drawn"
     assert all(lo <= x <= hi for x in guides)
+
+
+# --------------------------------------------------------------------------
+# Where the slope guides sit
+#
+# The guide fan was placed at absolute decades tuned for the six-decade frame.
+# Once the frame follows the data, those same decades are a shrinking corner of
+# a wide axis: on a sample measured down to 1e-12 bar the whole fan and its
+# labels collapse into the right quarter, over no data at all.
+#
+# The fan is therefore placed as a fraction of the frame, which reproduces the
+# tuned positions exactly on the six-decade frame. Only the placement scales:
+# each guide keeps its length, so the excursion a slope draws in y is the one
+# the headroom above the data was sized for.
+# --------------------------------------------------------------------------
+
+#: guide centres as a fraction of the frame width, from the historical frame
+GUIDE_CENTRES = ((-3.3 + 5.5) / 6, (-1.7 + 5.5) / 6, (-0.5 + 5.5) / 6)
+GUIDE_HALF_LENGTH = 0.3
+
+
+def _guide_spans(ax) -> list[tuple[float, float]]:
+    """Distinct (x0, x1) pairs of the dashed guide lines, left to right."""
+    spans = {(round(float(min(x)), 6), round(float(max(x)), 6))
+             for line in ax.lines if line.get_linestyle() == "--"
+             for x in [line.get_xdata()]}
+    return sorted(spans)
+
+
+def test_the_guides_keep_their_tuned_places_in_the_historical_frame(tmp_path) -> None:
+    fig = _brouwer_fig([1e-4, 1e-2, 0.2, 1.0], tmp_path)
+    assert _guide_spans(fig.axes[0]) == pytest.approx(
+        [(-3.6, -3.0), (-2.0, -1.4), (-0.8, -0.2)])
+
+
+def test_the_guides_spread_across_a_widened_frame(tmp_path) -> None:
+    fig = _brouwer_fig([1e-12, 1e-9, 1e-6, 1e-2, 1.0], tmp_path)
+    ax = fig.axes[0]
+    lo, hi = ax.get_xlim()
+    centres = [((x0 + x1) / 2 - lo) / (hi - lo) for x0, x1 in _guide_spans(ax)]
+    assert centres == pytest.approx(GUIDE_CENTRES, abs=1e-6)
+
+
+def test_a_widened_frame_does_not_stretch_the_guides(tmp_path) -> None:
+    """Length is what sets the excursion in y, and the headroom is fixed."""
+    fig = _brouwer_fig([1e-12, 1e-9, 1e-6, 1e-2, 1.0], tmp_path)
+    lengths = [x1 - x0 for x0, x1 in _guide_spans(fig.axes[0])]
+    assert lengths == pytest.approx([2 * GUIDE_HALF_LENGTH] * 3)
+
+
+def test_the_guide_labels_stay_inside_a_widened_frame(tmp_path) -> None:
+    fig = _brouwer_fig([1e-12, 1e-9, 1e-6, 1e-2, 1.0], tmp_path)
+    ax = fig.axes[0]
+    lo, hi = ax.get_xlim()
+    assert ax.texts, "no guide labels drawn"
+    assert all(lo <= t.get_position()[0] <= hi for t in ax.texts), (
+        f"labels outside {lo:.2f}..{hi:.2f}: "
+        f"{[(t.get_text(), round(t.get_position()[0], 2)) for t in ax.texts]}")
