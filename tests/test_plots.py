@@ -22,7 +22,7 @@ from matplotlib import mathtext  # noqa: E402
 
 from pipeline.plots import (  # noqa: E402
     KB, _condition_suptitle, build_arrhenius_results, plot_arrhenius_sigma,
-    plot_drt_stacked,
+    plot_brouwer, plot_drt_stacked,
 )
 
 # --------------------------------------------------------------------------
@@ -293,3 +293,64 @@ def test_the_suptitle_parses_as_mathtext() -> None:
     parser = mathtext.MathTextParser("path")
     parser.parse(_condition_suptitle(_df()))
     parser.parse(_condition_suptitle(_df(0.21)))
+
+
+# --------------------------------------------------------------------------
+# The Brouwer frame
+#
+# The x limits were fixed at (-5.5, 0.5) while the y limits followed the data,
+# so a condition measured below 1e-5.5 bar was drawn and then left outside the
+# frame, with no warning and no gap in the legend. That window is exactly the
+# reducing branch an operator reads to decide whether the n channel belongs in
+# the decomposition, so the figure hid the evidence for its own parameter.
+#
+# The frame is still the historical one whenever the data fit inside it: a
+# sample measured in the oxidizing window must keep the figure it always had.
+# --------------------------------------------------------------------------
+
+HISTORICAL_FRAME = (-5.5, 0.5)
+
+
+def _brouwer_df(pO2_levels: list[float]) -> pd.DataFrame:
+    """Two isotherms over the given pressures, ionic plus a p-type branch."""
+    rows = []
+    for T, level in ((500, 1.0), (600, 2.0)):
+        for p in pO2_levels:
+            sigma_Scm = level * (1e-5 + 1e-4 * p ** 0.25)
+            rows.append({"peak_id": 1, "T_nominal": T, "pO2_mean": p,
+                         "sigma_Sm_i": sigma_Scm * 100.0})
+    return pd.DataFrame(rows)
+
+
+def _brouwer_fig(pO2_levels: list[float], tmp_path) -> plt.Figure:
+    return plot_brouwer(df_all=_brouwer_df(pO2_levels), save_dir=tmp_path,
+                        sample_name="synthetic", peak_id=1)
+
+
+def test_data_inside_the_window_keeps_the_frame_drawn_before(tmp_path) -> None:
+    fig = _brouwer_fig([1e-4, 1e-2, 0.2, 1.0], tmp_path)
+    ax = fig.axes[0]
+    assert ax.get_xlim() == HISTORICAL_FRAME
+    assert list(ax.get_xticks()) == [-5, -2.5, 0]
+
+
+def test_a_reducing_branch_is_never_left_outside_the_frame(tmp_path) -> None:
+    fig = _brouwer_fig([1e-12, 1e-9, 1e-6, 1e-2, 1.0], tmp_path)
+    ax = fig.axes[0]
+    lo, hi = ax.get_xlim()
+    drawn = [x for line in ax.lines if line.get_linestyle() == "None"
+             for x in line.get_xdata()]
+    assert drawn, "no markers drawn"
+    assert all(lo <= x <= hi for x in drawn), (
+        f"frame {lo:.2f}..{hi:.2f} cuts off {[x for x in drawn if not lo <= x <= hi]}")
+
+
+def test_the_slope_guides_stay_inside_a_widened_frame(tmp_path) -> None:
+    """The guides sit at fixed positions; widening must not push them out."""
+    fig = _brouwer_fig([1e-12, 1e-9, 1e-6, 1e-2, 1.0], tmp_path)
+    ax = fig.axes[0]
+    lo, hi = ax.get_xlim()
+    guides = [x for line in ax.lines if line.get_linestyle() == "--"
+              for x in line.get_xdata()]
+    assert guides, "no slope guides drawn"
+    assert all(lo <= x <= hi for x in guides)

@@ -1112,9 +1112,20 @@ def plot_brouwer(
     y_lo = float(sub["lg_sigma"].min())
     y_hi = float(sub["lg_sigma"].max())
 
-    ax.set_xlim(-5.5, 0.5)
+    # The historical window, widened only when a measured pressure would fall
+    # outside it. A reducing branch below 1e-5.5 bar used to be drawn and then
+    # left off the frame, silently: it is the evidence an operator reads to
+    # decide whether the n channel belongs in the decomposition. A sample
+    # measured inside the window keeps exactly the frame it always had.
+    x_lo = min(-5.5, float(sub["lg_pO2"].min()) - 0.5)
+    x_hi = max(0.5, float(sub["lg_pO2"].max()) + 0.5)
+
+    ax.set_xlim(x_lo, x_hi)
     ax.set_ylim(y_lo - 0.25, y_hi + 0.40)
-    ax.set_xticks([-5, -2.5, 0])
+    if (x_lo, x_hi) == (-5.5, 0.5):
+        ax.set_xticks([-5, -2.5, 0])
+    else:
+        ax.xaxis.set_major_locator(MultipleLocator(2.5))
     ax.xaxis.set_minor_locator(MultipleLocator(0.5))
     ax.yaxis.set_minor_locator(MultipleLocator(0.1))
 
