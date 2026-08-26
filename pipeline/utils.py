@@ -160,6 +160,39 @@ def format_pO2_value(x: float | None, *, mathtext: bool = False) -> str:
     return decimal if "e" not in decimal else format_sci(x, mathtext=mathtext)
 
 
+def format_value_error(value: float, error: float | None,
+                       *, decimals: int = 3) -> tuple[str, str | None]:
+    """A value and its uncertainty as a matched pair of strings.
+
+    Both get the same number of decimals. Quoting "0.95 ± 0.004" lets the two
+    halves disagree about which digit is the last meaningful one, and a column
+    of mixed widths is harder to read down than one fixed width.
+
+    The uncertainty is floored at the last shown decimal instead of being
+    allowed to print as "0.000". The covariance of a well-conditioned surface
+    fit can fall far below a milli-eV, and that number is the fit's internal
+    scatter, not the accuracy of the quantity, which carries systematics the
+    covariance never saw: overstating the bar is the safe direction, printing
+    zero is not. The error comes back as None when there is none to quote (an
+    unidentifiable channel), so the caller writes a bare value rather than a
+    "±" with nothing after it.
+
+    >>> format_value_error(0.873, 0.021)
+    ('0.873', '0.021')
+    >>> format_value_error(0.9518, 0.004)
+    ('0.952', '0.004')
+    >>> format_value_error(0.9518, 2e-5)
+    ('0.952', '0.001')
+    >>> format_value_error(0.873, float("nan"))
+    ('0.873', None)
+    """
+    shown = f"{float(value):.{decimals}f}"
+    if error is None or not math.isfinite(error) or float(error) <= 0:
+        return shown, None
+    floor = 10.0 ** (-decimals)
+    return shown, f"{max(float(error), floor):.{decimals}f}"
+
+
 _PO2_SOURCES: tuple[tuple[str, str], ...] = (
     ("stage3_fit.xlsx", "Peaks"),
     ("stage2_kk.xlsx", "Selected"),

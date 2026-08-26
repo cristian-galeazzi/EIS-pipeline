@@ -35,7 +35,7 @@ from matplotlib.ticker import LogLocator, LogFormatterMathtext, MultipleLocator
 from scipy import stats, optimize
 from pathlib import Path
 
-from pipeline.utils import format_pO2_value
+from pipeline.utils import format_pO2_value, format_value_error
 
 # ---------------------------------------------------------------------------
 # Physical constants
@@ -1468,10 +1468,9 @@ def plot_brouwer_transference(
                 cells.append(rf"$\sigma_{{{_sym}}} \approx 0$ "
                              r"($p(\mathrm{O_2})$ window)")
                 continue
-            _err = (perr or {}).get(f"Ea_{_ch}")
-            _pm = (rf" \pm {_err:.2f}"
-                   if _err is not None and np.isfinite(_err) else "")
-            cells.append(rf"$E_{{\mathrm{{a}},{_sym}}} = {_ea:.2f}{_pm}$ eV")
+            _v, _err = format_value_error(_ea, (perr or {}).get(f"Ea_{_ch}"))
+            _pm = rf" \pm {_err}" if _err else ""
+            cells.append(rf"$E_{{\mathrm{{a}},{_sym}}} = {_v}{_pm}$ eV")
         # Two-column grid, filled row by row so an omitted channel leaves no
         # hole. Columns are space-separated (mathtext, not pixel-aligned).
         _rows = [cells[i:i + 2] for i in range(0, len(cells), 2)]
@@ -1557,8 +1556,10 @@ def plot_transference_arrhenius(
         ln = np.log(sigma_Scm[mask] * T_K[mask])
         if mask.sum() >= 3:
             Ea, Ea_err, r2, slope, intercept = _arrhenius_linreg(1.0 / T_K[mask], ln)
-            label = (f"{lab}: $E_\\mathrm{{a}}$ = {Ea:.2f} ± {Ea_err:.2f} eV"
-                     f"  (R²={r2:.3f}, n={int(mask.sum())})")
+            _v, _e = format_value_error(Ea, Ea_err)
+            label = (f"{lab}: $E_\\mathrm{{a}}$ = {_v}"
+                     + (f" ± {_e}" if _e else "")
+                     + f" eV  (R²={r2:.3f}, n={int(mask.sum())})")
             fit_x = np.linspace(x.min() - 0.02, x.max() + 0.02, 100)
             ax.plot(fit_x, intercept + slope * (fit_x / 1000), "-",
                     color=color, linewidth=1.0, alpha=0.7)
