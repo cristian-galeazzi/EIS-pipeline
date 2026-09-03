@@ -14,6 +14,7 @@ from pipeline.utils import (
     condition_pO2_map,
     format_pO2_value,
     format_sci,
+    format_value_error,
     stage2_pool_names,
 )
 
@@ -83,6 +84,44 @@ def test_an_absent_pressure_is_still_the_empty_string() -> None:
     for bad in (None, float("nan"), 0.0, -1.0):
         assert format_pO2_value(bad) == ""
         assert format_pO2_value(bad, mathtext=True) == ""
+
+
+# --------------------------------------------------------------------------
+# format_value_error: an energy and the bar it is quoted with
+#
+# A well-conditioned surface fit returns a covariance far below a milli-eV, and
+# "0.00" reads as an accuracy the fit cannot claim: that covariance is the fit's
+# internal scatter, blind to the systematics (the imposed p(O2) exponent, the
+# upstream peak separation). Overstating the bar is the safe direction; printing
+# zero is not. The doctests of the function are not collected by this suite, so
+# the rule is held here.
+# --------------------------------------------------------------------------
+
+
+def test_value_and_error_carry_the_same_decimals() -> None:
+    # "0.95 ± 0.004" lets the two halves disagree on which digit is the last
+    # meaningful one
+    assert format_value_error(0.9518, 0.004) == ("0.952", "0.004")
+
+
+def test_an_error_below_the_last_decimal_is_floored_not_zeroed() -> None:
+    assert format_value_error(0.9518, 2e-5) == ("0.952", "0.001")
+
+
+def test_an_absent_or_non_finite_error_is_not_quoted() -> None:
+    # the caller writes a bare value rather than a "±" followed by NaN
+    for bad in (None, float("nan"), float("inf")):
+        assert format_value_error(0.873, bad) == ("0.873", None)
+
+
+def test_a_non_positive_error_is_not_quoted_either() -> None:
+    assert format_value_error(0.873, 0.0) == ("0.873", None)
+    assert format_value_error(0.873, -0.01) == ("0.873", None)
+
+
+def test_decimals_sets_the_width_of_both_halves() -> None:
+    # the floor follows the requested width, it is not a fixed 0.001
+    assert format_value_error(0.9518, 0.004, decimals=2) == ("0.95", "0.01")
 
 
 # --------------------------------------------------------------------------
