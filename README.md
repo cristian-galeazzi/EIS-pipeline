@@ -3,6 +3,7 @@
 ![tests](https://github.com/cristian-galeazzi/EIS-pipeline/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22287786.svg)](https://doi.org/10.5281/zenodo.22287786)
 
 Python pipeline for electrochemical impedance spectroscopy of high-resistance
 ceramic electrolytes and mixed conductors. It goes from raw Zahner `.ism`
@@ -136,5 +137,7 @@ MIT, see [LICENSE](LICENSE).
 ## How to cite
 
 Citation metadata are in [CITATION.cff](CITATION.cff); GitHub shows a "Cite
-this repository" button generated from it. A Zenodo DOI will be added with the
-first public release.
+this repository" button generated from it. Every release is archived on Zenodo
+under [10.5281/zenodo.22287786](https://doi.org/10.5281/zenodo.22287786), the
+DOI that always resolves to the newest version. Cite that one unless you need
+to pin the exact version you ran, which carries a DOI of its own.

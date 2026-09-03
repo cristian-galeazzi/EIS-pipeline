@@ -6,8 +6,11 @@ authors:
   - family-names: Galeazzi
     given-names: Cristian
     orcid: "https://orcid.org/0009-0006-7150-2659"
+    affiliation: "Center for Materials Research (ZfM/LaMa), Justus Liebig University Giessen, Germany"
 license: MIT
 repository-code: "https://github.com/cristian-galeazzi/EIS-pipeline"
+# Concept DOI: resolves to the newest version, so it survives every release.
+doi: "10.5281/zenodo.22287786"
 version: 1.6.1
 date-released: "2026-09-03"
 keywords:
