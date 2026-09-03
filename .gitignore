@@ -69,8 +69,10 @@ analysis_audit/
 !sample_template/**/.gitkeep
 !sample_template/**/README.md
 
-# Bundled synthetic example sample (no real measurements; committable)
-!EXAMPLE_SAMPLE/**/*.csv
+# Bundled synthetic example sample (no real measurements; committable). Scoped
+# to input_spectra: a run of the example writes into EXAMPLE_SAMPLE/Results/,
+# and a wider exception would offer those derived files to the next commit.
+!EXAMPLE_SAMPLE/input_spectra/**/*.csv
 # README/docs demo images (synthetic figures or UI screenshots; committable)
 !docs/img/**
 # public, synthetic-only validation record of the engine migration
